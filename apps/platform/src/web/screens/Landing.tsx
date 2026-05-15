@@ -7,8 +7,20 @@ interface Props {
 export function Landing({ onStart }: Props) {
   return (
     <div className="landing">
-      <header className="ot-topbar">
-        <div className="ot-container ot-topbar-inner">
+      <a href="#main" className="landing__skip">Skip to content</a>
+      <div className="landing__marquee" aria-hidden>
+        <div className="landing__marquee-track">
+          {MARQUEE.concat(MARQUEE).map((m, i) => (
+            <span key={i} className="landing__marquee-item">
+              <span className="landing__marquee-glyph">✦</span>
+              {m}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <header className="landing__topbar">
+        <div className="ot-container landing__topbar-inner">
           <a href="#" className="ot-brand">
             <span className="ot-brand-dot" />
             OpenThink
@@ -18,24 +30,39 @@ export function Landing({ onStart }: Props) {
               GitHub
             </a>
             <a href="#/docs">Docs</a>
-            <button className="ot-btn ot-btn--ghost" onClick={onStart}>
+            <button className="landing__sign-in" onClick={onStart}>
               Sign in
             </button>
           </nav>
         </div>
       </header>
 
-      <main className="landing__hero ot-container">
-        <span className="ot-eyebrow">A personal AI agent · v1.0</span>
-        <h1 className="landing__title">Your agent. Your hardware. Ninety seconds.</h1>
-        <p className="ot-lede landing__lede">
-          OpenThink is a personal AI agent that lives on your own Cloudflare account. One token,
-          ninety seconds, and the agent ships behind your email at a domain you control — talking
-          to itself, evolving with you, and quietly contributing patches back upstream.
-        </p>
+      <main id="main" className="landing__hero ot-container">
+        <span className="landing__eyebrow">
+          <span className="landing__eyebrow-dot" />
+          A personal AI agent · v1.0
+        </span>
+        <h1 className="landing__title">
+          <span className="landing__title-line">Your agent.</span>
+          <span className="landing__title-line">Your hardware.</span>
+          <span className="landing__title-line landing__title-line--accent">
+            Ninety <em>seconds.</em>
+          </span>
+        </h1>
+
+        <div className="landing__lede-row">
+          <p className="landing__lede">
+            OpenThink lives on your own Cloudflare account. One token, ninety seconds, and the
+            agent ships behind your email at a domain you control — talking to itself, evolving
+            with you, and quietly contributing patches back upstream.
+          </p>
+          <DecorativeArrow className="landing__lede-arrow" />
+        </div>
+
         <div className="landing__cta">
-          <button className="ot-btn" onClick={onStart}>
-            Get an agent →
+          <button className="ot-btn landing__cta-btn" onClick={onStart}>
+            Get an agent
+            <span className="landing__cta-arrow" aria-hidden>→</span>
           </button>
           <a href="#/docs" className="landing__secondary">
             Read the PRD
@@ -49,7 +76,7 @@ export function Landing({ onStart }: Props) {
           </div>
           <div>
             <dt>Pricing</dt>
-            <dd>Free path on workers.dev · $12/yr domain · pay-as-you-go</dd>
+            <dd>Free on workers.dev · $12/yr domain · pay-as-you-go</dd>
           </div>
           <div>
             <dt>Owner</dt>
@@ -59,11 +86,25 @@ export function Landing({ onStart }: Props) {
       </main>
 
       <section className="landing__principles ot-container">
-        <h2>Five principles</h2>
+        <div className="landing__principles-head">
+          <span className="landing__section-tag">Section 01</span>
+          <h2 className="landing__principles-title">
+            Six&nbsp;principles. <br />
+            <em>Nothing else.</em>
+          </h2>
+          <p className="landing__principles-lede">
+            The shape of OpenThink is fixed by six commitments. Everything we ship has to answer
+            to them.
+          </p>
+        </div>
         <ol className="landing__principles-grid">
           {PRINCIPLES.map((p, i) => (
-            <li key={p.title} className="ot-card landing__principle">
-              <span className="landing__principle-num">0{i + 1}</span>
+            <li
+              key={p.title}
+              className="landing__principle"
+              style={{ animationDelay: `${i * 60}ms` }}
+            >
+              <span className="landing__principle-num">{String(i + 1).padStart(2, '0')}</span>
               <h3>{p.title}</h3>
               <p>{p.body}</p>
             </li>
@@ -71,14 +112,32 @@ export function Landing({ onStart }: Props) {
         </ol>
       </section>
 
+      <section className="landing__pullquote ot-container">
+        <span className="landing__pullquote-mark" aria-hidden>"</span>
+        <blockquote>
+          The product is the deployment, not the chat surface. The chat is just one
+          window into the agent.
+        </blockquote>
+        <cite>— PRD v1.0, north star</cite>
+      </section>
+
       <footer className="landing__footer ot-container">
         <span className="ot-micro">
           A NeoFlux project · <a href="https://openthink.run">openthink.run</a>
         </span>
+        <span className="ot-micro">© 2026</span>
       </footer>
     </div>
   );
 }
+
+const MARQUEE = [
+  'one token, ninety seconds',
+  'your Cloudflare, not ours',
+  'self-evolving · in the open',
+  'shipped behind your email',
+  'patches flow back upstream',
+];
 
 const PRINCIPLES = [
   {
@@ -93,12 +152,12 @@ const PRINCIPLES = [
   {
     title: 'Progressive disclosure.',
     body:
-      'The home screen looks like a chat app. Train mode looks like a whiteboard. The Cloudflare panel looks like Stripe. None of it is visible until needed.',
+      'Home screen looks like a chat app. Train mode looks like a whiteboard. The Cloudflare panel looks like Stripe. None of it visible until needed.',
   },
   {
     title: 'Self-evolving, in the open.',
     body:
-      'The agent edits its own config, opens PRs to its own repo, and reconciles with an upstream you can pin or fork.',
+      "The agent edits its own config, opens PRs to its own repo, and reconciles with an upstream you can pin or fork.",
   },
   {
     title: 'Multi-mode trust.',
@@ -111,3 +170,32 @@ const PRINCIPLES = [
       'The orchestrator and its specialists communicate via Durable Object RPC, not the public internet.',
   },
 ];
+
+function DecorativeArrow({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="76"
+      height="46"
+      viewBox="0 0 76 46"
+      fill="none"
+      aria-hidden
+    >
+      <path
+        d="M2 22c10-12 22-18 36-18 18 0 30 11 36 22"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeDasharray="3 4"
+      />
+      <path
+        d="M64 18l10 8-12 8"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  );
+}

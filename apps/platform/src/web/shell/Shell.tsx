@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { AppFlowState } from '../App';
 import type { ChatMessage, ComposerMode } from '@shared/types';
@@ -19,6 +19,8 @@ interface ThreadRow {
   updatedAt: number;
 }
 
+type MobilePane = 'sidebar' | 'chat' | 'canvas';
+
 export function Shell({ flow }: Props) {
   const [threads, setThreads] = useState<ThreadRow[]>([]);
   const [activeThread, setActiveThread] = useState<string | null>(null);
@@ -28,12 +30,9 @@ export function Shell({ flow }: Props) {
   const [plan, setPlan] = useState<PlanStep[] | null>(null);
   const [planAsJsx, setPlanAsJsx] = useState(false);
   const [showSaveSkill, setShowSaveSkill] = useState(false);
-  const [showCanvas, setShowCanvas] = useState(true);
+  const [mobilePane, setMobilePane] = useState<MobilePane>('chat');
   const socket = useAgentSocket(flow.agentName || 'guest');
 
-  // Always seed a welcome thread + opener so the shell renders before the WS
-  // bridge connects. The orchestrator DO replaces this when it picks up the
-  // 'subscribe-thread' message on a live socket.
   useEffect(() => {
     const welcomeId = 'welcome';
     setThreads([{ id: welcomeId, title: 'Welcome', updatedAt: Date.now() }]);
@@ -49,15 +48,11 @@ export function Shell({ flow }: Props) {
     ]);
   }, [flow.agentName]);
 
-  // When the WS opens, request the active thread's history. The DO streams turns
-  // back as { type: 'message', message: ChatMessage } events.
   useEffect(() => {
     if (socket.state !== 'open' || !activeThread) return;
     socket.send({ type: 'subscribe-thread', threadId: activeThread });
   }, [socket.state, activeThread, socket]);
 
-  // Merge any messages arriving over WS into the local thread feed. The DO is
-  // canonical when it's live; in dev we fall back to the local echo path.
   useEffect(() => {
     if (socket.history.length === 0) return;
     setMessages((prev) => {
@@ -82,8 +77,6 @@ export function Shell({ flow }: Props) {
     setPending('');
 
     if (mode === 'train' || mode === 'plan') {
-      // Compose a synthetic plan locally for the Train-mode card. The real
-      // orchestrator-emitted plan replaces this when the WS bridge is up.
       setPlan(synthesizePlan(userContent));
       return;
     }
@@ -93,7 +86,6 @@ export function Shell({ flow }: Props) {
       return;
     }
 
-    // Fallback echo when no Worker is running (dev without wrangler dev).
     window.setTimeout(() => {
       setMessages((prev) => [
         ...prev,
@@ -123,22 +115,52 @@ export function Shell({ flow }: Props) {
     window.setTimeout(() => setShowSaveSkill(true), 800);
   };
 
+  const isEmpty = messages.length <= 1;
+  const quickPrompts = useMemo(
+    () => [
+      { glyph: '✦', label: 'Plan my week' },
+      { glyph: '✦', label: 'Research a topic' },
+      { glyph: '✦', label: 'Build a webpage' },
+      { glyph: '✦', label: 'Sort my inbox' },
+      { glyph: '✦', label: 'Draft a doc' },
+      { glyph: '✦', label: 'Train me on…' },
+    ],
+    [],
+  );
+
   return (
-    <div className="shell">
+    <div className={`shell shell--pane-${mobilePane}`}>
       <aside className="shell__sidebar">
         <a href="#" className="ot-brand shell__brand">
           <span className="ot-brand-dot" /> OpenThink
         </a>
-        <button className="shell__new">+ New Task</button>
+        <button className="shell__new">
+          <span className="shell__new-plus" aria-hidden>+</span>
+          New task
+        </button>
+        <div className="shell__search">
+          <span className="shell__search-glyph" aria-hidden>⌘K</span>
+          <input className="shell__search-input" placeholder="Search…" />
+        </div>
         <nav className="shell__nav">
-          <a className="shell__nav-item shell__nav-item--active" href="#/shell">Chat</a>
-          <a className="shell__nav-item" href="#/library">Library</a>
-          <a className="shell__nav-item" href="#/learning">Learning</a>
-          <a className="shell__nav-item" href="#/skills">Skills</a>
-          <a className="shell__nav-item" href="#/settings">Settings</a>
+          <a className="shell__nav-item shell__nav-item--active" href="#/shell">
+            <span className="shell__nav-glyph" aria-hidden>◦</span> Chat
+          </a>
+          <a className="shell__nav-item" href="#/library">
+            <span className="shell__nav-glyph" aria-hidden>◇</span> Library
+          </a>
+          <a className="shell__nav-item" href="#/learning">
+            <span className="shell__nav-glyph" aria-hidden>✦</span> Learning
+          </a>
+          <a className="shell__nav-item" href="#/skills">
+            <span className="shell__nav-glyph" aria-hidden>⊕</span> Skills
+          </a>
+          <a className="shell__nav-item" href="#/settings">
+            <span className="shell__nav-glyph" aria-hidden>⚙</span> Settings
+          </a>
         </nav>
         <div className="shell__threads">
-          <span className="shell__section">Recent</span>
+          <span className="shell__section">Recent threads</span>
           {threads.map((t) => (
             <button
               key={t.id}
@@ -152,8 +174,23 @@ export function Shell({ flow }: Props) {
           ))}
         </div>
         <footer className="shell__identity">
-          <span className="shell__identity-dot" />
-          <span>{flow.agentName || 'agent'}</span>
+          <div className="shell__identity-row">
+            <span className="shell__identity-avatar" aria-hidden>
+              {(flow.agentName || 'a').slice(0, 1).toUpperCase()}
+            </span>
+            <div className="shell__identity-meta">
+              <span className="shell__identity-name">{flow.agentName || 'agent'}</span>
+              <span className="shell__identity-host">
+                <span className="shell__identity-pulse" /> live · {flow.subdomain ?? flow.agentName ?? 'workers'}.dev
+              </span>
+            </div>
+          </div>
+          <div className="shell__budget">
+            <div className="shell__budget-bar">
+              <div className="shell__budget-fill" style={{ width: '34%' }} />
+            </div>
+            <span className="shell__budget-label">$1.71 / $5.00 today</span>
+          </div>
         </footer>
       </aside>
 
@@ -168,12 +205,24 @@ export function Shell({ flow }: Props) {
           </span>
         </header>
         <div className="shell__messages" aria-live="polite">
-          {messages.map((m) => (
-            <article key={m.id} className={`shell__msg shell__msg--${m.role}`}>
-              <span className="shell__msg-role">{m.role === 'user' ? 'You' : flow.agentName || 'agent'}</span>
-              <div className="shell__msg-body">{m.content}</div>
-            </article>
-          ))}
+          {isEmpty && (
+            <div className="shell__opener">
+              <span className="shell__opener-mark" aria-hidden>✦</span>
+              <h2 className="shell__opener-title">
+                Hi. I'm <em>{flow.agentName || 'your agent'}</em>.
+              </h2>
+              <p className="shell__opener-lede">
+                I live on your Cloudflare. What should we do?
+              </p>
+            </div>
+          )}
+          {!isEmpty &&
+            messages.map((m) => (
+              <article key={m.id} className={`shell__msg shell__msg--${m.role}`}>
+                <span className="shell__msg-role">{m.role === 'user' ? 'You' : flow.agentName || 'agent'}</span>
+                <div className="shell__msg-body">{m.content}</div>
+              </article>
+            ))}
           {plan && (
             <PlanCard
               steps={plan}
@@ -234,6 +283,21 @@ export function Shell({ flow }: Props) {
             send();
           }}
         >
+          {isEmpty && (
+            <div className="shell__quick-row">
+              {quickPrompts.map((q) => (
+                <button
+                  key={q.label}
+                  type="button"
+                  className="shell__quick"
+                  onClick={() => setPending(q.label)}
+                >
+                  <span className="shell__quick-glyph" aria-hidden>{q.glyph}</span>
+                  {q.label}
+                </button>
+              ))}
+            </div>
+          )}
           <textarea
             className="shell__composer-input"
             placeholder={`Message ${flow.agentName || 'your agent'}…`}
@@ -260,24 +324,41 @@ export function Shell({ flow }: Props) {
                 </button>
               ))}
             </div>
-            <button type="submit" className="ot-btn" disabled={!pending.trim()}>Send</button>
+            <button type="submit" className="ot-btn shell__send" disabled={!pending.trim()}>
+              Send
+              <span className="shell__send-arrow" aria-hidden>→</span>
+            </button>
           </div>
         </form>
       </section>
 
-      {showCanvas && (
-        <aside className="shell__canvas-pane">
-          <Canvas artifacts={SEED_ARTIFACTS} agentName={flow.agentName || 'your agent'} />
-        </aside>
-      )}
+      <aside className="shell__canvas-pane">
+        <Canvas artifacts={SEED_ARTIFACTS} agentName={flow.agentName || 'your agent'} />
+      </aside>
+
+      <nav className="shell__tab-bar" aria-label="Mobile sections">
+        {(['sidebar', 'chat', 'canvas'] satisfies MobilePane[]).map((p) => (
+          <button
+            key={p}
+            type="button"
+            className={`shell__tab${mobilePane === p ? ' shell__tab--active' : ''}`}
+            onClick={() => setMobilePane(p)}
+            aria-pressed={mobilePane === p}
+          >
+            <span className="shell__tab-glyph" aria-hidden>
+              {p === 'sidebar' ? '☰' : p === 'chat' ? '✦' : '◇'}
+            </span>
+            <span className="shell__tab-label">
+              {p === 'sidebar' ? 'Menu' : p === 'chat' ? 'Chat' : 'Canvas'}
+            </span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
 
 function synthesizePlan(userInput: string): PlanStep[] {
-  // First-pass plan generator — surfaces a demo plan when the user toggles
-  // Train mode. Real planning lands in iteration 7 when the orchestrator
-  // emits Smithers JSX.
   const lowered = userInput.toLowerCase();
   if (lowered.includes('inbox') || lowered.includes('email')) {
     return [

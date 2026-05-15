@@ -79,7 +79,7 @@ export function OnboardingIdentity({ flow, merge, next }: Props) {
               disabled={loadingName}
               aria-label="Suggest another name"
             >
-              ↻ regenerate
+              regenerate
             </button>
           </div>
           <p className="ot-micro">We picked one for you. Change it if you'd like.</p>
@@ -116,16 +116,24 @@ export function OnboardingFrame({
   subtitle?: string;
   children: React.ReactNode;
 }) {
+  const pct = (step / of) * 100;
   return (
     <div className="onboarding">
-      <header className="ot-topbar">
-        <div className="ot-container ot-topbar-inner">
+      <header className="onboarding__topbar">
+        <div className="ot-container onboarding__topbar-inner">
           <a href="#" className="ot-brand">
             <span className="ot-brand-dot" /> OpenThink
           </a>
-          <span className="ot-micro">
-            step {step} of {of}
-          </span>
+          <div className="onboarding__progress" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={of}>
+            <span className="onboarding__progress-label">
+              <span className="onboarding__progress-num">{String(step).padStart(2, '0')}</span>
+              <span className="onboarding__progress-divider">/</span>
+              <span>{String(of).padStart(2, '0')}</span>
+            </span>
+            <div className="onboarding__progress-track">
+              <div className="onboarding__progress-fill" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
         </div>
       </header>
       <main className="onboarding__main">

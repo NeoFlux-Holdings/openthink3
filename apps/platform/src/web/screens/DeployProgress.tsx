@@ -74,19 +74,22 @@ export function DeployProgress({ flow, next }: Props) {
 
   return (
     <div className="deploy">
-      <header className="ot-topbar">
+      <header className="deploy__topbar">
         <div className="ot-container ot-topbar-inner">
           <a href="#" className="ot-brand">
             <span className="ot-brand-dot" /> OpenThink
           </a>
-          <span className="ot-micro">deploying · {flow.agentName}</span>
+          <span className="ot-micro">{finished ? `live · ${hostname}` : `deploying · ${flow.agentName}`}</span>
         </div>
       </header>
 
       <main className="deploy__main">
         {!finished ? (
           <div className="deploy__card" aria-live="polite">
-            <h2 className="deploy__title">Deploying {flow.agentName}</h2>
+            <span className="deploy__eyebrow">In flight</span>
+            <h2 className="deploy__title">
+              Deploying <em>{flow.agentName}</em>
+            </h2>
             <div className="deploy__timeline">
               <div className="deploy__rail" style={{ '--filled': `${filledPct}%` } as React.CSSProperties}>
                 <div className="deploy__rail-fill" />
@@ -107,13 +110,16 @@ export function DeployProgress({ flow, next }: Props) {
               </ol>
             </div>
             <div className="deploy__footer">
-              <span className="ot-micro">Live logs ▾</span>
-              <span className="ot-micro">{elapsedSec}s elapsed</span>
+              <span>Live logs ▾</span>
+              <span><strong className="deploy__elapsed">{elapsedSec}s</strong> elapsed</span>
             </div>
           </div>
         ) : (
           <div className="deploy__card deploy__card--done">
-            <h2 className="deploy__title">Your agent is live.</h2>
+            <span className="deploy__success-eyebrow">Ready</span>
+            <h2 className="deploy__title">
+              Your agent is <em>live.</em>
+            </h2>
             <div className="deploy__hostname">
               <code>{hostname}</code>
               <button
@@ -121,10 +127,10 @@ export function DeployProgress({ flow, next }: Props) {
                 onClick={() => navigator.clipboard.writeText(hostname).catch(() => undefined)}
                 aria-label="Copy hostname"
               >
-                ⧉ copy
+                copy
               </button>
             </div>
-            <button className="ot-btn" onClick={next} style={{ marginTop: 16 }}>
+            <button className="ot-btn deploy__success-cta" onClick={next}>
               Say hi to your agent →
             </button>
             <div className="deploy__try">
