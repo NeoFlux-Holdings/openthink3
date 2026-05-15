@@ -1,0 +1,113 @@
+.library {
+  padding: 40px 56px 80px;
+  max-width: 1080px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.library__header {
+  margin-bottom: 24px;
+}
+
+.library__header h2 {
+  font-family: var(--ot-font-display);
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+}
+
+.library__lede {
+  color: var(--ot-ink-soft);
+  margin: 0;
+}
+
+.library__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+  align-items: center;
+}
+
+.library__filter {
+  padding: 6px 12px;
+  border-radius: var(--ot-radius-pill);
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-card);
+  color: var(--ot-ink-soft);
+  font-size: 12px;
+}
+
+.library__filter:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+.library__filter--active {
+  background: var(--ot-accent-soft);
+  border-color: var(--ot-accent);
+  color: var(--ot-accent-deep);
+}
+
+.library__search {
+  margin-left: auto;
+  width: 220px;
+  max-width: 100%;
+}
+
+.library__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.library__tile {
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-lg);
+  overflow: hidden;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    transform var(--ot-dur-quick) var(--ot-ease),
+    box-shadow var(--ot-dur-quick) var(--ot-ease);
+}
+
+.library__tile:hover {
+  border-color: var(--ot-accent);
+  box-shadow: var(--ot-shadow-md);
+  transform: translateY(-2px);
+}
+
+.library__tile-thumb {
+  aspect-ratio: 4 / 3;
+  background: var(--ot-bg-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+}
+
+.library__tile-meta {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.library__tile-title {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--ot-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library__tile-sub {
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+  font-family: var(--ot-font-mono);
+}

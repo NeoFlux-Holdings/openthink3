@@ -7,6 +7,10 @@ import { OnboardingToken } from './screens/OnboardingToken';
 import { OnboardingStripe } from './screens/OnboardingStripe';
 import { DeployProgress } from './screens/DeployProgress';
 import { Shell } from './shell/Shell';
+import { Library } from './screens/Library';
+import { Skills } from './screens/Skills';
+import { Learning } from './screens/Learning';
+import { Settings } from './screens/Settings';
 
 import './styles/app.css';
 
@@ -17,7 +21,11 @@ type RouteName =
   | 'onboarding/token'
   | 'onboarding/stripe'
   | 'deploy'
-  | 'shell';
+  | 'shell'
+  | 'library'
+  | 'skills'
+  | 'learning'
+  | 'settings';
 
 export interface AppFlowState {
   email: string;
@@ -44,6 +52,10 @@ function parseRoute(): RouteName {
     case 'onboarding/stripe':
     case 'deploy':
     case 'shell':
+    case 'library':
+    case 'skills':
+    case 'learning':
+    case 'settings':
       return hash;
     default:
       return 'landing';
@@ -85,6 +97,14 @@ export function App() {
       return <DeployProgress flow={flow} merge={merge} next={() => goto('shell')} />;
     case 'shell':
       return <Shell flow={flow} />;
+    case 'library':
+      return <Library agentName={flow.agentName || 'your agent'} onOpen={() => goto('shell')} />;
+    case 'skills':
+      return <Skills agentName={flow.agentName || 'your agent'} />;
+    case 'learning':
+      return <Learning agentName={flow.agentName || 'your agent'} />;
+    case 'settings':
+      return <Settings agentName={flow.agentName || 'your agent'} email={flow.email || 'you@example.com'} />;
     case 'landing':
     default:
       return <Landing onStart={() => goto('onboarding/identity')} />;

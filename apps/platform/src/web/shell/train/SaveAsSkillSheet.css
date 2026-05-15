@@ -1,0 +1,94 @@
+.save-skill-sheet {
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-xl);
+  box-shadow: var(--ot-shadow-lg);
+  padding: 24px 28px 20px;
+  max-width: 560px;
+  margin: 16px auto;
+  animation: skill-slide-up 240ms var(--ot-ease-out);
+}
+
+@keyframes skill-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.save-skill-sheet__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.save-skill-sheet__spark {
+  color: var(--ot-accent);
+  font-size: 22px;
+}
+
+.save-skill-sheet__head h3 {
+  font-family: var(--ot-font-display);
+  font-size: 22px;
+  font-weight: 500;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.save-skill-sheet__fields {
+  display: flex;
+  flex-direction: column;
+}
+
+.save-skill-sheet__diff {
+  margin: 16px 0;
+}
+
+.save-skill-sheet__diff .ot-label {
+  margin-bottom: 6px;
+  display: block;
+}
+
+.save-skill-sheet__diff pre {
+  background: #fffaf2;
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  padding: 12px 14px;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ot-ink);
+  margin: 0;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.save-skill-sheet__diff .diff--add {
+  background: #d9efe2;
+  color: #1f5c3a;
+  display: inline-block;
+  width: 100%;
+}
+
+.save-skill-sheet__diff .diff--del {
+  background: rgba(194, 57, 46, 0.12);
+  color: #8a1c14;
+  display: inline-block;
+  width: 100%;
+}
+
+.save-skill-sheet__diff .diff--ctx {
+  color: var(--ot-ink-soft);
+}
+
+.save-skill-sheet__footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}

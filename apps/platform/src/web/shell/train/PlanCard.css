@@ -1,0 +1,206 @@
+.plan-card {
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-xl);
+  padding: 20px 24px 16px;
+  box-shadow: var(--ot-shadow-sm);
+  margin: 8px 0;
+}
+
+.plan-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.plan-card__header h3 {
+  font-family: var(--ot-font-display);
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.plan-card__count {
+  font-size: 13px;
+  color: var(--ot-ink-mute);
+  font-family: var(--ot-font-mono);
+  margin-left: 8px;
+  font-weight: 400;
+}
+
+.plan-card__view-toggle {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 4px 8px;
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-xs);
+  color: var(--ot-ink-mute);
+}
+
+.plan-card__view-toggle[aria-pressed="true"] {
+  background: var(--ot-accent-soft);
+  color: var(--ot-accent-deep);
+  border-color: var(--ot-accent);
+}
+
+.plan-card__view-toggle:hover {
+  color: var(--ot-ink);
+}
+
+.plan-card__steps {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plan-step {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--ot-radius-md);
+  align-items: start;
+  background: var(--ot-bg-soft);
+  border: 1px solid transparent;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+  cursor: grab;
+}
+
+.plan-step:hover {
+  background: var(--ot-bg-sunken);
+}
+
+.plan-step--over {
+  border-color: var(--ot-accent);
+  background: var(--ot-accent-soft);
+}
+
+.plan-step--running {
+  border-color: var(--ot-accent);
+}
+
+.plan-step--done {
+  opacity: 0.7;
+}
+
+.plan-step--error {
+  border-color: var(--ot-bad);
+  background: rgba(194, 57, 46, 0.06);
+}
+
+.plan-step__num {
+  font-family: var(--ot-font-display);
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ot-accent);
+  margin-top: 2px;
+}
+
+.plan-step__title {
+  font-weight: 500;
+  color: var(--ot-ink);
+  font-size: 14px;
+}
+
+.plan-step__desc {
+  font-size: 13px;
+  color: var(--ot-ink-soft);
+  margin-top: 2px;
+}
+
+.plan-step__tool {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+  margin-top: 4px;
+}
+
+.plan-step__pill {
+  margin-top: 6px;
+}
+
+.plan-step__controls {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--ot-ink-mute);
+}
+
+.plan-step__icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ot-radius-xs);
+  font-size: 12px;
+}
+
+.plan-step__icon:hover {
+  background: var(--ot-bg-card);
+  color: var(--ot-ink);
+}
+
+.plan-step__handle {
+  cursor: grab;
+  padding: 0 4px;
+  user-select: none;
+}
+
+.plan-card__add {
+  margin: 6px 0;
+}
+
+.plan-card__add-btn {
+  padding: 8px 12px;
+  border: 1px dashed var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  background: transparent;
+  color: var(--ot-ink-mute);
+  font-size: 13px;
+  width: 100%;
+  text-align: left;
+}
+
+.plan-card__add-btn:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent-deep);
+}
+
+.plan-card__actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--ot-rule);
+}
+
+.plan-card__cancel {
+  font-size: 14px;
+  color: var(--ot-ink-mute);
+  padding: 8px 12px;
+  margin-left: auto;
+}
+
+.plan-card__cancel:hover {
+  color: var(--ot-ink);
+}
+
+.plan-card--jsx .plan-card__jsx {
+  background: var(--ot-code-bg);
+  color: var(--ot-code-ink);
+  padding: 16px 20px;
+  border-radius: var(--ot-radius-md);
+  font-family: var(--ot-font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-x: auto;
+  margin: 0 0 12px;
+  white-space: pre;
+}

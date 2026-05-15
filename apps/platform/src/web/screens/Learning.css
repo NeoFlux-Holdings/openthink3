@@ -1,0 +1,135 @@
+.learning {
+  padding: 40px 56px 80px;
+  max-width: 1080px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.learning__header h2 {
+  font-family: var(--ot-font-display);
+  font-size: 36px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+}
+
+.learning__lede {
+  color: var(--ot-ink-soft);
+  margin: 0 0 32px;
+  max-width: 60ch;
+}
+
+.learning__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.summary-card {
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-lg);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-card h4 {
+  font-family: var(--ot-font-ui);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ot-ink-mute);
+  font-weight: 600;
+  margin: 0;
+}
+
+.summary-card__value {
+  font-family: var(--ot-font-display);
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ot-ink);
+  margin: 6px 0 4px;
+}
+
+.summary-card__extra {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  color: var(--ot-ink-mute);
+}
+
+.summary-card__desc {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--ot-ink-soft);
+}
+
+.learning__section {
+  margin-bottom: 32px;
+}
+
+.learning__section-head h3 {
+  font-family: var(--ot-font-display);
+  font-size: 22px;
+  font-weight: 500;
+  margin: 0 0 2px;
+}
+
+.learning__pending {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-lg);
+}
+
+.learning__pending li {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--ot-rule-soft);
+  font-size: 14px;
+  color: var(--ot-ink-soft);
+}
+
+.learning__pending li:last-child {
+  border-bottom: none;
+}
+
+.learning__empty {
+  background: var(--ot-bg-card);
+  border: 1px dashed var(--ot-rule);
+  border-radius: var(--ot-radius-lg);
+  padding: 20px 24px;
+  text-align: center;
+}
+
+.learning__categories {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.learning__category {
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-lg);
+  padding: 14px 16px;
+}
+
+.learning__category h4 {
+  font-family: var(--ot-font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 0 4px;
+  color: var(--ot-ink);
+}
+
+.learning__category p {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--ot-ink-soft);
+}
