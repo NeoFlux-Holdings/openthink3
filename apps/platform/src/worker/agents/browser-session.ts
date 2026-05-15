@@ -80,7 +80,8 @@ export class BrowserSession extends DurableObject<Env> {
         payload TEXT
       );
     `);
-    const row = sql.exec("SELECT value FROM session_state WHERE key='memory'").one();
+    const rows = sql.exec("SELECT value FROM session_state WHERE key='memory'").toArray();
+    const row = rows[0];
     if (row && typeof row.value === 'string') {
       try {
         this.memory = { ...DEFAULT_STATE, ...JSON.parse(row.value) };
@@ -269,43 +270,50 @@ export class BrowserSession extends DurableObject<Env> {
   }
 
   // ----- WebSocket -----
+  // Same .accept() rationale as Orchestrator: miniflare 3 in local mode
+  // doesn't reliably dispatch the hibernation lifecycle hooks. Production
+  // will work either way; revisit if hibernation memory matters here.
   private handleWebSocket(_request: Request): Response {
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
-    this.state.acceptWebSocket(server);
+    server.accept();
     this.sockets.add(server);
+
+    server.send(JSON.stringify({ type: 'state', state: this.memory }));
     if (this.memory.status === 'streaming') {
       this.startStream(STREAM_FPS_ACTIVE);
     }
-    server.send(JSON.stringify({ type: 'state', state: this.memory }));
-    return new Response(null, { status: 101, webSocket: client });
-  }
 
-  override webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): void {
-    if (typeof raw !== 'string') return;
-    let msg: { type: string; [key: string]: unknown };
-    try {
-      msg = JSON.parse(raw);
-    } catch {
-      ws.send(JSON.stringify({ type: 'error', error: 'invalid_json' }));
-      return;
-    }
-    void this.invoke(msg.type, msg).catch((err) => {
-      ws.send(JSON.stringify({ type: 'error', error: err instanceof Error ? err.message : String(err) }));
+    server.addEventListener('message', (event: MessageEvent) => {
+      if (typeof event.data !== 'string') return;
+      let msg: { type: string; [key: string]: unknown };
+      try {
+        msg = JSON.parse(event.data);
+      } catch {
+        server.send(JSON.stringify({ type: 'error', error: 'invalid_json' }));
+        return;
+      }
+      void this.invoke(msg.type, msg).then((data) => {
+        server.send(JSON.stringify({ type: 'ack', method: msg.type, data }));
+      }).catch((err) => {
+        server.send(JSON.stringify({ type: 'error', error: err instanceof Error ? err.message : String(err) }));
+      });
     });
-  }
 
-  override webSocketClose(ws: WebSocket): void {
-    this.sockets.delete(ws);
-    if (this.sockets.size === 0) {
-      // Throttle the frame loop when nobody's watching to save bandwidth.
-      this.startStream(STREAM_FPS_HIDDEN);
-    }
-  }
+    server.addEventListener('close', () => {
+      this.sockets.delete(server);
+      if (this.sockets.size === 0) {
+        this.startStream(STREAM_FPS_HIDDEN);
+      }
+    });
 
-  override webSocketError(ws: WebSocket): void {
-    this.sockets.delete(ws);
+    server.addEventListener('error', (err: ErrorEvent) => {
+      console.error('[browser-session] ws error', err.message ?? 'unknown');
+      this.sockets.delete(server);
+    });
+
+    return new Response(null, { status: 101, webSocket: client });
   }
 
   // ----- Browser handle management -----
