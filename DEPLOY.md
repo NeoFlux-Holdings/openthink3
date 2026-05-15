@@ -15,13 +15,25 @@ the Stripe Projects integration.
 
 ```sh
 pnpm install
-pnpm --filter @openthink/platform run dev:web      # Vite UI on :5180
-pnpm --filter @openthink/platform run dev:worker   # Wrangler dev on :8787
+pnpm --filter @openthink/platform run build:web          # build the UI once
+pnpm --filter @openthink/platform run dev:worker         # wrangler dev on :8787
+
+# one-time, before the trajectories queue can persist:
+pnpm --filter @openthink/platform exec wrangler d1 migrations apply openthink --local
+
+# Workers AI hits the real CF API even from miniflare — fresh OAuth required:
+pnpm --filter @openthink/platform exec wrangler login
 ```
 
-The UI proxies `/api/*` and `/agents/*` to the Worker via Vite's dev server. The
-Shell shows a `live` chip in the thread feed header when the WS bridge is up; if
-no Worker is running, it falls back to a local echo and shows `local echo`.
+The worker now serves both `/api/*` and the static UI from its `[assets]` block,
+so you can point a browser at `http://127.0.0.1:8787` and you've got the whole
+app. The Shell shows a `live` chip in the thread feed header when the WS bridge
+is up; if no Worker is running, the UI falls back to a local echo and shows
+`local echo`.
+
+If chat replies say _"the local wrangler OAuth token has expired"_, re-run
+`wrangler login` — the workers-ai binding requires the local CF auth even though
+everything else (D1, KV, R2, Queues, DOs) is fully simulated by miniflare.
 
 ## Production deploy
 
