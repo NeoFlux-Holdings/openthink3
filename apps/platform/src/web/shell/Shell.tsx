@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import type { AppFlowState } from '../App';
 import type { ChatMessage } from '@shared/types';
+import { Canvas } from './canvas/Canvas';
+import { SEED_ARTIFACTS } from './seed-artifacts';
 import './Shell.css';
 
 interface Props {
@@ -141,17 +143,8 @@ export function Shell({ flow }: Props) {
         </form>
       </section>
 
-      <aside className="shell__canvas">
-        <header className="shell__canvas-header">
-          <span className="shell__canvas-title">Artifacts</span>
-          <span className="ot-micro">nothing yet</span>
-        </header>
-        <div className="shell__canvas-empty">
-          <p className="ot-lede" style={{ fontSize: 16 }}>
-            Artifacts the agent creates land here. Documents, browser sessions, slides, code — each
-            with its own version history and editable view.
-          </p>
-        </div>
+      <aside className="shell__canvas-pane">
+        <Canvas artifacts={SEED_ARTIFACTS} agentName={flow.agentName || 'your agent'} />
       </aside>
     </div>
   );
