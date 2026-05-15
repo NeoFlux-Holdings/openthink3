@@ -159,6 +159,45 @@
   font-weight: 500;
 }
 
+.shell__socket {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ot-ink-mute);
+  padding: 2px 8px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-bg-soft);
+}
+
+.shell__socket-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ot-ink-mute);
+}
+
+.shell__socket--open {
+  color: #1f5c3a;
+  background: #d9efe2;
+}
+
+.shell__socket--open .shell__socket-dot {
+  background: var(--ot-good);
+  box-shadow: 0 0 0 2px rgba(46, 139, 87, 0.18);
+}
+
+.shell__socket--connecting .shell__socket-dot {
+  background: var(--ot-warn);
+}
+
+.shell__socket--closed .shell__socket-dot,
+.shell__socket--unavailable .shell__socket-dot {
+  background: var(--ot-ink-mute);
+}
+
 .shell__messages {
   flex: 1;
   overflow-y: auto;

@@ -6,6 +6,7 @@ import { Canvas } from './canvas/Canvas';
 import { SEED_ARTIFACTS } from './seed-artifacts';
 import { PlanCard, type PlanStep } from './train/PlanCard';
 import { SaveAsSkillSheet } from './train/SaveAsSkillSheet';
+import { useAgentSocket } from './use-agent-socket';
 import './Shell.css';
 
 interface Props {
@@ -28,9 +29,11 @@ export function Shell({ flow }: Props) {
   const [planAsJsx, setPlanAsJsx] = useState(false);
   const [showSaveSkill, setShowSaveSkill] = useState(false);
   const [showCanvas, setShowCanvas] = useState(true);
+  const socket = useAgentSocket(flow.agentName || 'guest');
 
-  // Iteration 1 keeps this as a static welcome thread so the shell is visible.
-  // The WS connection to the Orchestrator DO lands in iteration 3 alongside the composer.
+  // Always seed a welcome thread + opener so the shell renders before the WS
+  // bridge connects. The orchestrator DO replaces this when it picks up the
+  // 'subscribe-thread' message on a live socket.
   useEffect(() => {
     const welcomeId = 'welcome';
     setThreads([{ id: welcomeId, title: 'Welcome', updatedAt: Date.now() }]);
@@ -46,6 +49,25 @@ export function Shell({ flow }: Props) {
     ]);
   }, [flow.agentName]);
 
+  // When the WS opens, request the active thread's history. The DO streams turns
+  // back as { type: 'message', message: ChatMessage } events.
+  useEffect(() => {
+    if (socket.state !== 'open' || !activeThread) return;
+    socket.send({ type: 'subscribe-thread', threadId: activeThread });
+  }, [socket.state, activeThread, socket]);
+
+  // Merge any messages arriving over WS into the local thread feed. The DO is
+  // canonical when it's live; in dev we fall back to the local echo path.
+  useEffect(() => {
+    if (socket.history.length === 0) return;
+    setMessages((prev) => {
+      const seen = new Set(prev.map((m) => m.id));
+      const merged = [...prev];
+      for (const m of socket.history) if (!seen.has(m.id)) merged.push(m);
+      return merged;
+    });
+  }, [socket.history]);
+
   const send = () => {
     if (!pending.trim() || !activeThread) return;
     const userContent = pending.trim();
@@ -60,12 +82,18 @@ export function Shell({ flow }: Props) {
     setPending('');
 
     if (mode === 'train' || mode === 'plan') {
-      // Compose a synthetic plan to surface the Train-mode card. The real
-      // orchestrator-emitted plan replaces this when the WS bridge lands.
+      // Compose a synthetic plan locally for the Train-mode card. The real
+      // orchestrator-emitted plan replaces this when the WS bridge is up.
       setPlan(synthesizePlan(userContent));
       return;
     }
 
+    if (socket.state === 'open') {
+      socket.send({ type: 'send', threadId: activeThread, content: userContent, mode });
+      return;
+    }
+
+    // Fallback echo when no Worker is running (dev without wrangler dev).
     window.setTimeout(() => {
       setMessages((prev) => [
         ...prev,
@@ -73,7 +101,7 @@ export function Shell({ flow }: Props) {
           id: crypto.randomUUID(),
           threadId: activeThread,
           role: 'assistant',
-          content: `Heard: "${userContent}". I'll route this through the orchestrator once the WS bridge lands. For now, switch the composer to Train to see the plan card.`,
+          content: `Heard: "${userContent}". The Worker isn't running so I'm echoing locally — run \`pnpm dev:worker\` to route through the Orchestrator DO.`,
           createdAt: Date.now(),
         },
       ]);
@@ -134,7 +162,10 @@ export function Shell({ flow }: Props) {
           <span className="shell__feed-title">
             {threads.find((t) => t.id === activeThread)?.title ?? 'Conversation'}
           </span>
-          <span className="ot-micro">{flow.email}</span>
+          <span className={`shell__socket shell__socket--${socket.state}`} title={`WS: ${socket.state}`}>
+            <span className="shell__socket-dot" />
+            {socket.state === 'open' ? 'live' : socket.state === 'unavailable' ? 'local echo' : socket.state}
+          </span>
         </header>
         <div className="shell__messages" aria-live="polite">
           {messages.map((m) => (
