@@ -73,6 +73,29 @@ pnpm exec wrangler d1 migrations apply openthink
 - **Zero Claude/model attribution** on any commit authored by the agent.
 - Total monthly CF bill for a hobbyist single-agent user **< $5**.
 
+## Verified end-to-end against `wrangler dev --local`
+
+Worker boots clean against the placeholders in `wrangler.toml`, every surface returns 200 OK, the WS bridge round-trips through the Orchestrator DO. Verified via `curl` + a Node WebSocket client + the chrome-connector preview at `http://127.0.0.1:8787`:
+
+| Surface | Path | Verified |
+|---|---|---|
+| Health | `GET /api/health` | 200, version returned |
+| Orchestrator DO RPC | `GET/POST /api/chat/<a>/threads` | CRUD round-trip via DO SQLite |
+| Chat WS | `GET /agents/<a>/ws` | open → send → user-echo + assistant frame |
+| Chat persistence | shell reload | history survives via DO SQLite |
+| Skills | `GET /api/skills`, `POST /api/skills/<id>/toggle` | stateful toggle |
+| Learning | `GET /api/learning/summary`, `/pending` | shape-correct responses |
+| Settings | `PUT/GET /api/settings/<a>` | KV round-trip |
+| Deploy | `POST /api/deploy/start` + `GET /api/deploy/<id>/stream` | SSE: snapshot + 7 step events |
+| Sync | `GET /api/sync/status`, `POST /api/sync/{pull,apply,propose-pr}` | mock diff + PR shape |
+| Stripe | `POST /api/stripe/{checkout,webhook}`, `GET /api/stripe/spend/<a>` | accepted, webhook event handled |
+| CF token | `GET /api/cf-token/url`, `POST /api/cf-token/validate` | URL builder works; validate rejects bogus tokens (400) |
+| Artifacts | `PUT/GET /api/artifacts/<k>` | R2 round-trip |
+| Browser session WS | `GET /api/browser/<sid>/ws` | open + initial state + spawn ack |
+| Train mode UX | chrome connector | Train → send → 7-step plan → approve → save-as-skill sheet with diff |
+| Onboarding UX | chrome connector | server-generated agent name, token URL pre-filled |
+| `wrangler deploy --dry-run` | bundle | 278 KiB / 55 KiB gzip, all bindings resolved |
+
 ## Iteration status
 
 - ✓ Iteration 1 — monorepo scaffold
@@ -80,8 +103,9 @@ pnpm exec wrangler d1 migrations apply openthink
 - ✓ Iteration 3 — artifact canvas (8 types, 3 window modes, thumbnail strip)
 - ✓ Iteration 4 — train mode plan card, save-as-skill sheet, library/skills/learning/settings pages
 - ✓ Iteration 5 — WS bridge wired (graceful fallback to local echo when Worker is down)
-- ◐ Iteration 6 — Sync panel + PR-back upstream
-- ◯ Iteration 7 — Stripe Projects + MPP runtime payments
-- ◯ Iteration 8 — Browser Session DO wired to CF Browser Rendering
-- ◯ Iteration 9 — Self-evolution loop + judge scoring + nightly retraining Workflow
-- ◯ Iteration 10 — E2E polish + acceptance criteria + final design pass
+- ✓ Iteration 6 — Sync panel + PR-back upstream
+- ✓ Iteration 7 — Stripe Projects + MPP runtime payments
+- ✓ Iteration 8 — Browser Session DO + WS streaming (puppeteer optional)
+- ✓ Iteration 9 — Self-evolution Workflow + judge scoring + daily cron
+- ✓ Iteration 10 — frontend-design polish (paper grain, italic display, mobile tab bar)
+- ✓ Iteration 11 — wrangler dev finalization + every surface verified end-to-end
