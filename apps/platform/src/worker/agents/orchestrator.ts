@@ -185,7 +185,9 @@ export class Orchestrator implements DurableObject {
   }
 
   private handleWebSocket(_request: Request): Response {
-    const [client, server] = Object.values(new WebSocketPair());
+    const pair = new WebSocketPair();
+    const client = pair[0];
+    const server = pair[1];
     this.state.acceptWebSocket(server);
     this.sockets.add(server);
     return new Response(null, { status: 101, webSocket: client });
@@ -271,13 +273,15 @@ export class Orchestrator implements DurableObject {
 
   private broadcast(payload: unknown): void {
     const blob = JSON.stringify(payload);
+    const dead: WebSocket[] = [];
     for (const ws of this.sockets) {
       try {
         ws.send(blob);
       } catch {
-        this.sockets.delete(ws);
+        dead.push(ws);
       }
     }
+    for (const ws of dead) this.sockets.delete(ws);
   }
 
   // ----- Trajectory capture — async via queue so it never blocks a response -----

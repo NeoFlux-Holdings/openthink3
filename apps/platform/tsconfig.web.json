@@ -4,7 +4,12 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "types": ["vite/client"],
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/web/*"],
+      "@shared/*": ["src/shared/*"]
+    }
   },
   "include": ["src/web/**/*.ts", "src/web/**/*.tsx", "src/shared/**/*.ts"]
 }

@@ -7,9 +7,9 @@
 .onboarding__main {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 40px 24px 80px;
+  padding: 56px 24px 80px;
 }
 
 .onboarding__card {
@@ -147,8 +147,10 @@
 
 .onboarding__path h3 {
   margin: 12px 0 8px;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 500;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
 }
 
 .onboarding__path p {
@@ -178,6 +180,23 @@
 .onboarding__split-card {
   width: 100%;
   max-width: 920px;
+}
+
+@media (min-width: 901px) {
+  .onboarding__split + .onboarding__back {
+    margin-top: 24px;
+  }
+}
+
+/* Roomier card for the split-screen token / stripe steps. */
+.onboarding .onboarding__card:has(.onboarding__split) {
+  max-width: 920px;
+}
+
+/* Fork-pick card sits between the two extremes — wide enough that the path
+   headings stay on one line. */
+.onboarding .onboarding__card:has(.onboarding__paths) {
+  max-width: 720px;
 }
 
 .onboarding__token-preview {

@@ -51,17 +51,18 @@ app.route('/api/cf-token', cfTokenScopes);
 app.get('/agents/:agentId/ws', async (c) => {
   const upgrade = c.req.header('Upgrade');
   if (upgrade !== 'websocket') {
-    return c.text('Expected websocket', 426);
+    return new Response('Expected websocket', { status: 426 });
   }
   const agentId = c.req.param('agentId');
   const id = c.env.ORCHESTRATOR.idFromName(agentId);
   const stub = c.env.ORCHESTRATOR.get(id);
-  return stub.fetch(c.req.raw);
+  // c.req.raw is a fetch Request; the DO stub accepts the same.
+  return stub.fetch(c.req.raw as unknown as Request);
 });
 
-// SPA fallback.
+// SPA fallback — serve the static UI bundle for any non-API GET.
 app.get('*', async (c) => {
-  return c.env.ASSETS.fetch(c.req.raw);
+  return c.env.ASSETS.fetch(c.req.raw as unknown as Request);
 });
 
 app.onError((err, c) => {

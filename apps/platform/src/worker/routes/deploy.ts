@@ -10,7 +10,12 @@ export const deploy = new Hono<{ Bindings: Env; Variables: Variables }>();
 // timeline. The real Wrangler-driven provisioner lands in iteration 2 alongside
 // the CF token validator (see tools/cf-token).
 
-const DEFAULT_STEPS: ReadonlyArray<Pick<DeployStep, 'id' | 'label'>> = [
+interface StepTemplate {
+  id: string;
+  label: string;
+}
+
+const DEFAULT_STEPS: ReadonlyArray<StepTemplate> = [
   { id: 'validate-token', label: 'Validating Cloudflare token' },
   { id: 'create-worker', label: 'Creating Worker' },
   { id: 'setup-storage', label: 'Setting up D1, KV, R2' },
@@ -37,7 +42,7 @@ deploy.post('/start', async (c) => {
   const state: DeployState = {
     agentName: parsed.data.agentName,
     startedAt: Date.now(),
-    steps: DEFAULT_STEPS.map((s) => ({ ...s, state: 'pending' })),
+    steps: DEFAULT_STEPS.map((s): DeployStep => ({ id: s.id, label: s.label, state: 'pending' })),
   };
   await c.env.SETTINGS.put(`deploy:${id}`, JSON.stringify(state), { expirationTtl: 60 * 60 });
   return c.json({ ok: true, deployId: id, state });
@@ -62,17 +67,17 @@ deploy.get('/:id/stream', async (c) => {
 
       // Walk through the steps with realistic-ish timings.
       const timings = [400, 2_100, 8_700, 4_200, 1_500, 6_000, 200];
-      let cursor = { ...initial };
+      const cursor: DeployState = { ...initial, steps: [...initial.steps] };
       for (let i = 0; i < cursor.steps.length; i++) {
-        cursor.steps[i] = { ...cursor.steps[i], state: 'running' };
-        send('step', { index: i, state: cursor.steps[i] });
+        const current = cursor.steps[i];
+        if (!current) continue;
+        const running: DeployStep = { ...current, state: 'running' };
+        cursor.steps[i] = running;
+        send('step', { index: i, state: running });
         await new Promise((r) => setTimeout(r, timings[i] ?? 1_000));
-        cursor.steps[i] = {
-          ...cursor.steps[i],
-          state: 'done',
-          durationMs: timings[i] ?? 1_000,
-        };
-        send('step', { index: i, state: cursor.steps[i] });
+        const done: DeployStep = { ...running, state: 'done', durationMs: timings[i] ?? 1_000 };
+        cursor.steps[i] = done;
+        send('step', { index: i, state: done });
       }
       cursor.finishedAt = Date.now();
       cursor.hostname = `${cursor.agentName}.workers.dev`;

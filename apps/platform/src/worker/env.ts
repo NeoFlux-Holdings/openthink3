@@ -1,5 +1,7 @@
 // Cloudflare bindings declared in wrangler.toml.
-// Regenerate with `pnpm cf-typegen` after editing wrangler.toml.
+// We deliberately use local interface declarations for primitives whose exact
+// shapes vary between @cloudflare/workers-types versions — that decouples this
+// file from the SDK churn until iteration 6 binds the Agents SDK directly.
 
 import type {
   D1Database,
@@ -10,8 +12,12 @@ import type {
   Fetcher,
   Ai,
   VectorizeIndex,
-  BrowserWorker,
 } from '@cloudflare/workers-types';
+
+// BrowserWorker isn't exported by all workers-types vintages. The runtime binding
+// is fetch-compatible (used by puppeteer-cloudflare under the hood), so a Fetcher
+// is structurally sound for our usage.
+export type BrowserBinding = Fetcher;
 
 export interface Env {
   // Static assets
@@ -40,7 +46,7 @@ export interface Env {
 
   // AI + Browser
   AI: Ai;
-  BROWSER: BrowserWorker;
+  BROWSER: BrowserBinding;
 
   // Vars
   OPENTHINK_VERSION: string;

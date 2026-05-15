@@ -25,7 +25,8 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 5180,
+    strictPort: true,
     proxy: {
       '/api': 'http://localhost:8787',
       '/agents': {
