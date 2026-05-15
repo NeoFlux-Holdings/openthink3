@@ -2,7 +2,9 @@ name = "openthink-platform"
 main = "src/worker/index.ts"
 compatibility_date = "2026-05-14"
 compatibility_flags = ["nodejs_compat"]
-account_id = ""
+
+# account_id is intentionally blank — wrangler picks it up from the active CF
+# auth at deploy time (`wrangler login`). Each user's deploy fills it in.
 
 [assets]
 directory = "./dist"
@@ -12,6 +14,7 @@ not_found_handling = "single-page-application"
 [observability]
 enabled = true
 
+# ----- Durable Objects -----
 [[durable_objects.bindings]]
 name = "ORCHESTRATOR"
 class_name = "Orchestrator"
@@ -40,24 +43,37 @@ class_name = "BrowserSession"
 tag = "v1"
 new_sqlite_classes = ["Orchestrator", "Researcher", "Coder", "MemoryAgent", "Judge", "BrowserSession"]
 
+# ----- D1 -----
+# database_id is a per-user value. The string below is a shape-valid UUID
+# placeholder; wrangler accepts it in local mode (miniflare emulator) but
+# the production deploy step (DEPLOY.md) replaces it with the real ID from
+# `wrangler d1 create openthink`.
 [[d1_databases]]
 binding = "DB"
 database_name = "openthink"
-database_id = "placeholder-set-by-provisioner"
+database_id = "00000000-0000-4000-8000-000000000001"
 migrations_dir = "../../migrations"
 
+# ----- R2 -----
 [[r2_buckets]]
 binding = "ARTIFACTS"
 bucket_name = "openthink-artifacts"
 
+# ----- KV -----
+# `id` is per-user; shape-valid 32-hex placeholder used for local dev only.
 [[kv_namespaces]]
 binding = "SETTINGS"
-id = "placeholder-set-by-provisioner"
+id = "0000000000000000000000000000ffff"
 
-[[vectorize]]
-binding = "MEMORIES"
-index_name = "openthink-memories"
+# ----- Vectorize -----
+# Vectorize has no local emulator. Comment-out for local dev; uncomment +
+# replace `index_name` with the output of `wrangler vectorize create` for
+# production deploys.
+# [[vectorize]]
+# binding = "MEMORIES"
+# index_name = "openthink-memories"
 
+# ----- Queues -----
 [[queues.producers]]
 binding = "TRAJECTORIES"
 queue = "openthink-trajectories"
@@ -67,6 +83,7 @@ queue = "openthink-trajectories"
 max_batch_size = 25
 max_batch_timeout = 30
 
+# ----- Workflows -----
 [[workflows]]
 binding = "GOAL_WORKFLOW"
 name = "openthink-goal"
@@ -80,11 +97,17 @@ class_name = "RetrainingWorkflow"
 [triggers]
 crons = ["0 8 * * *"]
 
+# ----- Workers AI -----
 [ai]
 binding = "AI"
 
-[browser]
-binding = "BROWSER"
+# ----- Browser Rendering -----
+# Browser Rendering has no local emulator. Wrangler dev refuses to boot if it
+# sees `[browser]`. Uncomment for production deploys; the BrowserSession DO
+# lazy-imports @cloudflare/puppeteer and skips screenshot capture when the
+# binding isn't reachable, so local dev is fine without it.
+# [browser]
+# binding = "BROWSER"
 
 [vars]
 OPENTHINK_VERSION = "0.1.0"

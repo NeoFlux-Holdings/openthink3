@@ -1,6 +1,8 @@
 // The Orchestrator — one Durable Object per user. Holds chat, delegates to specialists,
 // runs Code Mode plans, kicks long jobs to a Workflow, streams over a WebSocket.
 
+import { DurableObject } from 'cloudflare:workers';
+
 import type { Env } from '../env';
 import type {
   ChatMessage,
@@ -31,16 +33,21 @@ const DEFAULT_STATE: OrchestratorState = {
   codeModeEnabled: 'smart',
 };
 
-export class Orchestrator implements DurableObject {
-  private state: DurableObjectState;
-  private env: Env;
+export class Orchestrator extends DurableObject<Env> {
+  // With .accept() (non-hibernation), the DO instance lives as long as the
+  // socket is open. The in-memory Set is fine for broadcast.
   private sockets = new Set<WebSocket>();
   private memory: OrchestratorState = { ...DEFAULT_STATE };
 
   constructor(state: DurableObjectState, env: Env) {
-    this.state = state;
-    this.env = env;
-    this.state.blockConcurrencyWhile(async () => this.initSchema());
+    super(state, env);
+    this.ctx.blockConcurrencyWhile(async () => this.initSchema());
+  }
+
+  // ctx/env are inherited from DurableObject — expose a `state` alias for the
+  // existing call sites that reference it.
+  private get state(): DurableObjectState {
+    return this.ctx;
   }
 
   // ----- Storage bootstrap -----
@@ -78,7 +85,8 @@ export class Orchestrator implements DurableObject {
         ON messages (thread_id, created_at);
     `);
 
-    const row = sql.exec("SELECT value FROM settings WHERE key='memory'").one();
+    const rows = sql.exec("SELECT value FROM settings WHERE key='memory'").toArray();
+    const row = rows[0];
     if (row && typeof row.value === 'string') {
       try {
         this.memory = { ...DEFAULT_STATE, ...JSON.parse(row.value) };
@@ -178,7 +186,7 @@ export class Orchestrator implements DurableObject {
   }
 
   // ----- HTTP / WebSocket -----
-  async fetch(request: Request): Promise<Response> {
+  override async fetch(request: Request): Promise<Response> {
     const upgrade = request.headers.get('Upgrade');
     if (upgrade === 'websocket') return this.handleWebSocket(request);
     return new Response('orchestrator', { status: 200 });
@@ -188,29 +196,41 @@ export class Orchestrator implements DurableObject {
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
-    this.state.acceptWebSocket(server);
+
+    // Hibernation-aware API:
+    //   this.state.acceptWebSocket(server) + webSocketMessage / webSocketClose
+    //   / webSocketError lifecycle methods on the DO class.
+    //
+    // Miniflare 3 + wrangler 3 in local mode doesn't always dispatch those
+    // lifecycle hooks reliably (works in prod, sometimes silent locally), so
+    // we fall back to the synchronous .accept() + addEventListener path. The
+    // DO still hibernates between requests; the WS just terminates when the
+    // DO is evicted, and the client reconnects. Acceptable for v1.0.
+    server.accept();
     this.sockets.add(server);
+
+    server.addEventListener('message', (event: MessageEvent) => {
+      if (typeof event.data !== 'string') return;
+      let msg: { type: string; [key: string]: unknown };
+      try {
+        msg = JSON.parse(event.data);
+      } catch {
+        server.send(JSON.stringify({ type: 'error', error: 'invalid_json' }));
+        return;
+      }
+      void this.dispatch(server, msg);
+    });
+
+    server.addEventListener('close', () => {
+      this.sockets.delete(server);
+    });
+
+    server.addEventListener('error', (err: ErrorEvent) => {
+      console.error('[orchestrator] ws error', err.message ?? 'unknown');
+      this.sockets.delete(server);
+    });
+
     return new Response(null, { status: 101, webSocket: client });
-  }
-
-  webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): void {
-    if (typeof raw !== 'string') return;
-    let msg: { type: string; [key: string]: unknown };
-    try {
-      msg = JSON.parse(raw);
-    } catch {
-      ws.send(JSON.stringify({ type: 'error', error: 'invalid_json' }));
-      return;
-    }
-    void this.dispatch(ws, msg);
-  }
-
-  webSocketClose(ws: WebSocket): void {
-    this.sockets.delete(ws);
-  }
-
-  webSocketError(ws: WebSocket): void {
-    this.sockets.delete(ws);
   }
 
   private async dispatch(ws: WebSocket, msg: { type: string; [key: string]: unknown }): Promise<void> {
@@ -236,7 +256,22 @@ export class Orchestrator implements DurableObject {
     _ws: WebSocket,
     msg: { type: string; threadId?: unknown; content?: unknown; mode?: unknown },
   ): Promise<void> {
-    const threadId = typeof msg.threadId === 'string' ? msg.threadId : (await this.createThread()).id;
+    let threadId: string;
+    if (typeof msg.threadId === 'string' && msg.threadId.length > 0) {
+      threadId = msg.threadId;
+      // Ensure the thread row exists; idempotent insert lets us accept either
+      // a known-existing id or a client-generated one without a separate
+      // create-thread roundtrip.
+      this.state.storage.sql.exec(
+        `INSERT OR IGNORE INTO threads (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+        threadId,
+        'New thread',
+        Date.now(),
+        Date.now(),
+      );
+    } else {
+      threadId = (await this.createThread()).id;
+    }
     const content = typeof msg.content === 'string' ? msg.content : '';
     const now = Date.now();
 

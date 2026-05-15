@@ -3,7 +3,7 @@ import { BaseRpcAgent } from './base-rpc-agent';
 // Researcher — long-running web research with a browser session. Stub for iteration 1.
 // In iteration 5 this binds to BROWSER_SESSION and writes Trajectories.
 export class Researcher extends BaseRpcAgent {
-  protected async invoke(method: string, args: unknown): Promise<unknown> {
+  async invoke(method: string, args: unknown): Promise<unknown> {
     switch (method) {
       case 'ping':
         return { from: 'researcher', ts: Date.now() };

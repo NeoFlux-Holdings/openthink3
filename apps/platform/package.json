@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -k -n worker,web -c yellow,cyan \"pnpm dev:worker\" \"pnpm dev:web\"",
-    "dev:worker": "wrangler dev --port 8787",
+    "dev:worker": "wrangler dev --local --port 8787",
     "dev:web": "vite",
     "build": "pnpm build:web && pnpm build:worker",
     "build:web": "vite build",

@@ -1,3 +1,5 @@
+import { DurableObject } from 'cloudflare:workers';
+
 import type { Env } from '../env';
 
 // BrowserSession — owns a live Cloudflare Browser Rendering instance. Streams
@@ -48,9 +50,7 @@ interface PuppeteerFactory {
   launch(binding: unknown): Promise<BrowserHandle>;
 }
 
-export class BrowserSession implements DurableObject {
-  private state: DurableObjectState;
-  private env: Env;
+export class BrowserSession extends DurableObject<Env> {
   private memory: SessionMemory = { ...DEFAULT_STATE };
   private sockets = new Set<WebSocket>();
   private streamTimer: ReturnType<typeof setInterval> | null = null;
@@ -58,9 +58,12 @@ export class BrowserSession implements DurableObject {
   private page: BrowserPage | null = null;
 
   constructor(state: DurableObjectState, env: Env) {
-    this.state = state;
-    this.env = env;
-    this.state.blockConcurrencyWhile(async () => this.boot());
+    super(state, env);
+    this.ctx.blockConcurrencyWhile(async () => this.boot());
+  }
+
+  private get state(): DurableObjectState {
+    return this.ctx;
   }
 
   // ----- Storage bootstrap -----
@@ -97,7 +100,7 @@ export class BrowserSession implements DurableObject {
   }
 
   // ----- HTTP entry point -----
-  async fetch(request: Request): Promise<Response> {
+  override async fetch(request: Request): Promise<Response> {
     if (request.headers.get('Upgrade') === 'websocket') return this.handleWebSocket(request);
     if (request.method === 'POST') return this.handleRpc(request);
     return new Response('browser-session', { status: 200 });
@@ -279,7 +282,7 @@ export class BrowserSession implements DurableObject {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): void {
+  override webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): void {
     if (typeof raw !== 'string') return;
     let msg: { type: string; [key: string]: unknown };
     try {
@@ -293,7 +296,7 @@ export class BrowserSession implements DurableObject {
     });
   }
 
-  webSocketClose(ws: WebSocket): void {
+  override webSocketClose(ws: WebSocket): void {
     this.sockets.delete(ws);
     if (this.sockets.size === 0) {
       // Throttle the frame loop when nobody's watching to save bandwidth.
@@ -301,7 +304,7 @@ export class BrowserSession implements DurableObject {
     }
   }
 
-  webSocketError(ws: WebSocket): void {
+  override webSocketError(ws: WebSocket): void {
     this.sockets.delete(ws);
   }
 

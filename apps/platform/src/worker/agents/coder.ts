@@ -3,7 +3,7 @@ import { BaseRpcAgent } from './base-rpc-agent';
 // Coder — runs code via the Cloudflare Sandbox. Stub for iteration 1.
 // In iteration 6 this dispatches to @cloudflare/sandbox containers.
 export class Coder extends BaseRpcAgent {
-  protected async invoke(method: string, args: unknown): Promise<unknown> {
+  async invoke(method: string, args: unknown): Promise<unknown> {
     switch (method) {
       case 'ping':
         return { from: 'coder', ts: Date.now() };

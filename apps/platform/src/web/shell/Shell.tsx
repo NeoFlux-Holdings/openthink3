@@ -66,6 +66,19 @@ export function Shell({ flow }: Props) {
   const send = () => {
     if (!pending.trim() || !activeThread) return;
     const userContent = pending.trim();
+    setPending('');
+
+    if (socket.state === 'open') {
+      // Live path — the orchestrator echoes the user message back as part of
+      // its broadcast, so don't optimistic-insert here (causes a duplicate).
+      socket.send({ type: 'send', threadId: activeThread, content: userContent, mode });
+      if (mode === 'train' || mode === 'plan') {
+        setPlan(synthesizePlan(userContent));
+      }
+      return;
+    }
+
+    // Fallback path — worker isn't running, so we echo locally.
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       threadId: activeThread,
@@ -74,15 +87,9 @@ export function Shell({ flow }: Props) {
       createdAt: Date.now(),
     };
     setMessages((prev) => [...prev, userMsg]);
-    setPending('');
 
     if (mode === 'train' || mode === 'plan') {
       setPlan(synthesizePlan(userContent));
-      return;
-    }
-
-    if (socket.state === 'open') {
-      socket.send({ type: 'send', threadId: activeThread, content: userContent, mode });
       return;
     }
 

@@ -35,7 +35,9 @@ export interface Env {
   DB: D1Database;
   ARTIFACTS: R2Bucket;
   SETTINGS: KVNamespace;
-  MEMORIES: VectorizeIndex;
+  // Vectorize binding is optional locally — see wrangler.toml comment near the
+  // [[vectorize]] block. Uncomment it there before deploying to production.
+  MEMORIES?: VectorizeIndex;
 
   // Async
   TRAJECTORIES: Queue;
@@ -50,7 +52,9 @@ export interface Env {
 
   // AI + Browser
   AI: Ai;
-  BROWSER: BrowserBinding;
+  // BROWSER binding is commented out of wrangler.toml for local dev (Browser
+  // Rendering has no miniflare emulator). Re-enable for production.
+  BROWSER?: BrowserBinding;
 
   // Vars
   OPENTHINK_VERSION: string;

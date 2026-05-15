@@ -3,7 +3,7 @@ import { BaseRpcAgent } from './base-rpc-agent';
 // MemoryAgent — owns the user's memories. Reads/writes Vectorize + the D1 mirror.
 // Stub for iteration 1; hybrid retrieval (RRF) lands in iteration 6.
 export class MemoryAgent extends BaseRpcAgent {
-  protected async invoke(method: string, args: unknown): Promise<unknown> {
+  async invoke(method: string, args: unknown): Promise<unknown> {
     switch (method) {
       case 'ping':
         return { from: 'memory', ts: Date.now() };

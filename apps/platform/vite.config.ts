@@ -21,7 +21,10 @@ export default defineConfig({
     include: ['react', 'react-dom', 'react-dom/client'],
   },
   build: {
-    outDir: '../../dist',
+    // Absolute path so the output lands at apps/platform/dist regardless of how
+    // Vite resolves relative outDir paths against `root`. That's where
+    // wrangler.toml's [assets] directory = "./dist" looks.
+    outDir: fileURLToPath(new URL('./dist', import.meta.url)),
     emptyOutDir: true,
     sourcemap: true,
     rollupOptions: {
