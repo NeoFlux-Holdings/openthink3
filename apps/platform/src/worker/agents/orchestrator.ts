@@ -284,12 +284,53 @@ export class Orchestrator extends DurableObject<Env> {
     };
     await this.appendMessage(user);
 
-    // Stub assistant echo for now. The real router lands in iteration 6.
+    // Route through Workers AI. Pull the recent turn history so the model has
+    // conversational context, cap to the last ~20 turns so prompts stay short.
+    const recent = (await this.getThread(threadId)).slice(-20);
+    const aiMessages = [
+      {
+        role: 'system' as const,
+        content: this.systemPrompt(),
+      },
+      ...recent.map((m) => ({
+        role: (m.role === 'assistant' ? 'assistant' : m.role === 'user' ? 'user' : 'system') as
+          | 'system'
+          | 'user'
+          | 'assistant',
+        content: m.content,
+      })),
+    ];
+
+    let reply = '';
+    try {
+      const result = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+        messages: aiMessages,
+      })) as { response?: string };
+      reply = result.response ?? '';
+    } catch (err) {
+      console.error('[orchestrator] AI.run failed', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      // Local dev runs Workers AI against the real CF API and needs a fresh
+      // OAuth token. Surface that specifically so the developer knows what to
+      // do; the model itself doesn't actually have transient hiccups often.
+      if (/Invalid access token|Not logged in|9109/i.test(msg)) {
+        reply =
+          'Workers AI is reachable but the local wrangler OAuth token has expired. Run `wrangler login` in the platform directory and try again.';
+      } else {
+        reply =
+          "I couldn't reach the model just now — Workers AI returned an error. Check `wrangler dev` logs for details.";
+      }
+    }
+
+    if (!reply.trim()) {
+      reply = '(model returned an empty response)';
+    }
+
     const assistant: ChatMessage = {
       id: crypto.randomUUID(),
       threadId,
       role: 'assistant',
-      content: `(stub) Heard: "${content}". Real model routing arrives with the orchestration phase.`,
+      content: reply.trim(),
       createdAt: Date.now(),
     };
     await this.appendMessage(assistant);
@@ -304,6 +345,12 @@ export class Orchestrator extends DurableObject<Env> {
       model: 'stub',
       createdAt: Date.now(),
     });
+  }
+
+  private systemPrompt(): string {
+    const name = this.memory.agentName ?? 'an OpenThink agent';
+    const owner = this.memory.ownerEmail ?? 'your owner';
+    return `You are ${name}, a personal AI agent running on a Cloudflare Worker owned by ${owner}. You live in their account, with their data, and you talk like a thoughtful collaborator — calm, specific, never breathless. When the user asks you to do something you can't yet do (browser sessions, code execution in a sandbox, drafting artifacts to the canvas), say so plainly and offer the closest thing you can. Keep answers concise unless asked to elaborate. Don't begin replies with apologies or with "Sure," or "Of course," — just start.`;
   }
 
   private broadcast(payload: unknown): void {
