@@ -1,0 +1,82 @@
+name = "openthink-platform"
+main = "src/worker/index.ts"
+compatibility_date = "2026-05-14"
+compatibility_flags = ["nodejs_compat"]
+account_id = ""
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[observability]
+enabled = true
+
+[[durable_objects.bindings]]
+name = "ORCHESTRATOR"
+class_name = "Orchestrator"
+
+[[durable_objects.bindings]]
+name = "RESEARCHER"
+class_name = "Researcher"
+
+[[durable_objects.bindings]]
+name = "CODER"
+class_name = "Coder"
+
+[[durable_objects.bindings]]
+name = "MEMORY_AGENT"
+class_name = "MemoryAgent"
+
+[[durable_objects.bindings]]
+name = "JUDGE"
+class_name = "Judge"
+
+[[durable_objects.bindings]]
+name = "BROWSER_SESSION"
+class_name = "BrowserSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Orchestrator", "Researcher", "Coder", "MemoryAgent", "Judge", "BrowserSession"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "openthink"
+database_id = "placeholder-set-by-provisioner"
+migrations_dir = "../../migrations"
+
+[[r2_buckets]]
+binding = "ARTIFACTS"
+bucket_name = "openthink-artifacts"
+
+[[kv_namespaces]]
+binding = "SETTINGS"
+id = "placeholder-set-by-provisioner"
+
+[[vectorize]]
+binding = "MEMORIES"
+index_name = "openthink-memories"
+
+[[queues.producers]]
+binding = "TRAJECTORIES"
+queue = "openthink-trajectories"
+
+[[queues.consumers]]
+queue = "openthink-trajectories"
+max_batch_size = 25
+max_batch_timeout = 30
+
+[[workflows]]
+binding = "GOAL_WORKFLOW"
+name = "openthink-goal"
+class_name = "GoalWorkflow"
+
+[ai]
+binding = "AI"
+
+[browser]
+binding = "BROWSER"
+
+[vars]
+OPENTHINK_VERSION = "0.1.0"

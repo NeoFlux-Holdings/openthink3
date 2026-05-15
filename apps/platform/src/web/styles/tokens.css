@@ -1,0 +1,72 @@
+/* Design tokens — sourced from PRD §1 visual language.
+ * Warm cream paper, ink type, accent-orange dot, light-only by default.
+ * Dark mode is opt-in per PRD principle of progressive disclosure. */
+:root {
+  /* Surface */
+  --ot-bg: #faf7f2;
+  --ot-bg-card: #fffefb;
+  --ot-bg-soft: #f2ede4;
+  --ot-bg-sunken: #ebe5d6;
+
+  /* Type */
+  --ot-ink: #15140f;
+  --ot-ink-soft: #4a4640;
+  --ot-ink-mute: #807a70;
+
+  /* Lines */
+  --ot-rule: #e3ddd0;
+  --ot-rule-soft: #ede7da;
+
+  /* Accent */
+  --ot-accent: #e85d4a;
+  --ot-accent-soft: #fbe6e1;
+  --ot-accent-deep: #b33e2d;
+
+  /* Status */
+  --ot-good: #2e8b57;
+  --ot-warn: #c58b1a;
+  --ot-bad: #c2392e;
+
+  /* Code surface */
+  --ot-code-bg: #1a1815;
+  --ot-code-ink: #efe7d5;
+  --ot-code-key: #f0b97d;
+  --ot-code-str: #b7cc89;
+  --ot-code-mute: #8c8474;
+
+  /* Type stack */
+  --ot-font-display: 'Fraunces', Georgia, serif;
+  --ot-font-ui: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --ot-font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Radii */
+  --ot-radius-xs: 4px;
+  --ot-radius-sm: 6px;
+  --ot-radius-md: 8px;
+  --ot-radius-lg: 10px;
+  --ot-radius-xl: 14px;
+  --ot-radius-pill: 999px;
+
+  /* Spacing */
+  --ot-space-1: 4px;
+  --ot-space-2: 8px;
+  --ot-space-3: 12px;
+  --ot-space-4: 16px;
+  --ot-space-5: 24px;
+  --ot-space-6: 32px;
+  --ot-space-7: 48px;
+  --ot-space-8: 64px;
+  --ot-space-9: 96px;
+
+  /* Shadows */
+  --ot-shadow-sm: 0 1px 2px rgba(21, 20, 15, 0.04), 0 1px 1px rgba(21, 20, 15, 0.03);
+  --ot-shadow-md: 0 4px 16px rgba(21, 20, 15, 0.06), 0 1px 3px rgba(21, 20, 15, 0.04);
+  --ot-shadow-lg: 0 12px 40px rgba(21, 20, 15, 0.08), 0 4px 12px rgba(21, 20, 15, 0.04);
+
+  /* Motion */
+  --ot-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ot-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ot-dur-quick: 120ms;
+  --ot-dur-base: 200ms;
+  --ot-dur-slow: 360ms;
+}

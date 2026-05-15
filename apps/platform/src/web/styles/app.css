@@ -1,0 +1,188 @@
+/* Reusable app primitives — kept lean. Screens own their own layout where needed. */
+
+.ot-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 56px;
+}
+
+@media (max-width: 900px) {
+  .ot-container {
+    padding: 0 24px;
+  }
+}
+
+.ot-topbar {
+  border-bottom: 1px solid var(--ot-rule);
+  padding: 18px 0;
+  position: sticky;
+  top: 0;
+  background: rgba(250, 247, 242, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 40;
+}
+
+.ot-topbar-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ot-brand {
+  font-family: var(--ot-font-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ot-ink);
+  text-decoration: none;
+}
+
+.ot-brand-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--ot-accent);
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.ot-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ot-accent-deep);
+}
+
+.ot-lede {
+  font-size: 22px;
+  line-height: 1.5;
+  color: var(--ot-ink-soft);
+  font-family: var(--ot-font-display);
+  font-weight: 300;
+  letter-spacing: -0.005em;
+}
+
+.ot-card {
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-xl);
+  padding: 28px 32px;
+  box-shadow: var(--ot-shadow-sm);
+}
+
+.ot-card--soft {
+  background: var(--ot-bg-soft);
+  border-color: transparent;
+}
+
+.ot-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .ot-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ot-accent);
+  color: white;
+  padding: 10px 22px;
+  border-radius: var(--ot-radius-sm);
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: -0.005em;
+  transition: transform var(--ot-dur-quick) var(--ot-ease),
+    box-shadow var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+  box-shadow: 0 1px 2px rgba(184, 60, 40, 0.18);
+}
+
+.ot-btn:hover {
+  background: var(--ot-accent-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(184, 60, 40, 0.22);
+}
+
+.ot-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(184, 60, 40, 0.18);
+}
+
+.ot-btn--ghost {
+  background: transparent;
+  color: var(--ot-ink);
+  box-shadow: none;
+  border: 1px solid var(--ot-rule);
+}
+
+.ot-btn--ghost:hover {
+  background: var(--ot-bg-soft);
+  color: var(--ot-ink);
+  box-shadow: none;
+  transform: none;
+}
+
+.ot-input {
+  width: 100%;
+  background: var(--ot-bg-soft);
+  border: 1px solid transparent;
+  padding: 12px 14px;
+  border-radius: var(--ot-radius-sm);
+  font-family: var(--ot-font-mono);
+  font-size: 14px;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.ot-input:focus {
+  outline: none;
+  border-color: var(--ot-accent);
+  background: var(--ot-bg-card);
+}
+
+.ot-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ot-ink-mute);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.ot-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--ot-radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--ot-bg-soft);
+  color: var(--ot-ink-soft);
+}
+
+.ot-pill--accent {
+  background: var(--ot-accent-soft);
+  color: var(--ot-accent-deep);
+}
+
+.ot-pill--good {
+  background: #d9efe2;
+  color: #1f5c3a;
+}
+
+.ot-micro {
+  font-size: 12px;
+  color: var(--ot-ink-mute);
+}

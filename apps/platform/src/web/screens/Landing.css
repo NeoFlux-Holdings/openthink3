@@ -1,0 +1,133 @@
+.landing {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.landing__nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-size: 14px;
+}
+
+.landing__nav a {
+  color: var(--ot-ink-soft);
+  text-decoration: none;
+}
+
+.landing__nav a:hover {
+  color: var(--ot-ink);
+}
+
+.landing__hero {
+  padding: 120px 0 80px;
+}
+
+.landing__title {
+  font-size: clamp(48px, 6vw, 84px);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  font-weight: 400;
+  margin: 24px 0 24px;
+  max-width: 16ch;
+}
+
+.landing__lede {
+  max-width: 760px;
+}
+
+.landing__cta {
+  margin-top: 36px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.landing__secondary {
+  font-size: 14px;
+  color: var(--ot-ink-soft);
+}
+
+.landing__facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  margin: 56px 0 0;
+}
+
+@media (max-width: 900px) {
+  .landing__facts {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.landing__facts dt {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ot-ink-mute);
+  margin-bottom: 4px;
+}
+
+.landing__facts dd {
+  margin: 0;
+  font-size: 15px;
+  color: var(--ot-ink);
+}
+
+.landing__principles {
+  padding: 32px 0 96px;
+  border-top: 1px solid var(--ot-rule);
+  margin-top: 48px;
+}
+
+.landing__principles h2 {
+  font-size: 40px;
+  margin-bottom: 32px;
+  font-weight: 400;
+}
+
+.landing__principles-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .landing__principles-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.landing__principle {
+  position: relative;
+}
+
+.landing__principle-num {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--ot-accent-deep);
+}
+
+.landing__principle h3 {
+  font-size: 22px;
+  margin: 10px 0 8px;
+  font-weight: 500;
+}
+
+.landing__principle p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ot-ink-soft);
+}
+
+.landing__footer {
+  padding: 32px 0;
+  border-top: 1px solid var(--ot-rule);
+}
