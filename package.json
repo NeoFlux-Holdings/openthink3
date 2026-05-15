@@ -19,6 +19,7 @@
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
+    "verify": "node tools/verify/verify.mjs",
     "deploy:platform": "pnpm --filter @openthink/platform run deploy",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,css}\""
   },
