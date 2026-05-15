@@ -20,3 +20,49 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm typecheck
+
+  build-and-verify:
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+
+      # Build the SPA so the worker's [assets] block has something to serve.
+      - run: pnpm --filter @openthink/platform run build:web
+
+      # Boot wrangler dev in the background, wait for /api/health, then run
+      # the verification suite. Kill wrangler at the end.
+      - name: Start wrangler dev
+        working-directory: apps/platform
+        run: |
+          pnpm exec wrangler dev --local --port 8787 --log-level=warn > wrangler.log 2>&1 &
+          echo $! > wrangler.pid
+          for i in {1..40}; do
+            if curl -sf http://127.0.0.1:8787/api/health > /dev/null; then
+              echo "worker ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run verify suite
+        run: pnpm verify
+
+      - name: Stop wrangler dev
+        if: always()
+        working-directory: apps/platform
+        run: |
+          if [ -f wrangler.pid ]; then kill $(cat wrangler.pid) 2>/dev/null || true; fi
+          if [ -f wrangler.log ]; then echo '----- wrangler log -----'; tail -50 wrangler.log; fi
+
+      - name: Wrangler deploy dry-run
+        working-directory: apps/platform
+        run: pnpm exec wrangler deploy --dry-run --outdir .wrangler/build

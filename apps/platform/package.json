@@ -9,7 +9,7 @@
     "dev:web": "vite",
     "build": "pnpm build:web && pnpm build:worker",
     "build:web": "vite build",
-    "build:worker": "wrangler deploy --dry-run --outdir=.wrangler/build",
+    "build:worker": "wrangler deploy --dry-run --outdir .wrangler/build",
     "deploy": "pnpm build:web && wrangler deploy",
     "typecheck": "tsc -p tsconfig.web.json --noEmit && tsc -p tsconfig.worker.json --noEmit",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings"
