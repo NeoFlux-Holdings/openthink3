@@ -11,6 +11,9 @@ import { skills as skillsRoute } from './routes/skills';
 import { learning } from './routes/learning';
 import { settings } from './routes/settings';
 import { cfTokenScopes } from './routes/cf-token';
+import { sync } from './routes/sync';
+import { stripe } from './routes/stripe';
+import { browserSessions } from './routes/browser';
 
 export { Orchestrator } from './agents/orchestrator';
 export { Researcher } from './agents/researcher';
@@ -19,6 +22,7 @@ export { MemoryAgent } from './agents/memory-agent';
 export { Judge } from './agents/judge';
 export { BrowserSession } from './agents/browser-session';
 export { GoalWorkflow } from './workflows/goal';
+export { RetrainingWorkflow } from './workflows/retraining';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -46,6 +50,9 @@ app.route('/api/skills', skillsRoute);
 app.route('/api/learning', learning);
 app.route('/api/settings', settings);
 app.route('/api/cf-token', cfTokenScopes);
+app.route('/api/sync', sync);
+app.route('/api/stripe', stripe);
+app.route('/api/browser', browserSessions);
 
 // WebSocket upgrade — routes to the orchestrator DO for a given agent.
 app.get('/agents/:agentId/ws', async (c) => {
@@ -75,5 +82,20 @@ export default {
   async queue(batch: MessageBatch<unknown>, env: Env, _ctx: ExecutionContext) {
     const { handleTrajectoryQueue } = await import('./queues/trajectories');
     await handleTrajectoryQueue(batch, env);
+  },
+  // Daily 08:00 UTC cron — kicks the per-agent retraining Workflow for every
+  // active agent. The Workflow short-circuits if no fresh trajectories exist.
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      (async () => {
+        const agents = await env.DB.prepare('SELECT id FROM agents').all<{ id: string }>();
+        for (const row of agents.results) {
+          await env.RETRAIN_WORKFLOW.create({
+            id: `retrain-${row.id}-${Date.now()}`,
+            params: { agentId: row.id, windowHours: 24, scoreThreshold: 0.6 },
+          });
+        }
+      })(),
+    );
   },
 };

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SyncPanel } from './SyncPanel';
 import './Settings.css';
 
 interface Props {
@@ -230,14 +231,7 @@ function SkillsTab() {
 function Sync() {
   return (
     <SettingsPane title="Sync" lede="Pull upstream changes, contribute back.">
-      <div className="settings__sync-status">
-        <span className="ot-pill ot-pill--good">up to date</span>
-        <span>You are on the latest version of <code>openthink3</code>.</span>
-      </div>
-      <h4>Recent contributions</h4>
-      <ul className="settings__sync-list">
-        <li>No PRs opened yet.</li>
-      </ul>
+      <SyncPanel />
     </SettingsPane>
   );
 }

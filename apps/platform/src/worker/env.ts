@@ -43,6 +43,10 @@ export interface Env {
     create(opts: { id?: string; params: unknown }): Promise<{ id: string }>;
     get(id: string): Promise<unknown>;
   };
+  RETRAIN_WORKFLOW: {
+    create(opts: { id?: string; params: unknown }): Promise<{ id: string }>;
+    get(id: string): Promise<unknown>;
+  };
 
   // AI + Browser
   AI: Ai;

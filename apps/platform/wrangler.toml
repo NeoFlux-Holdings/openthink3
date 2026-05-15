@@ -72,6 +72,14 @@ binding = "GOAL_WORKFLOW"
 name = "openthink-goal"
 class_name = "GoalWorkflow"
 
+[[workflows]]
+binding = "RETRAIN_WORKFLOW"
+name = "openthink-retrain"
+class_name = "RetrainingWorkflow"
+
+[triggers]
+crons = ["0 8 * * *"]
+
 [ai]
 binding = "AI"
 
