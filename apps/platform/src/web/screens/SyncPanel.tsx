@@ -48,10 +48,13 @@ export function SyncPanel() {
     if (raw === 'open' || raw === 'merged' || raw === 'closed') return raw;
     return 'all';
   });
-  const [prSort, setPrSort] = useState<'newest' | 'oldest' | 'state'>(() => {
+  const [prSort, setPrSort] = useState<
+    'newest' | 'oldest' | 'state' | 'stale-first'
+  >(() => {
     if (typeof window === 'undefined') return 'newest';
     const raw = window.localStorage.getItem('openthink:sync-pr-sort');
-    if (raw === 'oldest' || raw === 'state') return raw;
+    if (raw === 'oldest' || raw === 'state' || raw === 'stale-first')
+      return raw;
     return 'newest';
   });
   useEffect(() => {
@@ -1166,6 +1169,27 @@ export function SyncPanel() {
               if (diff !== 0) return diff;
               return b.openedAt - a.openedAt;
             }
+            if (prSort === 'stale-first') {
+              // Stale PRs first — pairs with the amber stale badge
+              // (tick 44) and bulk-merge skip (tick 45) so users can
+              // surface the rebase backlog in one click. Within each
+              // stale/non-stale bucket: open before merged/closed,
+              // then newest first. Three-tier comparator so the
+              // grouping is stable even when stale state flips
+              // between refreshes.
+              const aStale = a.state === 'open' && a.staleBehind === true;
+              const bStale = b.state === 'open' && b.staleBehind === true;
+              if (aStale !== bStale) return aStale ? -1 : 1;
+              const order: Record<string, number> = {
+                open: 0,
+                merged: 1,
+                closed: 2,
+              };
+              const stateDiff =
+                (order[a.state] ?? 99) - (order[b.state] ?? 99);
+              if (stateDiff !== 0) return stateDiff;
+              return b.openedAt - a.openedAt;
+            }
             return b.openedAt - a.openedAt;
           });
           return (
@@ -1192,13 +1216,20 @@ export function SyncPanel() {
                     className="sync-panel__prs-sort"
                     value={prSort}
                     onChange={(e) =>
-                      setPrSort(e.target.value as 'newest' | 'oldest' | 'state')
+                      setPrSort(
+                        e.target.value as
+                          | 'newest'
+                          | 'oldest'
+                          | 'state'
+                          | 'stale-first',
+                      )
                     }
                     aria-label="Sort PRs"
                   >
                     <option value="newest">Newest first</option>
                     <option value="oldest">Oldest first</option>
                     <option value="state">Open first, then by date</option>
+                    <option value="stale-first">Stale first (rebase queue)</option>
                   </select>
                   {/* Merge-method picker — applies to single-row
                       merges + the bulk-merge action. Persists to

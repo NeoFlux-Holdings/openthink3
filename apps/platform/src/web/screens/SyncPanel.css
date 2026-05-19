@@ -1011,17 +1011,28 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 0;
+  /* Tightened from 8px → 5px so the 8-row list fits in roughly the
+     same viewport height the 5-row version occupied. We compensate
+     by leaning on the row-internal padding (4px vertical below) for
+     visual breathing room, so the rhythm stays generous per-row
+     without the overlay growing every time we add a chord. */
+  gap: 5px;
+  padding: 10px 0;
   border-top: 1px dashed var(--ot-rule);
   border-bottom: 1px dashed var(--ot-rule);
 }
 
 .sync-panel__shortcuts-help-row {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  /* dt column slimmed from 110px → 88px — covers our widest single-
+     glyph chord (`space` at ~62px) with breathing room, leaves more
+     width for the dd description column where the real signal lives.
+     Single-digit chords (`m`, `c`, `r`) had ~70px of unused space in
+     the old layout. */
+  grid-template-columns: 88px 1fr;
   align-items: baseline;
   gap: 12px;
+  padding: 2px 0;
 }
 
 .sync-panel__shortcuts-help-row dt {
@@ -1057,15 +1068,17 @@
 
 .sync-panel__shortcuts-help-note {
   display: block;
-  margin-top: 2px;
+  margin-top: 1px;
   font-size: 10.5px;
   color: var(--ot-ink-mute);
   font-style: italic;
+  line-height: 1.35;
 }
 
 .sync-panel__shortcuts-help-foot {
-  margin-top: 10px;
+  margin-top: 8px;
   color: var(--ot-ink-mute);
+  line-height: 1.4;
 }
 
 /* Inline "? more" launcher that lives in the PRs-head hint strip.

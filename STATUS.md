@@ -5390,6 +5390,54 @@ verified end-to-end. Updated each loop iteration.
   opacity on hover so the user
   knows interaction is committed.
 
+### Help overlay rhythm + ext tooltip + stale-first sort (final pre-handoff tick)
+- ✓ `apps/platform/src/web/screens/SyncPanel.css`
+  — tightened the `?` help overlay
+  to absorb the new rows added in
+  ticks 47–49 (Space, c, ?) without
+  growing the modal height. Row
+  gap goes 8px → 5px; the dt
+  column shrinks 110px → 88px
+  (still covers `space` at 62px
+  with breathing room, frees ~22px
+  per row for the dd description).
+  Note line-height tightens to 1.35
+  and the foot margin trims from
+  10px → 8px. Net effect: 8 rows
+  now fit roughly the same screen
+  space the 5-row version used.
+- ✓ `apps/platform/src/web/screens/Library.tsx`
+  — the tile ext badge's title
+  attribute now surfaces the
+  human-readable size too
+  (`.json · 124.3 KB` instead of
+  just `.json`). Parity with the
+  hover-preview footer chip — same
+  string both places. Stubs still
+  fall back to "(stub — not yet on
+  R2)" since they have no size
+  yet.
+- ✓ `apps/platform/src/web/screens/SyncPanel.tsx`
+  — added a "stale first" entry to
+  the PR sort dropdown. Surfaces
+  stale-base PRs at the top so the
+  rebase queue is one click away
+  on a busy panel. Three-tier
+  comparator: stale-bucket first
+  (open + staleBehind=true),
+  state-order next (open > merged
+  > closed), then newest-first
+  inside each bucket — grouping
+  stays stable across status
+  refreshes that flip individual
+  PRs' stale flag. localStorage
+  persistence covers the new
+  value so the chosen sort sticks
+  across reloads. Type widened on
+  the `prSort` state + the
+  setPrSort cast in the dropdown
+  onChange handler.
+
 ### Continuous deployment
 - ✓ `.github/workflows/agent-deploy.yml` — every push to `main` in the
   user's fork: install → typecheck → build:web → apply D1 migrations → 

@@ -2793,7 +2793,16 @@ function LibraryTileThumb({
         <span
           className="library__tile-ext"
           aria-hidden
-          title={`.${ext}`}
+          // Tooltip parity with the hover-preview footer chip — show
+          // ext + human-readable size so the badge is both a visual
+          // grid-scan hint AND a precision data point on hover.
+          // Stubs (size === 0) get just the ext since the R2 object
+          // doesn't exist yet.
+          title={
+            artifact.size > 0
+              ? `.${ext} · ${formatBytes(artifact.size)}`
+              : `.${ext} (stub — not yet on R2)`
+          }
         >
           {ext}
         </span>
