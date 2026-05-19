@@ -59,6 +59,72 @@ Copy each returned ID into wrangler.toml. Then apply the D1 migrations:
 pnpm exec wrangler d1 migrations apply openthink
 ```
 
+## Optional production-only bindings
+
+Both are commented out in `wrangler.toml` so local dev (miniflare) boots
+cleanly. Re-enable for production:
+
+```toml
+[browser]
+binding = "BROWSER"
+
+[[vectorize]]
+binding = "MEMORIES"
+index_name = "openthink-memories"
+```
+
+`BROWSER` powers `BrowserSession` screenshot streaming. The runtime imports
+`@cloudflare/puppeteer` lazily — install it before deploy:
+
+```sh
+pnpm --filter @openthink/platform add @cloudflare/puppeteer
+```
+
+It's listed as an `optionalDependency` so `pnpm install` doesn't fail in
+environments that can't fetch it (CI sandboxes, etc.). The DO falls back to
+the placeholder-frame path when the import fails.
+
+## Secrets
+
+Bind via `wrangler secret put` (or via CI — see
+`.github/workflows/agent-deploy.yml`).
+
+| Secret | Required for | Notes |
+|---|---|---|
+| `STRIPE_API_KEY` | Live `/api/stripe/checkout` and upgrades | Test or live mode |
+| `STRIPE_WEBHOOK_SECRET` | Webhook signature verify | Without this dev accepts unverified payloads with a warn log |
+| `STRIPE_PRICE_DOMAIN` / `STRIPE_PRICE_WORKERS_PAID` | Mapping checkout line items to Stripe Price IDs | Per-deployment |
+| `GITHUB_TOKEN` | `/api/sync` real path (status, pull, propose-pr) | Needs `repo` scope on the user's fork |
+| `CLOUDFLARE_API_TOKEN` | `GoalWorkflow` Stripe-Projects branch + Access provisioning fallback | Same token the user pasted during onboarding |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Optional providers when the user opts out of Workers AI | Only read if the Behavior tab's `model` picks the matching provider |
+
+## Continuous deployment
+
+Two GitHub Actions workflows ship in `.github/workflows/`:
+
+- **`agent-deploy.yml`** — runs on every push to `main` in the user's
+  fork. Installs, typechecks, builds the web bundle, applies remote D1
+  migrations, ships via `wrangler deploy`, binds any secrets that
+  changed, smoke-tests `/api/health`, then bumps the `sync:local-sha`
+  KV key to the new HEAD. Concurrency-cancelled on consecutive pushes.
+
+- **`agent-update.yml`** — daily at 09:00 UTC + manual trigger. Detects
+  drift between the fork and `vars.OPENTHINK_UPSTREAM_REPO` (default
+  `NeoFlux-Holdings/openthink3`), creates a `agent/upstream-sync-<run>`
+  branch with the 3-way merge result, and opens a draft PR with the
+  upstream commit list as the body. The user reviews and merges; that
+  push fires `agent-deploy.yml` and the new code lands.
+
+Required CI secrets:
+
+| Secret | Required for | Notes |
+|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | `wrangler deploy` | needs `workers_scripts:edit` + everything in `apps/platform/src/shared/cf-token.ts` |
+| `CLOUDFLARE_ACCOUNT_ID` | `wrangler deploy` | account the agent ships to |
+| `CLOUDFLARE_WORKERS_SUBDOMAIN` | Smoke-test step | your account's workers.dev subdomain |
+| `AGENT_BOT_PAT` | `agent-update.yml` | fine-grained PAT with `contents:write` + `pull_requests:write` |
+| `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, `GITHUB_TOKEN_AGENT` | rebinding as worker secrets | optional |
+
 ## Bindings the Worker expects
 
 | Binding | Purpose | Created by |

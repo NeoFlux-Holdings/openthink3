@@ -7,12 +7,38 @@ interface Props {
   flow: AppFlowState;
   merge: (patch: Partial<AppFlowState>) => void;
   next: () => void;
+  back?: () => void;
 }
 
-export function OnboardingToken({ flow, merge, next }: Props) {
+export function OnboardingToken({ flow, merge, next, back }: Props) {
   const [token, setToken] = useState(flow.cloudflareToken ?? '');
   const [subdomain, setSubdomain] = useState(flow.subdomain ?? flow.agentName);
   const [accessEmailsRaw, setAccessEmailsRaw] = useState(flow.accessEmails.join(', '));
+  // Bubble local edits up to the parent's `flow` on every change so
+  // hash-back to /fork (or any later forward navigation) doesn't lose
+  // a half-typed token, subdomain, or extras list. `flow` lives in
+  // the App and survives unmount — but it only gets these values via
+  // `merge()`, so without this we drop them on remount.
+  useEffect(() => {
+    merge({ cloudflareToken: token || undefined });
+    // We only persist the token when the user has actually typed
+    // something so an empty draft doesn't trash a previously-saved
+    // cloudflareToken value. eslint-disable to keep merge out of deps
+    // (the parent's `merge` closure changes every render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+  useEffect(() => {
+    if (subdomain !== undefined) merge({ subdomain });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subdomain]);
+  useEffect(() => {
+    const arr = accessEmailsRaw
+      .split(/[,\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    merge({ accessEmails: arr });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessEmailsRaw]);
   const [tokenUrl, setTokenUrl] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -25,7 +51,12 @@ export function OnboardingToken({ flow, merge, next }: Props) {
       .catch(() => undefined);
   }, [flow.agentName]);
 
-  const verify = useCallback(async () => {
+  // Shared verify path — takes a candidate token explicitly so paste-
+  // detection can verify on-the-fly without waiting for the textarea
+  // state to flush (React batches the setToken before this function
+  // would see it via closure).
+  const verifyToken = useCallback(async (candidate: string) => {
+    if (!candidate) return;
     setVerifying(true);
     setVerifyError(null);
     setVerifyOk(false);
@@ -33,7 +64,7 @@ export function OnboardingToken({ flow, merge, next }: Props) {
       const res = await fetch('/api/cf-token/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token: candidate }),
       });
       const data = (await res.json()) as { ok: boolean; error?: string };
       if (data.ok) setVerifyOk(true);
@@ -43,39 +74,55 @@ export function OnboardingToken({ flow, merge, next }: Props) {
     } finally {
       setVerifying(false);
     }
-  }, [token]);
+  }, []);
 
-  const submit = async () => {
+  const verify = useCallback(() => verifyToken(token), [token, verifyToken]);
+
+  // Plausibility heuristic for "this paste looks like a CF API token":
+  // Cloudflare User API tokens are 40 chars, base64-url-ish. We accept
+  // ≥20 chars of [A-Za-z0-9_-] to avoid auto-firing on a wrong paste,
+  // but stay loose enough to handle future token format tweaks.
+  const looksLikeToken = (s: string) => /^[A-Za-z0-9_-]{20,}$/.test(s);
+
+  const [autoPasted, setAutoPasted] = useState(false);
+  const onPasteToken = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text').trim();
+    if (!looksLikeToken(pasted)) return;
+    // Pre-empt the default paste so we land the cleaned value
+    // immediately and can kick off verify in the same gesture.
+    e.preventDefault();
+    setToken(pasted);
+    setAutoPasted(true);
+    void verifyToken(pasted);
+    // Reset the chip after a beat so it doesn't camp on screen.
+    window.setTimeout(() => setAutoPasted(false), 1800);
+  };
+
+  const submit = () => {
     const accessEmails = accessEmailsRaw
       .split(/[,\s]+/)
       .map((s) => s.trim())
       .filter(Boolean);
+    // Defer /api/deploy/start to the OnboardingUpgrades screen so it can
+    // include workersPaid + customDomain in the payload (those steps are
+    // injected dynamically by the worker based on what was picked).
     merge({ cloudflareToken: token, subdomain, accessEmails });
-    const res = await fetch('/api/deploy/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        agentName: flow.agentName,
-        email: flow.email,
-        cloudflareToken: token,
-        subdomain,
-        accessEmails,
-      }),
-    });
-    const data = (await res.json()) as { ok: boolean; deployId?: string };
-    if (data.ok && data.deployId) {
-      merge({ deployId: data.deployId });
-      next();
-    }
+    next();
   };
 
   return (
-    <OnboardingFrame step={3} of={3} title={`Connect ${flow.agentName || 'your agent'} to Cloudflare.`} subtitle="One token, the right scopes pre-filled. Paste, verify, ship.">
+    <OnboardingFrame
+      step={3}
+      of={3}
+      title={`Connect ${flow.agentName || 'your agent'} to Cloudflare.`}
+      subtitle="One token, the right scopes pre-filled. Paste, verify, ship."
+      onBack={back}
+    >
       <div className="onboarding__split onboarding__split-card">
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            void submit();
+            submit();
           }}
           className="onboarding__form"
         >
@@ -92,6 +139,7 @@ export function OnboardingToken({ flow, merge, next }: Props) {
                 setToken(e.target.value);
                 setVerifyOk(false);
               }}
+              onPaste={onPasteToken}
               placeholder="cf_..."
               autoComplete="off"
             />
@@ -104,6 +152,11 @@ export function OnboardingToken({ flow, merge, next }: Props) {
               >
                 {verifying ? 'Verifying…' : verifyOk ? '✓ Token works' : 'Verify token'}
               </button>
+              {autoPasted && !verifyError && !verifyOk && (
+                <span className="ot-micro onboarding__token-paste">
+                  ✦ Pasted — validating…
+                </span>
+              )}
               {verifyError && (
                 <span className="ot-micro" style={{ color: 'var(--ot-bad)' }}>
                   {verifyError === 'verify_failed'
@@ -148,7 +201,7 @@ export function OnboardingToken({ flow, merge, next }: Props) {
 
           <div className="onboarding__actions">
             <button type="submit" className="ot-btn" disabled={!verifyOk}>
-              Deploy →
+              Next: pick upgrades →
             </button>
           </div>
         </form>

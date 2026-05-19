@@ -1,0 +1,420 @@
+.art-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.art-preview__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 18, 14, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.art-preview__panel {
+  position: relative;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-rule);
+  border-radius: 16px;
+  box-shadow: 0 30px 80px rgba(20, 18, 14, 0.2);
+  width: min(960px, 100%);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.art-preview__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--ot-rule);
+  gap: 16px;
+}
+
+.art-preview__title {
+  font-family: var(--ot-font-display, 'Fraunces', serif);
+  font-size: 22px;
+  letter-spacing: -0.005em;
+  margin: 0 0 4px;
+}
+
+.art-preview__title--editable {
+  cursor: text;
+  padding: 2px 6px;
+  margin-left: -6px;
+  border-radius: 4px;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.art-preview__title--editable:hover {
+  background: var(--ot-bg-soft);
+}
+
+.art-preview__title-input {
+  font-family: var(--ot-font-display, 'Fraunces', serif);
+  font-size: 22px;
+  letter-spacing: -0.005em;
+  padding: 2px 8px;
+  margin: 0 0 4px -8px;
+  min-width: 240px;
+  max-width: 100%;
+}
+
+.art-preview__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 22px;
+  background: var(--ot-bg-soft);
+}
+
+.art-preview__pre {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.art-preview__pre--code {
+  background: var(--ot-bg);
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--ot-rule);
+}
+
+/* Code preview wrapper exists to host the floating Copy button above the
+   pre. The pre's overflow:auto would otherwise clip the button. */
+.art-preview__code-wrap {
+  position: relative;
+}
+
+/* Action row floats top-right; hosts Find + Copy buttons. */
+.art-preview__code-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease);
+}
+
+.art-preview__code-wrap:hover .art-preview__code-actions,
+.art-preview__code-actions:focus-within {
+  opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .art-preview__code-actions {
+    opacity: 1;
+  }
+}
+
+.art-preview__copy,
+.art-preview__find-toggle {
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-soft);
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: var(--ot-radius-pill);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.art-preview__find-toggle--on {
+  background: var(--ot-accent);
+  color: white;
+  border-color: var(--ot-accent);
+}
+
+/* Inline find bar — slides in below the action row when Find is on. */
+.art-preview__find-bar {
+  position: absolute;
+  top: 44px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  box-shadow: var(--ot-shadow-md);
+  animation: art-preview-find-in 140ms var(--ot-ease, ease-out);
+}
+
+@keyframes art-preview-find-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.art-preview__find-input {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  border: 0;
+  background: transparent;
+  width: 180px;
+  outline: none;
+  color: var(--ot-ink);
+}
+
+.art-preview__find-count {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  color: var(--ot-ink-mute);
+  letter-spacing: 0.04em;
+  min-width: 60px;
+  text-align: right;
+}
+
+/* Match highlights inside the pre. Active match gets stronger fill. */
+.art-preview__find-match {
+  background: rgba(232, 93, 74, 0.16);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.art-preview__find-match--active {
+  background: var(--ot-accent);
+  color: white;
+  box-shadow: 0 0 0 2px rgba(232, 93, 74, 0.22);
+}
+
+/* Hover-darken on either action button. */
+.art-preview__copy:hover,
+.art-preview__find-toggle:hover {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+.art-preview__copy--ok {
+  color: #1f5c3a;
+  border-color: rgba(46, 139, 87, 0.4);
+  background: #d9efe2;
+}
+
+.ap-tok {
+  font-family: inherit;
+}
+
+.ap-tok--kw {
+  color: var(--ot-accent);
+  font-weight: 600;
+}
+
+.ap-tok--str {
+  color: #4f7a4d;
+}
+
+.ap-tok--num {
+  color: #b87b0a;
+}
+
+.ap-tok--cmt {
+  color: var(--ot-ink-mute);
+  font-style: italic;
+}
+
+.art-preview__image-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  border-radius: 8px;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-rule);
+  min-height: 240px;
+}
+
+.art-preview__image {
+  max-width: 100%;
+  max-height: 70vh;
+  display: block;
+  border-radius: 4px;
+  transition: transform 80ms linear;
+  will-change: transform;
+}
+
+/* Zoom + pan controls floating at the top-right of the image. */
+.art-preview__image-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--ot-glass-bg);
+  backdrop-filter: var(--ot-glass-blur);
+  -webkit-backdrop-filter: var(--ot-glass-blur);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-pill);
+  padding: 2px;
+  box-shadow: var(--ot-shadow-sm);
+}
+
+.art-preview__image-controls button {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ot-ink);
+  font-size: 14px;
+  line-height: 1;
+  border: 0;
+  cursor: pointer;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.art-preview__image-controls button:hover:not(:disabled) {
+  background: rgba(232, 93, 74, 0.12);
+  color: var(--ot-accent);
+}
+
+.art-preview__image-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.art-preview__image-zoom {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  color: var(--ot-ink-soft);
+  letter-spacing: 0.04em;
+  min-width: 42px;
+  text-align: center;
+}
+
+.art-preview__iframe {
+  width: 100%;
+  height: 65vh;
+  border: 1px solid var(--ot-rule);
+  border-radius: 8px;
+  background: var(--ot-bg);
+}
+
+.art-preview__error {
+  color: var(--ot-bad, #c84439);
+  font-family: var(--ot-font-mono);
+  font-size: 13px;
+}
+
+.art-preview__foot {
+  padding: 12px 22px;
+  border-top: 1px solid var(--ot-rule);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.art-preview__position {
+  display: inline-block;
+  margin-left: 8px;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+  background: var(--ot-bg-soft);
+  border-radius: var(--ot-radius-pill);
+  padding: 2px 8px;
+  vertical-align: middle;
+}
+
+/* Floating chevron buttons that flank the panel. Cliff-edged so the cursor
+   feels like a slideshow; subtle glass background so they don't compete
+   with the artifact body. Disappear on touch + tiny screens. */
+.art-preview__chevron {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--ot-glass-bg);
+  backdrop-filter: var(--ot-glass-blur);
+  -webkit-backdrop-filter: var(--ot-glass-blur);
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 91;
+  box-shadow: var(--ot-shadow-md);
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    transform var(--ot-dur-quick) var(--ot-ease);
+}
+
+.art-preview__chevron:hover {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+.art-preview__chevron:active {
+  transform: translateY(-50%) scale(0.94);
+}
+
+.art-preview__chevron--prev {
+  left: max(12px, calc(50vw - 540px));
+}
+
+.art-preview__chevron--next {
+  right: max(12px, calc(50vw - 540px));
+}
+
+@media (max-width: 640px) {
+  .art-preview__chevron {
+    width: 38px;
+    height: 38px;
+    font-size: 24px;
+  }
+  .art-preview__chevron--prev {
+    left: 6px;
+  }
+  .art-preview__chevron--next {
+    right: 6px;
+  }
+}
+
+@media (max-width: 640px) {
+  .art-preview {
+    padding: 12px;
+  }
+  .art-preview__panel {
+    max-height: 90vh;
+  }
+  .art-preview__image {
+    max-height: 60vh;
+  }
+  .art-preview__iframe {
+    height: 55vh;
+  }
+}

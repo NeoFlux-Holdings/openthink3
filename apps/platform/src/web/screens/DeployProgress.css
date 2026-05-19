@@ -4,6 +4,168 @@
   min-height: 100vh;
 }
 
+/* Error banner that appears when a deploy step fails. Offers an inline
+   retry (re-runs from the errored step) + a "Start over" escape hatch
+   that bounces back to onboarding. */
+.deploy__error {
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: rgba(194, 57, 46, 0.08);
+  border: 1px solid rgba(194, 57, 46, 0.32);
+  border-radius: var(--ot-radius-md);
+  animation: deploy-error-in 220ms var(--ot-ease, ease-out);
+}
+
+/* SSE connection-lost banner — warm-yellow tint so it reads as a
+   transient hiccup rather than a hard failure. The reconnect glyph
+   spins gently to signal "in progress". */
+.deploy__stream-err {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: rgba(232, 168, 0, 0.08);
+  border: 1px solid rgba(232, 168, 0, 0.36);
+  border-radius: var(--ot-radius-md);
+  animation: deploy-error-in 220ms var(--ot-ease, ease-out);
+}
+
+.deploy__stream-err-glyph {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(232, 168, 0, 0.2);
+  color: #7a5a00;
+  font-size: 14px;
+  flex: 0 0 26px;
+  animation: deploy-stream-spin 1.2s infinite linear;
+}
+
+@keyframes deploy-stream-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.deploy__stream-err-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.deploy__stream-err-body strong {
+  color: #7a5a00;
+  font-size: 13px;
+}
+
+.deploy__stream-err-body .ot-micro {
+  color: var(--ot-ink-soft);
+  margin: 0;
+}
+
+@keyframes deploy-error-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.deploy__error-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.deploy__error-glyph {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(194, 57, 46, 0.18);
+  color: var(--ot-bad, #c2392e);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.deploy__error-msg {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  color: var(--ot-ink-soft);
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: var(--ot-bg);
+  border-radius: var(--ot-radius-sm);
+  border: 1px solid var(--ot-rule);
+  word-break: break-word;
+}
+
+.deploy__error-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* DNS propagation hint — only shown when the deploy resolved to a
+   custom domain. Lets the user know it might be slow to come up + that
+   the workers.dev fallback already works. */
+.deploy__dns-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  border-left: 3px solid var(--ot-accent);
+  border-radius: var(--ot-radius-md);
+}
+
+.deploy__dns-hint-glyph {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ot-accent-soft);
+  color: var(--ot-accent-deep);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ot-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.deploy__dns-hint strong {
+  font-family: var(--ot-font-display);
+  font-size: 14px;
+  color: var(--ot-ink);
+}
+
+.deploy__dns-hint p {
+  margin: 2px 0 0;
+  line-height: 1.55;
+}
+
+.deploy__dns-hint code {
+  background: var(--ot-bg-card);
+  padding: 1px 5px;
+  border-radius: var(--ot-radius-xs);
+  font-size: 11px;
+}
+
 .deploy__topbar {
   border-bottom: 1px solid var(--ot-rule);
   padding: 18px 0;
@@ -127,13 +289,113 @@
 }
 
 .deploy__step {
-  display: grid;
-  grid-template-columns: 24px 1fr auto;
-  gap: 14px;
-  align-items: baseline;
   font-size: 15px;
   color: var(--ot-ink-mute);
   transition: color var(--ot-dur-base) var(--ot-ease);
+}
+
+/* Step row — re-skinned from a flat <li> grid to a button that
+   toggles the log pane when logs are present. The grid template stays
+   the same; the row inherits the lock-in on hover/focus. */
+.deploy__step-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto auto;
+  gap: 14px;
+  align-items: baseline;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 4px 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.deploy__step-row:disabled {
+  cursor: default;
+}
+
+.deploy__step-row:hover:not(:disabled) {
+  color: var(--ot-ink);
+}
+
+.deploy__step-chevron {
+  color: var(--ot-ink-mute);
+  font-size: 11px;
+  width: 14px;
+  text-align: center;
+  transition: color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.deploy__step--open .deploy__step-chevron {
+  color: var(--ot-accent);
+}
+
+/* Wrap the pre-log block so a "copy" affordance can float in its
+   top-right corner without breaking the existing left-margin alignment
+   on `.deploy__step-log`. */
+.deploy__step-log-wrap {
+  position: relative;
+}
+
+.deploy__step-log-copy {
+  position: absolute;
+  top: 14px;
+  right: 8px;
+  padding: 2px 8px;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  background: color-mix(in srgb, var(--ot-bg) 70%, transparent);
+  color: var(--ot-ink-soft);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.deploy__step-log-wrap:hover .deploy__step-log-copy,
+.deploy__step-log-copy:focus-visible {
+  opacity: 1;
+  color: var(--ot-ink);
+  border-color: var(--ot-accent);
+}
+
+.deploy__step-log {
+  margin: 8px 0 0 38px;
+  padding: 10px 12px;
+  background: var(--ot-code-bg);
+  color: var(--ot-code-ink);
+  font-family: var(--ot-font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  border-radius: var(--ot-radius-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow-y: auto;
+  animation: deploy-step-log-in 200ms var(--ot-ease, ease-out);
+}
+
+@keyframes deploy-step-log-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.deploy__step--error .deploy__step-log {
+  background: rgba(194, 57, 46, 0.08);
+  color: var(--ot-ink);
+  border: 1px solid rgba(194, 57, 46, 0.32);
 }
 
 .deploy__step--running {
@@ -191,9 +453,46 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Live elapsed timer rendered on the currently-running step.
+   Re-paints every 200ms via the elapsed-counter interval. The
+   accent tint + subtle pulse signal "this is the active step,
+   here's how long it's been running" — much more useful than
+   the previous static `…` glyph. */
+.deploy__dur-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ot-accent) 10%, transparent);
+  color: var(--ot-accent-deep, var(--ot-accent));
+  font-variant-numeric: tabular-nums;
+  /* A gentle breath so the running-step's timer reads as alive
+     without the constant numeric churn becoming visually noisy. */
+  animation: deploy-dur-live-pulse 1.6s infinite ease-in-out;
+}
+
+@keyframes deploy-dur-live-pulse {
+  0%, 100% {
+    background: color-mix(in srgb, var(--ot-accent) 10%, transparent);
+  }
+  50% {
+    background: color-mix(in srgb, var(--ot-accent) 18%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Drop the pulse on reduced-motion — the numeric tick is signal
+     enough that something's happening. */
+  .deploy__dur-live {
+    animation: none;
+  }
+}
+
 .deploy__footer {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-top: 36px;
   padding-top: 16px;
   border-top: 1px solid var(--ot-rule);
@@ -202,6 +501,37 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ot-ink-mute);
+}
+
+.deploy__footer-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Diagnostic bundle download — concatenates every step's log into a
+   single .log file. Visible only when at least one step has output;
+   hidden otherwise so the footer reads as just "elapsed" until there's
+   something worth saving. */
+.deploy__bundle-dl {
+  padding: 3px 10px;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  background: transparent;
+  color: var(--ot-ink-soft);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.deploy__bundle-dl:hover,
+.deploy__bundle-dl:focus-visible {
+  color: var(--ot-ink);
+  border-color: var(--ot-accent);
 }
 
 .deploy__elapsed {

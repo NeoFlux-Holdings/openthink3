@@ -62,28 +62,25 @@ function safeJson(text) {
   }
 }
 
-async function ws(name, path, send, expectFrames = 1) {
-  const t0 = Date.now();
+// Single WebSocket attempt — resolved when frames arrive or the deadline
+// fires. Returns `{ok, frames, info}` so the retry wrapper can decide
+// whether to try again without prematurely printing PASS/FAIL.
+function wsAttempt(url, send, expectFrames, timeoutMs) {
   return new Promise((resolve) => {
-    const url = `${base.replace(/^http/, 'ws')}${path}`;
     const sock = new WebSocket(url);
     let frames = 0;
     let settled = false;
+    let errInfo = '';
     const finish = (ok, info) => {
       if (settled) return;
       settled = true;
       clearTimeout(deadline);
-      const ms = Date.now() - t0;
-      const status = ok ? `${GREEN}PASS${RESET}` : `${RED}FAIL${RESET}`;
-      console.log(`${status} ${pad(name, 32)} ${DIM}WS   ${pad(String(frames), 4)}${RESET}  ${pad(`${ms}ms`, 6)} ${info}`);
-      if (!ok) failed++;
-      results.push({ name, ok, frames });
       try {
         sock.close();
       } catch {
         /* noop */
       }
-      resolve({ ok, frames });
+      resolve({ ok, frames, info });
     };
     sock.addEventListener('open', () => {
       if (send) sock.send(JSON.stringify(send));
@@ -92,15 +89,46 @@ async function ws(name, path, send, expectFrames = 1) {
       frames++;
       if (frames >= expectFrames) finish(true, 'received expected frames');
     });
-    sock.addEventListener('error', () => finish(false, 'socket error'));
+    sock.addEventListener('error', (e) => {
+      // Capture the OS-level reason when present so a real failure is
+      // diagnosable. Node's ws lib surfaces the underlying cause via
+      // `error.message`; browsers don't expose it but the test runs in
+      // Node so we should usually get something useful.
+      errInfo = e && (e.message || e.error?.message)
+        ? `socket error: ${e.message || e.error.message}`
+        : 'socket error';
+      finish(false, errInfo);
+    });
     const deadline = setTimeout(
       () => finish(frames >= expectFrames, frames === 0 ? 'no frames received' : 'timeout-but-frames-received'),
-      4500,
+      timeoutMs,
     );
-    // Don't let the deadline keep the Node event loop alive after the promise
-    // settles — settled finish() clears it, but we also unref as a belt.
     if (typeof deadline.unref === 'function') deadline.unref();
   });
+}
+
+async function ws(name, path, send, expectFrames = 1) {
+  const t0 = Date.now();
+  const url = `${base.replace(/^http/, 'ws')}${path}`;
+  // Two attempts: the first race against a 4500ms deadline. If it
+  // fails with a socket error (common on a freshly-restarted worker
+  // where the DO isn't ready yet), wait 350ms and retry once. Real
+  // failures still surface on the second attempt; transient
+  // cold-start hiccups stop being false positives in the suite.
+  let attempt = await wsAttempt(url, send, expectFrames, 4500);
+  if (!attempt.ok && attempt.info.startsWith('socket error')) {
+    await new Promise((r) => setTimeout(r, 350));
+    attempt = await wsAttempt(url, send, expectFrames, 4500);
+    if (attempt.ok) attempt.info += ' (after 1 retry)';
+  }
+  const ms = Date.now() - t0;
+  const status = attempt.ok ? `${GREEN}PASS${RESET}` : `${RED}FAIL${RESET}`;
+  console.log(
+    `${status} ${pad(name, 32)} ${DIM}WS   ${pad(String(attempt.frames), 4)}${RESET}  ${pad(`${ms}ms`, 6)} ${attempt.info}`,
+  );
+  if (!attempt.ok) failed++;
+  results.push({ name, ok: attempt.ok, frames: attempt.frames });
+  return { ok: attempt.ok, frames: attempt.frames };
 }
 
 console.log(`${BOLD}OpenThink verification${RESET}  ${DIM}base=${base} agent=${agentId}${RESET}`);

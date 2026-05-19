@@ -186,3 +186,83 @@
   font-size: 12px;
   color: var(--ot-ink-mute);
 }
+
+/* Shared empty-state — gentle dashed card with a glyph, a one-line headline,
+   a sentence of context, and an optional CTA row. Used across Library /
+   Skills / Learning / Sync so empty surfaces feel intentional rather than
+   broken. */
+.ot-empty {
+  padding: 40px 32px;
+  border: 1px dashed var(--ot-rule);
+  border-radius: var(--ot-radius-xl);
+  background: var(--ot-bg-card);
+  text-align: center;
+  max-width: 540px;
+  margin: 16px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ot-empty__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--ot-accent-soft);
+  color: var(--ot-accent);
+  font-size: 28px;
+  margin-bottom: 6px;
+  /* Subtle breathing animation so the surface feels alive, not abandoned.
+     Respects reduced-motion via the token reset. */
+  animation: ot-empty-breathe 4.2s ease-in-out infinite;
+}
+
+@keyframes ot-empty-breathe {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(232, 93, 74, 0.18);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 8px rgba(232, 93, 74, 0);
+  }
+}
+
+.ot-empty__title {
+  font-family: var(--ot-font-display);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ot-ink);
+  margin: 0;
+}
+
+.ot-empty__body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ot-ink-soft);
+  margin: 4px 0 12px;
+  max-width: 38ch;
+}
+
+.ot-empty__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+@media (max-width: 600px) {
+  .ot-empty {
+    padding: 32px 22px;
+    margin: 8px auto;
+  }
+
+  .ot-empty__title {
+    font-size: 18px;
+  }
+}

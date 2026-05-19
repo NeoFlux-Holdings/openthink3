@@ -8,6 +8,12 @@ export interface PlanStep {
   tool?: string;
   requiresApproval?: boolean;
   status?: 'pending' | 'running' | 'done' | 'error';
+  // Output preview surfaced under a completed step. The orchestrator
+  // populates this after a step lands (truncated to the first ~600 chars
+  // so the card doesn't balloon). Optional — pending/running steps
+  // don't have one yet.
+  output?: string;
+  durationMs?: number;
 }
 
 interface Props {
@@ -37,6 +43,23 @@ export function PlanCard({
 }: Props) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  // Track which completed steps have their output expanded. Auto-expand
+  // the first step that just transitioned to error so the user sees the
+  // failure without an extra click.
+  const [outputOpen, setOutputOpen] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    for (const s of steps) {
+      if (s.status === 'error' && s.output) initial.add(s.id);
+    }
+    return initial;
+  });
+  const toggleOutput = (id: string) =>
+    setOutputOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   if (showAsJsx) {
     return (
@@ -111,6 +134,36 @@ export function PlanCard({
               {s.requiresApproval && (
                 <div className="plan-step__pill">
                   <span className="ot-pill ot-pill--accent">approval required</span>
+                </div>
+              )}
+              {/* Per-step output preview — only when the step ran. The
+                  chevron toggles a collapsed/expanded JSON-ish view of
+                  the result. Error states auto-expand on first render
+                  so the user sees the failure without an extra click. */}
+              {s.output && (s.status === 'done' || s.status === 'error') && (
+                <div className={`plan-step__output plan-step__output--${s.status}`}>
+                  <button
+                    type="button"
+                    className="plan-step__output-toggle"
+                    onClick={() => toggleOutput(s.id)}
+                    aria-expanded={outputOpen.has(s.id)}
+                  >
+                    <span className="plan-step__output-chevron" aria-hidden>
+                      {outputOpen.has(s.id) ? '▾' : '▸'}
+                    </span>
+                    {s.status === 'error' ? 'error' : 'output'}
+                    {typeof s.durationMs === 'number' && (
+                      <span className="plan-step__output-time">
+                        · {(s.durationMs / 1000).toFixed(1)}s
+                      </span>
+                    )}
+                  </button>
+                  {outputOpen.has(s.id) && (
+                    <pre className="plan-step__output-body">
+                      {s.output.slice(0, 600)}
+                      {s.output.length > 600 ? '…' : ''}
+                    </pre>
+                  )}
                 </div>
               )}
             </div>

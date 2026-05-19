@@ -61,6 +61,16 @@ export class RetrainingWorkflow {
       return { agentId, status: 'no_drift', winRate };
     }
 
+    // Emit pending_suggestions rows for the failing turns so the Learning page
+    // can surface them. We dedupe by `trajectory_turn_id` so a re-run of the
+    // workflow doesn't pile up duplicates.
+    const lowScore = scored.filter((s) => s.overall < scoreThreshold).slice(0, 10);
+    await step.do(
+      'emit-suggestions',
+      { retries: { limit: 1, backoff: 'constant' } },
+      async () => this.emitPendingSuggestions(agentId, lowScore),
+    );
+
     // 3. Generate a candidate prompt/skill revision against the failures.
     const candidate = await step.do(
       'candidate',
@@ -209,6 +219,68 @@ export class RetrainingWorkflow {
     } catch {
       return 'smart_auto';
     }
+  }
+
+  private async emitPendingSuggestions(
+    agentId: string,
+    lowScore: Array<{ turnId: string; overall: number; faithfulness: number; relevancy: number }>,
+  ): Promise<{ inserted: number }> {
+    let inserted = 0;
+    for (const turn of lowScore) {
+      try {
+        // Skip if a suggestion already exists for this turn — avoids the
+        // Learning page from being spammed when the workflow runs multiple
+        // times against the same low-score window.
+        const existing = await this.env.DB.prepare(
+          `SELECT id FROM pending_suggestions WHERE trajectory_turn_id = ? AND status = 'pending' LIMIT 1`,
+        )
+          .bind(turn.turnId)
+          .first<{ id: string }>();
+        if (existing) continue;
+
+        const headline =
+          turn.faithfulness < turn.relevancy
+            ? 'Watch grounding'
+            : 'Stay on topic';
+        const payload = {
+          turnId: turn.turnId,
+          headline,
+          overall: turn.overall,
+          relevancy: turn.relevancy,
+          faithfulness: turn.faithfulness,
+          // The orchestrator + Learning page can present this as a "memory"
+          // suggestion ("agent should remember to cite sources") — accepting
+          // it dispatches to MemoryAgent.ingest.
+          category: 'preferences',
+          content:
+            headline === 'Watch grounding'
+              ? 'When tools returned data, anchor the answer to it. Avoid claims that aren\'t in the page text.'
+              : 'Answer the literal question first. Branch into adjacent topics only when invited.',
+          importance: 7,
+          whenToUse: 'before drafting a response in research-flavored threads',
+        };
+        await this.env.DB.prepare(
+          `INSERT INTO pending_suggestions (id, agent_id, kind, trajectory_turn_id, payload, status, created_at)
+           VALUES (?, ?, 'memory', ?, ?, 'pending', ?)`,
+        )
+          .bind(
+            crypto.randomUUID(),
+            agentId,
+            turn.turnId,
+            JSON.stringify(payload),
+            Date.now(),
+          )
+          .run();
+        inserted++;
+      } catch (err) {
+        // Table might not exist on a fresh deployment. Don't bomb the workflow.
+        if (err instanceof Error && /no such table/i.test(err.message)) {
+          return { inserted };
+        }
+        console.warn('[retraining] emit suggestion failed', err);
+      }
+    }
+    return { inserted };
   }
 
   private async commitCandidate(agentId: string, candidate: { id: string; promptDelta: string; rationale: string }): Promise<void> {

@@ -5,6 +5,71 @@
   width: 100%;
 }
 
+@media (max-width: 720px) {
+  .library {
+    padding: 24px 18px 90px;
+  }
+
+  .library__header h2 {
+    font-size: 28px;
+  }
+
+  .library__filters {
+    gap: 6px;
+    /* Horizontal scroll instead of wrap on tiny screens so the search bar
+       stays predictable. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin: 0 -18px 16px;
+    padding: 0 18px 4px;
+    scrollbar-width: none;
+  }
+
+  .library__filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .library__filter {
+    flex: 0 0 auto;
+  }
+
+  .library__search {
+    margin-left: 0;
+    width: 100%;
+    flex: 1 0 100%;
+    order: -1;
+    margin-bottom: 8px;
+  }
+
+  .library__grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .library__viewer {
+    padding: 12px;
+  }
+
+  .library__viewer-panel {
+    max-height: 90vh;
+  }
+
+  .library__viewer-head,
+  .library__viewer-body,
+  .library__viewer-foot {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .library__viewer-image {
+    max-height: 60vh;
+  }
+
+  .library__viewer-iframe {
+    height: 55vh;
+  }
+}
+
 .library__header {
   margin-bottom: 24px;
 }
@@ -81,6 +146,222 @@
   transform: translateY(-2px);
 }
 
+/* Bulk-select chrome. When mode is active, tiles get a checkbox-like
+   affordance in the top-right corner; selected tiles get an accent
+   outline + a subtle bg lift. */
+.library__bulk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-accent);
+  border-radius: var(--ot-radius-md);
+  box-shadow: var(--ot-shadow-sm);
+  animation: library-bulk-in 180ms var(--ot-ease, ease-out);
+}
+
+/* Bulk-tag input row — appears under the bulk action bar when the
+   user has picked ≥1 artifact in select mode. Mirrors the Knowledge
+   bulk-tag style so the two batch flows feel consistent. */
+.library__bulk-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 14px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--ot-accent) 6%, var(--ot-bg-card));
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+}
+
+.library__bulk-tag-input {
+  flex: 1;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+/* "Remove tags" sibling to "Add tags" — same shape, tinted with a
+   soft danger glow so the destructive intent is visually distinct
+   without screaming. Confirm dialog backstops the actual delete. */
+.library__bulk-tag-remove {
+  color: #8a3024;
+  border-color: rgba(194, 57, 46, 0.32);
+}
+
+.library__bulk-tag-remove:hover:not(:disabled),
+.library__bulk-tag-remove:focus-visible {
+  background: rgba(194, 57, 46, 0.08);
+  border-color: rgba(194, 57, 46, 0.55);
+  color: #6e2018;
+}
+
+@media (max-width: 600px) {
+  .library__bulk-tag {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .library__bulk-tag-input {
+    font-size: 16px; /* iOS no-zoom threshold */
+  }
+  /* On a phone the two buttons sit on their own rows under the
+     input; spacing them evenly so the destructive one doesn't
+     hug the safer "Add" sibling. */
+  .library__bulk-tag-remove,
+  .library__bulk-tag > .ot-btn--ghost {
+    width: 100%;
+  }
+}
+
+/* Bulk-download progress meter — sits under the bulk action bar while
+   a zip bundle is in flight. Fills left-to-right as cohorts of 6
+   complete. Stays at 100% for ~600ms so the user sees a clean
+   completion state before it auto-dismisses. */
+.library__bundle-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -8px 0 14px;
+  padding: 8px 14px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  animation: library-bulk-in 220ms var(--ot-ease, ease-out);
+}
+
+.library__bundle-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--ot-bg-sunken, var(--ot-rule));
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.library__bundle-progress-fill {
+  height: 100%;
+  background: var(--ot-accent);
+  border-radius: 999px;
+  transition: width 220ms var(--ot-ease, ease-out);
+}
+
+.library__bundle-progress-label {
+  font-family: var(--ot-font-mono);
+  white-space: nowrap;
+  color: var(--ot-ink-soft);
+}
+
+@media (max-width: 600px) {
+  .library__bundle-progress {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+}
+
+.library__bulk-count {
+  flex: 1 1 auto;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ot-ink);
+}
+
+@keyframes library-bulk-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.library__tile {
+  position: relative;
+}
+
+.library__tile--selectable {
+  cursor: pointer;
+}
+
+.library__tile--selected {
+  border-color: var(--ot-accent);
+  box-shadow: 0 0 0 2px rgba(232, 93, 74, 0.22), var(--ot-shadow-sm);
+}
+
+.library__tile-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ot-bg-card);
+  border: 2px solid var(--ot-rule);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+  z-index: 2;
+}
+
+.library__tile-check--on {
+  background: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+/* Star button — sits in the same top-right corner as the check badge,
+   hover-revealed for unstarred tiles, always visible for starred. */
+.library__tile-star {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-mute);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+  z-index: 2;
+}
+
+.library__tile:hover .library__tile-star,
+.library__tile-star:focus-visible {
+  opacity: 1;
+}
+
+.library__tile-star:hover {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+.library__tile-star--on {
+  opacity: 1 !important;
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+  background: var(--ot-accent-soft);
+}
+
+.library__tile--starred {
+  border-color: rgba(232, 93, 74, 0.32);
+  box-shadow: 0 0 0 1px rgba(232, 93, 74, 0.16);
+}
+
 .library__tile-thumb {
   aspect-ratio: 4 / 3;
   background: var(--ot-bg-soft);
@@ -88,6 +369,25 @@
   align-items: center;
   justify-content: center;
   font-size: 36px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Real-image variant of the thumb — used for image-typed artifacts.
+   `loading="lazy"` defers the network fetch until the tile is near
+   the viewport so a 200-row grid doesn't fire 200 requests up front.
+   Fade-in via the opacity transition smooths the "blank → image"
+   moment so it doesn't pop in jarringly. */
+.library__tile-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  animation: library-tile-image-in 200ms 0ms forwards ease-out;
+}
+
+@keyframes library-tile-image-in {
+  to { opacity: 1; }
 }
 
 .library__tile-meta {
@@ -110,4 +410,905 @@
   font-size: 11px;
   color: var(--ot-ink-mute);
   font-family: var(--ot-font-mono);
+}
+
+.library__tile-age {
+  margin-top: 2px;
+}
+
+/* Per-tile tag chips — render below the age timestamp on tiles that
+   have user-curated tags. Caps at 4 visible chips with a "+N" tail
+   so dense tag sets don't expand the tile's height awkwardly.
+   Clicking a chip toggles the global tag filter. */
+.library__tile-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.library__tile-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  background: var(--ot-bg-sunken, var(--ot-bg-soft));
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-soft);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.library__tile-tag:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+.library__tile-tag:focus-visible {
+  outline: 2px solid var(--ot-accent);
+  outline-offset: 1px;
+}
+
+.library__tile-tag--active {
+  background: color-mix(in srgb, var(--ot-accent) 22%, transparent);
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+.library__tile-tag--more {
+  color: var(--ot-ink-mute);
+  font-style: italic;
+  cursor: default;
+}
+
+/* Tag filter row above the grid — mirrors the Knowledge tag-filter
+   layout. Each chip toggles a tag into the active set; "× clear"
+   wipes the filter. */
+.library__tag-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 4px 0 14px;
+  padding: 8px 10px;
+  background: var(--ot-bg-sunken, var(--ot-bg-soft));
+  border: 1px solid var(--ot-rule);
+  border-radius: 8px;
+}
+
+.library__tag-filters-label {
+  color: var(--ot-ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  margin-right: 4px;
+}
+
+.library__tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-soft);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.library__tag-chip:hover,
+.library__tag-chip:focus-visible {
+  color: var(--ot-ink);
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+.library__tag-chip--active {
+  background: color-mix(in srgb, var(--ot-accent) 22%, transparent);
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+.library__tag-chip-n {
+  color: var(--ot-ink-mute);
+  font-size: 10px;
+}
+
+.library__tag-chip--clear {
+  border-style: dashed;
+  color: var(--ot-ink-mute);
+}
+
+.library__tag-chip--clear:hover {
+  border-color: var(--ot-danger, #b94545);
+  color: var(--ot-danger, #b94545);
+}
+
+/* Reset-order chip — renders only when the user has dragged tags
+   into a curated order. Soft accent tint so the affordance reads
+   as "undo the curated arrangement" without screaming destructive. */
+.library__tag-chip--reset-order {
+  border-style: dashed;
+  color: var(--ot-ink-mute);
+  background: color-mix(in srgb, var(--ot-accent) 4%, var(--ot-bg-card));
+}
+
+.library__tag-chip--reset-order:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+  background: color-mix(in srgb, var(--ot-accent) 10%, var(--ot-bg-card));
+}
+
+/* Tag chip with a rename affordance — wraps the toggle button + a
+   tiny `✎` pencil that surfaces on hover. The pencil opens an inline
+   edit input that rewrites the tag across every artifact carrying it
+   when the user hits Enter. */
+.library__tag-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  /* The wrap is the drag handle — make the whole chip + its inline
+     buttons draggable so the user can pick it up from any non-
+     button surface. `cursor: grab` telegraphs the affordance
+     without screaming. */
+  cursor: grab;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease),
+    transform var(--ot-dur-quick) var(--ot-ease);
+}
+
+.library__tag-chip-wrap:active {
+  cursor: grabbing;
+}
+
+/* Source chip while it's being dragged — dim + scale down a hair so
+   the user gets a strong "you've picked this up" cue without the
+   chip leaving its slot (the browser's drag image carries that). */
+.library__tag-chip-wrap--dragging {
+  opacity: 0.4;
+  transform: scale(0.96);
+}
+
+/* Drop target — left-edge accent rail shows where the dragged chip
+   will land if released. We use ::before so it doesn't perturb the
+   flex layout. */
+.library__tag-chip-wrap--over::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  background: var(--ot-accent);
+  border-radius: 999px;
+  /* Soft glow so the indicator reads at a glance against busy chip
+     rows. */
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ot-accent) 60%, transparent);
+  pointer-events: none;
+}
+
+/* Drop-target hint while a Library tile is being dragged — every
+   tag chip picks up a gentle accent ring + breath animation so the
+   user can see "you can drop here" before they commit. The over
+   state above stacks on top with a stronger indicator. Animation
+   suppressed on prefers-reduced-motion. */
+.library__tag-chip-wrap--tile-target .library__tag-chip {
+  border-color: color-mix(in srgb, var(--ot-accent) 45%, var(--ot-rule));
+  background: color-mix(in srgb, var(--ot-accent) 6%, var(--ot-bg-card));
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--ot-accent) 40%, transparent);
+  animation: library-tag-drop-pulse 1.4s infinite ease-in-out;
+}
+
+.library__tag-chip-wrap--tile-target.library__tag-chip-wrap--over .library__tag-chip {
+  /* The over-state takes priority: stronger accent fill + halt the
+     pulse so the active drop target stands out from its siblings. */
+  border-color: var(--ot-accent);
+  background: color-mix(in srgb, var(--ot-accent) 18%, var(--ot-bg-card));
+  animation: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ot-accent) 35%, transparent);
+}
+
+@keyframes library-tag-drop-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ot-accent) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ot-accent) 22%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library__tag-chip-wrap--tile-target .library__tag-chip {
+    animation: none;
+  }
+}
+
+.library__tag-chip-rename {
+  background: transparent;
+  border: 0;
+  padding: 0 6px;
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.library__tag-chip-wrap:hover .library__tag-chip-rename,
+.library__tag-chip-rename:focus-visible {
+  opacity: 1;
+  color: var(--ot-accent);
+  outline: none;
+}
+
+/* Delete affordance — destructive sibling of the rename pencil.
+   Surfaces on hover alongside ✎, tints to danger on hover. The
+   confirm prompt protects against accidental nukes. */
+.library__tag-chip-delete {
+  background: transparent;
+  border: 0;
+  padding: 0 6px;
+  font-size: 13px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.library__tag-chip-wrap:hover .library__tag-chip-delete,
+.library__tag-chip-delete:focus-visible {
+  opacity: 1;
+  color: var(--ot-danger, #b94545);
+  outline: none;
+}
+
+/* "Untag from selected" affordance — third sibling button beside
+   the rename + delete-all icons, only rendered when the user is in
+   select mode with rows highlighted that actually carry this tag.
+   Reads as a soft warning rather than a destructive red — it's a
+   subtractive operation but scoped to a known set, not a global
+   sweep. Always visible (not hover-revealed) since the user
+   needs to act on it during an active selection workflow. */
+.library__tag-chip-untag-selected {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 1px 7px;
+  margin-left: 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 168, 0, 0.42);
+  background: rgba(232, 168, 0, 0.1);
+  color: #7a5a00;
+  cursor: pointer;
+  transition: background var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.library__tag-chip-untag-selected:hover,
+.library__tag-chip-untag-selected:focus-visible {
+  background: rgba(232, 168, 0, 0.2);
+  border-color: rgba(232, 168, 0, 0.6);
+  color: #5a4400;
+  outline: none;
+}
+
+/* Inline rename input — replaces the chip while in edit mode. Uses
+   the dashed accent border to telegraph "this is an editable
+   surface". Esc cancels, Enter / blur commits. */
+.library__tag-chip--editing {
+  padding: 0;
+  border: 1px dashed var(--ot-accent);
+  background: color-mix(in srgb, var(--ot-accent) 8%, transparent);
+}
+
+.library__tag-chip-input {
+  background: transparent;
+  border: 0;
+  padding: 3px 10px;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink);
+  width: 100px;
+}
+
+.library__tag-chip-input:focus {
+  outline: none;
+}
+
+/* Loading skeletons — keep the grid layout stable while data loads. */
+.library__tile--skeleton {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.library__tile--skeleton .library__tile-thumb {
+  background: linear-gradient(
+    90deg,
+    var(--ot-bg-soft) 0%,
+    rgba(232, 93, 74, 0.06) 50%,
+    var(--ot-bg-soft) 100%
+  );
+  background-size: 200% 100%;
+  animation: library-shimmer 1.6s ease-in-out infinite;
+}
+
+.library__skel-line {
+  display: block;
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--ot-bg-soft) 0%,
+    rgba(232, 93, 74, 0.06) 50%,
+    var(--ot-bg-soft) 100%
+  );
+  background-size: 200% 100%;
+  animation: library-shimmer 1.6s ease-in-out infinite;
+}
+
+.library__skel-line--short {
+  width: 65%;
+  height: 10px;
+  margin-top: 4px;
+}
+
+@keyframes library-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.library__empty {
+  padding: 32px 24px;
+  border: 1px dashed var(--ot-rule);
+  border-radius: 14px;
+  color: var(--ot-ink-mute);
+  text-align: center;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* Artifact viewer — full-screen modal over the Library. */
+.library__viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.library__viewer-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 18, 14, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.library__viewer-panel {
+  position: relative;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-rule);
+  border-radius: 16px;
+  box-shadow: 0 30px 80px rgba(20, 18, 14, 0.2);
+  width: min(960px, 100%);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.library__viewer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--ot-rule);
+  gap: 16px;
+}
+
+.library__viewer-title {
+  font-family: var(--ot-font-display, 'Fraunces', serif);
+  font-size: 22px;
+  letter-spacing: -0.005em;
+  margin: 0 0 4px;
+}
+
+.library__viewer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 22px;
+  background: var(--ot-bg-soft);
+}
+
+.library__viewer-pre {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.library__viewer-image {
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+  display: block;
+  border-radius: 8px;
+}
+
+.library__viewer-iframe {
+  width: 100%;
+  height: 65vh;
+  border: 1px solid var(--ot-rule);
+  border-radius: 8px;
+  background: var(--ot-bg);
+}
+
+.library__viewer-error {
+  color: var(--ot-bad, #c84439);
+  font-family: var(--ot-font-mono);
+  font-size: 13px;
+}
+
+.library__viewer-foot {
+  padding: 12px 22px;
+  border-top: 1px solid var(--ot-rule);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Did-you-mean strip inside the empty-search state. Surfaces up to 3
+   Levenshtein-near matches from the loaded artifact list. Clicking a
+   chip replaces the search query with the chip's exact title. */
+.library__did-you-mean {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 14px;
+  justify-content: center;
+}
+
+.library__did-you-mean-chip {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--ot-radius-pill);
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-card);
+  color: var(--ot-ink);
+  cursor: pointer;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.library__did-you-mean-chip:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+/* Right-click context menu for Library tiles. Positioned absolutely at
+   the cursor (clamped to viewport in the component). Click-outside +
+   Esc dismiss are wired in Library.tsx. */
+/* Hover-preview popover — floats next to the hovered tile after a
+   350ms hover delay. Shows full metadata + every tag + the R2 key.
+   Pointer events ARE captured so the user can move into the popover
+   to interact with its contents (select the R2 key, hover a tag,
+   etc.); a 120ms grace timer on the tile's mouseleave gives them
+   that window to slide in before the popover clears. The popover's
+   own mouseleave fires an immediate clear. */
+.library__hover-preview {
+  position: fixed;
+  width: 280px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-lg);
+  box-shadow: var(--ot-shadow-lg, 0 8px 28px rgba(0, 0, 0, 0.18));
+  padding: 12px 14px;
+  z-index: 80;
+  /* Note: pointer-events stay `auto` (the default) so the popover
+     intercepts mouse-enter/leave — that's how the keep-alive
+     pattern works. */
+  animation: library-hover-preview-in 140ms var(--ot-ease, ease-out);
+}
+
+@keyframes library-hover-preview-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.library__hover-preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.library__hover-preview-type {
+  color: var(--ot-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--ot-font-mono);
+}
+
+.library__hover-preview-age {
+  color: var(--ot-ink-mute);
+}
+
+.library__hover-preview-title {
+  margin: 0 0 8px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ot-ink);
+  line-height: 1.3;
+  /* Long titles wrap; we cap at 3 lines so the popover height
+     stays predictable. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.library__hover-preview-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.library__hover-preview-meta dt {
+  color: var(--ot-ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  font-family: var(--ot-font-mono);
+  align-self: center;
+}
+
+.library__hover-preview-meta dd {
+  margin: 0;
+  color: var(--ot-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Aspect-ratio label inside the Dimensions row — muted so the
+   W×H stays the primary content. */
+.library__hover-preview-ratio {
+  color: var(--ot-ink-mute);
+  font-style: italic;
+}
+
+/* Workspace identifier rendered in the meta dl when the R2 key
+   carries the canonical `artifacts/<agentId>/<file>` shape. Reads
+   as "who put this here" provenance without needing an explicit
+   author field. */
+.library__hover-preview-workspace {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 1px 6px;
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-xs, 4px);
+  color: var(--ot-ink);
+}
+
+.library__hover-preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.library__hover-preview-tag {
+  font-family: var(--ot-font-mono);
+  font-size: 10.5px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-soft);
+  /* Now a `<button>` — kill the default chrome, expose hover/focus
+     state for keyboard nav. */
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.library__hover-preview-tag:hover,
+.library__hover-preview-tag:focus-visible {
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+  outline: none;
+}
+
+.library__hover-preview-tag--active {
+  background: color-mix(in srgb, var(--ot-accent) 18%, var(--ot-bg-card));
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+/* Keyboard hint row at the bottom of the popover — tells the
+   user about the Cmd/Ctrl+Enter open + Esc close shortcuts.
+   Small, muted; doesn't compete with the meta dl above. */
+.library__hover-preview-hint {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--ot-rule-soft, var(--ot-rule));
+  color: var(--ot-ink-mute);
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.library__hover-preview-hint kbd {
+  display: inline-block;
+  font-family: var(--ot-font-mono);
+  font-size: 9.5px;
+  padding: 1px 5px;
+  margin: 0 1px;
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border: 1px solid var(--ot-rule);
+  border-radius: 4px;
+  color: var(--ot-ink);
+  line-height: 1.2;
+}
+
+/* Actions row at the bottom of the popover — wraps the copy
+   button + the key pill so they read as one cluster. */
+.library__hover-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.library__hover-preview-key {
+  display: block;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: var(--ot-radius-xs, 4px);
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border: 1px dashed var(--ot-rule);
+  color: var(--ot-ink-mute);
+  word-break: break-all;
+  max-height: 38px;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Copy-key button — focusable target for Tab-from-tile keyboard
+   navigation into the popover. Same pill shape as the other
+   compact controls in the codebase. */
+.library__hover-preview-copy {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 3px 9px;
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink);
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.library__hover-preview-copy:hover,
+.library__hover-preview-copy:focus-visible {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+  outline: none;
+}
+
+/* Image preview rendered in the hover popover for image-typed
+   artifacts (instead of the text snippet). Caps at a reasonable
+   thumbnail size — popover stays predictable across portrait/
+   landscape/square aspect ratios. A subtle border + rounded
+   corners match the rest of the popover's chrome family. */
+.library__hover-preview-image {
+  margin: 0 0 8px;
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-sm, 6px);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Soft checkerboard so transparent PNGs render against a known
+     surface instead of competing with the popover's bg color. */
+  background-image:
+    linear-gradient(45deg, var(--ot-rule) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--ot-rule) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--ot-rule) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--ot-rule) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-color: var(--ot-bg-soft, var(--ot-bg-card));
+}
+
+.library__hover-preview-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 140px;
+  object-fit: contain;
+}
+
+/* First-N-bytes text snippet rendered in the hover popover for
+   text-typed artifacts. Sits between the tags row and the key
+   pill — a small `<pre>` with a max height that gracefully
+   truncates so the popover never blows out vertically. */
+.library__hover-preview-snippet {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  font-family: var(--ot-font-mono);
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--ot-ink-soft);
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-xs, 4px);
+  max-height: 96px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  /* Fade the bottom so the truncation reads as intentional rather
+     than the snippet being cut off mid-glyph. */
+  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+}
+
+.library__hover-preview-snippet--loading,
+.library__hover-preview-snippet--skipped {
+  font-family: var(--ot-font-mono);
+  font-size: 10.5px;
+  font-style: italic;
+  color: var(--ot-ink-mute);
+  text-align: center;
+  background: transparent;
+  border-style: dashed;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+/* Code-typed artifact snippet — same shape as the text snippet but
+   with a slightly tighter line-height since lines of code tend to
+   be denser than prose. Token color classes below are kept
+   intentionally subtle: the snippet is preview chrome, not an
+   editor view, so we don't want them screaming. */
+.library__hover-preview-snippet--code {
+  line-height: 1.4;
+}
+
+.library__code-kw {
+  color: var(--ot-accent);
+  font-weight: 600;
+}
+
+.library__code-str {
+  color: #4f7a4d;
+}
+
+.library__code-comment {
+  color: var(--ot-ink-mute);
+  font-style: italic;
+}
+
+.library__code-num {
+  color: #7b4fb5;
+}
+
+@media (max-width: 600px) {
+  /* Phones: hover doesn't apply meaningfully; hide the popover so
+     long-presses don't accidentally summon it. */
+  .library__hover-preview {
+    display: none;
+  }
+}
+
+.library__ctxmenu {
+  position: fixed;
+  z-index: 80;
+  width: 220px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  box-shadow: 0 16px 40px rgba(20, 18, 14, 0.18);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  animation: library-ctxmenu-in 120ms var(--ot-ease, ease-out);
+}
+
+@keyframes library-ctxmenu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+    transform-origin: top left;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.library__ctxmenu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ot-ink);
+  cursor: pointer;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.library__ctxmenu-item:hover,
+.library__ctxmenu-item:focus-visible {
+  background: rgba(232, 93, 74, 0.08);
+  outline: none;
+}
+
+.library__ctxmenu-item--danger {
+  color: #8a1c14;
+}
+
+.library__ctxmenu-item--danger:hover {
+  background: rgba(232, 93, 74, 0.14);
+}
+
+.library__ctxmenu-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  font-family: var(--ot-font-mono);
+  font-size: 13px;
+  color: var(--ot-ink-mute);
+}
+
+.library__ctxmenu-item--danger .library__ctxmenu-glyph {
+  color: #8a1c14;
+}
+
+.library__ctxmenu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--ot-rule);
 }

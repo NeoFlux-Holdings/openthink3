@@ -1,0 +1,472 @@
+/* Command palette — full-screen blur sheet with a centered card. */
+
+.cmdk {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+}
+
+.cmdk__scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 14, 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  z-index: -1;
+}
+
+.cmdk__panel {
+  width: min(640px, 92vw);
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-rule);
+  border-radius: 14px;
+  box-shadow: 0 30px 80px rgba(20, 18, 14, 0.18), 0 0 0 1px rgba(232, 93, 74, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: cmdk-pop 160ms var(--ot-ease, ease-out);
+}
+
+@keyframes cmdk-pop {
+  from {
+    transform: translateY(-6px) scale(0.985);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.cmdk__input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--ot-rule);
+  background: var(--ot-bg);
+}
+
+.cmdk__input-glyph {
+  color: var(--ot-accent);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.cmdk__input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-family: var(--ot-font-display, 'Fraunces', serif);
+  font-size: 22px;
+  color: var(--ot-ink);
+  letter-spacing: -0.01em;
+}
+
+.cmdk__input::placeholder {
+  color: var(--ot-ink-mute);
+  font-style: italic;
+}
+
+.cmdk__hint {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ot-ink-mute);
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  border-radius: 4px;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.cmdk__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 0;
+  border-bottom: 1px solid var(--ot-rule);
+  background: var(--ot-bg-soft);
+}
+
+.cmdk__tab {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+  background: transparent;
+  border: 0;
+  padding: 8px 12px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 140ms var(--ot-ease, ease-out), border-color 140ms var(--ot-ease, ease-out);
+}
+
+.cmdk__tab:hover {
+  color: var(--ot-ink);
+}
+
+.cmdk__tab--active {
+  color: var(--ot-accent);
+  border-bottom-color: var(--ot-accent);
+}
+
+/* Body row — results + preview pane side-by-side. Stacks below
+   ~720px so the preview doesn't squeeze the result list into
+   unreadable narrow columns. */
+.cmdk__body {
+  display: flex;
+  gap: 0;
+  min-height: 0;
+  border-top: 1px solid var(--ot-rule);
+}
+
+.cmdk__results {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 8px 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Preview pane — surfaces extended context for the cursored item.
+   Fixed width on desktop so the title + body get enough room without
+   competing with the results list; flips to stacked at narrower
+   breakpoints. */
+.cmdk__preview {
+  width: 280px;
+  max-width: 40%;
+  border-left: 1px solid var(--ot-rule);
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  padding: 14px 16px;
+  overflow-y: auto;
+  max-height: 50vh;
+  flex-shrink: 0;
+  /* The preview can flicker visually when the cursor jumps quickly;
+     a tiny fade smooths the transition without slowing keyboard nav. */
+  animation: cmdk-preview-in 140ms var(--ot-ease, ease-out);
+}
+
+@keyframes cmdk-preview-in {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+
+.cmdk__preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cmdk__preview-kind {
+  color: var(--ot-ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+}
+
+.cmdk__preview-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ot-ink);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.cmdk__preview-sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ot-ink-soft);
+  line-height: 1.5;
+}
+
+.cmdk__preview-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cmdk__preview-meta-label {
+  color: var(--ot-ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  flex: 0 0 auto;
+}
+
+.cmdk__preview-href {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  padding: 2px 6px;
+  border-radius: var(--ot-radius-xs, 4px);
+  color: var(--ot-ink);
+  /* Long hrefs (artifact keys with paths) wrap at the slash so the
+     pane doesn't blow out horizontally. */
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+
+.cmdk__preview-hint {
+  margin: 4px 0 0;
+  color: var(--ot-ink-mute);
+  padding-top: 10px;
+  border-top: 1px dashed var(--ot-rule);
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  /* Phone / narrow tablet: stack the preview below the results so
+     neither feels squeezed. Also tighten paddings. */
+  .cmdk__body {
+    flex-direction: column;
+  }
+  .cmdk__preview {
+    width: auto;
+    max-width: 100%;
+    border-left: 0;
+    border-top: 1px solid var(--ot-rule);
+    max-height: 35vh;
+    padding: 12px 14px;
+  }
+  .cmdk__results {
+    max-height: 35vh;
+  }
+}
+
+.cmdk__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+}
+
+.cmdk__group + .cmdk__group {
+  border-top: 1px dashed var(--ot-rule);
+}
+
+.cmdk__group-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+  padding: 6px 12px 2px;
+}
+
+/* Clear-recent affordance — only rendered next to the Recent group's
+   label. Quiet at rest so it doesn't fight the label; lights up to
+   the accent on hover so the click target is clear. */
+.cmdk__group-clear {
+  background: transparent;
+  border: 0;
+  padding: 1px 6px;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  border-radius: 999px;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.cmdk__group-clear:hover,
+.cmdk__group-clear:focus-visible {
+  color: var(--ot-accent);
+  background: color-mix(in srgb, var(--ot-accent) 10%, transparent);
+}
+
+/* Last-used timestamp chip on recent items. Sits flush-right of the
+   row so it doesn't compete with the title/subtitle stack. */
+.cmdk__item-when {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  color: var(--ot-ink-mute);
+  font-family: var(--ot-font-mono);
+}
+
+.cmdk__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--ot-ink);
+  transition: background-color 100ms var(--ot-ease, ease-out);
+}
+
+.cmdk__item-title {
+  font-family: var(--ot-font-ui, 'Inter', sans-serif);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cmdk__item-sub {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+  letter-spacing: 0.02em;
+}
+
+.cmdk__item--active,
+.cmdk__item:hover {
+  background: rgba(232, 93, 74, 0.08);
+  outline: 1px solid rgba(232, 93, 74, 0.24);
+}
+
+.cmdk__empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--ot-ink-mute);
+}
+
+.cmdk__footer {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  padding: 10px 16px;
+  border-top: 1px solid var(--ot-rule);
+  background: var(--ot-bg-soft);
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+  flex-wrap: wrap;
+}
+
+.cmdk__footer kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg);
+  margin-right: 4px;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+}
+
+/* Mobile: convert to bottom-sheet — anchor to the bottom edge so the
+   thumb can reach the input naturally, and slide up rather than fading
+   in from above. Kbd hints in the footer hide entirely since there's
+   no physical keyboard to map them to. The input font drops a touch
+   so the search query doesn't wrap on iOS's 16-letter cursor zone. */
+@media (max-width: 640px) {
+  .cmdk {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .cmdk__panel {
+    width: 100%;
+    max-width: none;
+    border-radius: 18px 18px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    max-height: 92vh;
+    animation: cmdk-slide-up 220ms var(--ot-ease, ease-out);
+    /* Pull-handle bar centered above the input. */
+    padding-top: 6px;
+    position: relative;
+  }
+
+  .cmdk__panel::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--ot-rule);
+  }
+
+  @keyframes cmdk-slide-up {
+    from {
+      transform: translateY(16px);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+
+  .cmdk__input-row {
+    padding: 16px 18px;
+  }
+
+  .cmdk__input {
+    font-size: 19px;
+  }
+
+  .cmdk__hint {
+    /* Keyboards don't render Esc — replace with a close affordance. */
+    display: none;
+  }
+
+  .cmdk__close-mobile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--ot-bg-soft);
+    color: var(--ot-ink-mute);
+    font-size: 18px;
+    line-height: 1;
+    border: 0;
+  }
+
+  .cmdk__results {
+    max-height: 60vh;
+    /* Extra bottom padding clears iOS home indicator. */
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .cmdk__item {
+    /* 44px Apple HIG tap target. */
+    min-height: 48px;
+    padding: 12px 14px;
+  }
+
+  .cmdk__item-title {
+    font-size: 15px;
+  }
+
+  .cmdk__footer {
+    /* Kbd shortcuts are meaningless on touch; collapse the row. */
+    display: none;
+  }
+}
+
+.cmdk__close-mobile {
+  display: none;
+}

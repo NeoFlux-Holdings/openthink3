@@ -190,6 +190,46 @@ function ThumbnailStrip({
           className={`thumb${a.id === activeId ? ' thumb--active' : ''}`}
           onClick={() => onSelect(a.id)}
           aria-pressed={a.id === activeId}
+          onKeyDown={(e) => {
+            // ArrowLeft / ArrowRight + Home / End walk the thumbnail
+            // strip and pull the corresponding artifact into the
+            // single-mode view. The visible state follows focus —
+            // tabbing through the row also flips the active artifact
+            // because each thumb's onSelect fires on activation.
+            if (
+              e.key !== 'ArrowLeft' &&
+              e.key !== 'ArrowRight' &&
+              e.key !== 'Home' &&
+              e.key !== 'End'
+            ) {
+              return;
+            }
+            const strip = (e.currentTarget as HTMLElement).parentElement;
+            if (!strip) return;
+            const items = Array.from(
+              strip.querySelectorAll<HTMLButtonElement>('.thumb'),
+            );
+            const idx = items.indexOf(e.currentTarget as HTMLButtonElement);
+            if (idx < 0) return;
+            e.preventDefault();
+            let nxt = idx;
+            if (e.key === 'ArrowLeft') nxt = Math.max(0, idx - 1);
+            else if (e.key === 'ArrowRight')
+              nxt = Math.min(items.length - 1, idx + 1);
+            else if (e.key === 'Home') nxt = 0;
+            else if (e.key === 'End') nxt = items.length - 1;
+            if (nxt !== idx) {
+              const target = items[nxt];
+              if (target) {
+                target.focus();
+                // Selecting also swaps the canvas main body — we
+                // mirror the click path so arrow keys feel identical
+                // to clicking the next thumb.
+                const aid = artifacts[nxt]?.id;
+                if (aid) onSelect(aid);
+              }
+            }
+          }}
         >
           <span className="thumb__glyph" aria-hidden>
             {GLYPHS[a.type] ?? '◇'}

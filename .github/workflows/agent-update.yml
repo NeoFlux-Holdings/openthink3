@@ -1,0 +1,124 @@
+name: Agent update from upstream
+
+# Pulls the latest from NeoFlux-Holdings/openthink3 into the user's fork and
+# opens a draft PR when drift is detected. Pairs with `agent-deploy.yml`,
+# which auto-deploys when the PR lands.
+#
+# Trigger:
+#   - daily at 09:00 UTC (after the retraining cron, before workday for most
+#     timezones)
+#   - manual via workflow_dispatch (Sync panel uses this through `gh
+#     workflow run`)
+#
+# Required:
+#   secrets.AGENT_BOT_PAT  — fine-grained PAT on the fork with `contents:write`
+#                            + `pull_requests:write`. Default GITHUB_TOKEN
+#                            doesn't open PRs targeting the same repo's
+#                            default branch.
+#
+# The upstream remote is computed from `vars.OPENTHINK_UPSTREAM_REPO` so
+# users can fork from a different mainline if they prefer (e.g. a friend's
+# stable branch).
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Open the PR even if no commits to pull'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: agent-update-${{ github.repository }}
+      cancel-in-progress: true
+    env:
+      UPSTREAM: ${{ vars.OPENTHINK_UPSTREAM_REPO || 'NeoFlux-Holdings/openthink3' }}
+      BRANCH: agent/upstream-sync-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AGENT_BOT_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "openthink-bot"
+          git config user.email "noreply@openthink.run"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "https://github.com/${UPSTREAM}.git"
+          git fetch upstream main
+
+      - name: Detect drift
+        id: drift
+        run: |
+          # If `git rev-list upstream/main..main` is empty AND
+          # `git rev-list main..upstream/main` is non-empty, we're behind.
+          BEHIND=$(git rev-list --count main..upstream/main)
+          AHEAD=$(git rev-list --count upstream/main..main)
+          echo "behind=$BEHIND" >> $GITHUB_OUTPUT
+          echo "ahead=$AHEAD" >> $GITHUB_OUTPUT
+          echo "upstream-sha=$(git rev-parse upstream/main)" >> $GITHUB_OUTPUT
+
+      - name: Skip if caught up
+        if: steps.drift.outputs.behind == '0' && github.event.inputs.force != 'true'
+        run: |
+          echo "Nothing to pull. Upstream and fork are aligned."
+          exit 0
+
+      - name: Create sync branch
+        if: steps.drift.outputs.behind != '0' || github.event.inputs.force == 'true'
+        run: |
+          git checkout -b "$BRANCH"
+          # Use a 3-way merge so the working tree captures actual conflicts
+          # rather than silently overwriting. We let the merge fail and stop
+          # the workflow so the user resolves manually — the PR body links
+          # to the failing files.
+          if ! git merge --no-edit "upstream/main"; then
+            echo "::warning::Merge conflicts; pushing branch as-is with conflict markers"
+            git add -A
+            git commit -m "WIP: merge from upstream@${{ steps.drift.outputs.upstream-sha }} (conflicts present)"
+          fi
+
+      - name: Push sync branch
+        if: steps.drift.outputs.behind != '0' || github.event.inputs.force == 'true'
+        run: git push -u origin "$BRANCH"
+
+      - name: Open PR
+        if: steps.drift.outputs.behind != '0' || github.event.inputs.force == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AGENT_BOT_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --draft \
+            --title "Sync from upstream: ${{ steps.drift.outputs.behind }} commit(s)" \
+            --body "$(cat <<EOF
+          Upstream HEAD: \`${{ steps.drift.outputs.upstream-sha }}\`
+          Behind: ${{ steps.drift.outputs.behind }} · Ahead: ${{ steps.drift.outputs.ahead }}
+
+          ## What changed upstream
+
+          $(git log --no-merges --pretty='- %h %s (%an)' main..upstream/main | head -20)
+
+          ## How to merge
+
+          Review the diff and \`gh pr merge\` when you're happy. The
+          \`agent-deploy.yml\` workflow will redeploy the Worker on merge to
+          \`main\`.
+
+          _Opened automatically by \`agent-update.yml\`._
+          EOF
+          )"

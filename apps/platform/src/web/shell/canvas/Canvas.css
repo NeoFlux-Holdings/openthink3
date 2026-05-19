@@ -250,9 +250,23 @@
   transform: translateY(-1px);
 }
 
+.thumb:focus-visible {
+  outline: none;
+  border-color: var(--ot-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ot-accent) 38%, transparent);
+}
+
 .thumb--active {
   border-color: var(--ot-accent);
   box-shadow: 0 0 0 1px var(--ot-accent);
+}
+
+.thumb--active:focus-visible {
+  /* Bump the focus ring to a thicker outline when the thumb is also
+     active so the keyboard target stays distinct from the resting
+     active state. */
+  box-shadow: 0 0 0 1px var(--ot-accent),
+    0 0 0 4px color-mix(in srgb, var(--ot-accent) 28%, transparent);
 }
 
 .thumb__glyph {

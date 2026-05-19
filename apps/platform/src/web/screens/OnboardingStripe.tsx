@@ -7,35 +7,32 @@ interface Props {
   flow: AppFlowState;
   merge: (patch: Partial<AppFlowState>) => void;
   next: () => void;
+  back?: () => void;
 }
 
 // v1.0 stub: the real Stripe Projects integration goes through embedded checkout
 // + automatic CF account creation. For iteration 1 we surface the cost summary and
 // kick to the deploy stub so the full flow renders end-to-end.
-export function OnboardingStripe({ flow, merge, next }: Props) {
+export function OnboardingStripe({ flow, merge, next, back }: Props) {
   const [domain, setDomain] = useState(`${flow.agentName}.com`);
   const [tld, setTld] = useState('com');
 
-  const start = async () => {
-    merge({ customDomain: domain });
-    const res = await fetch('/api/deploy/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        agentName: flow.agentName,
-        email: flow.email,
-        accessEmails: [],
-      }),
-    });
-    const data = (await res.json()) as { ok: boolean; deployId?: string };
-    if (data.ok && data.deployId) {
-      merge({ deployId: data.deployId });
-      next();
-    }
+  const start = () => {
+    // Pre-select the domain + Workers Paid (Stripe Projects pricing bundles
+    // both into the $12 charge) and hand off to the Upgrades screen so the
+    // user can refine the pick before deploy actually starts.
+    merge({ customDomain: domain, workersPaid: true, domainPriceCents: 1200 });
+    next();
   };
 
   return (
-    <OnboardingFrame step={3} of={3} title="Pick a domain, fund the agent." subtitle="We'll create your Cloudflare account, register the domain, and deploy.">
+    <OnboardingFrame
+      step={3}
+      of={3}
+      title="Pick a domain, fund the agent."
+      subtitle="We'll create your Cloudflare account, register the domain, and deploy."
+      onBack={back}
+    >
       <div className="onboarding__split onboarding__split-card">
         <div className="onboarding__form">
           <div className="onboarding__field">

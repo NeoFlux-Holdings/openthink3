@@ -252,21 +252,36 @@ export class BrowserSession extends DurableObject<Env> {
   private async pushFrame(): Promise<void> {
     if (this.memory.status !== 'streaming') return;
     const page = await this.ensurePage();
-    if (!page) return;
-    try {
-      const buf = await page.screenshot({ fullPage: false });
-      const base64 = arrayBufferToBase64(buf);
-      this.broadcast({
-        type: 'frame',
-        sessionId: this.state.id.toString(),
-        ts: Date.now(),
-        url: page.url(),
-        title: this.memory.title,
-        pngBase64: base64,
-      });
-    } catch (err) {
-      console.error('[browser-session] frame capture', err);
+    if (page) {
+      try {
+        const buf = await page.screenshot({ fullPage: false });
+        const base64 = arrayBufferToBase64(buf);
+        this.broadcast({
+          type: 'frame',
+          sessionId: this.state.id.toString(),
+          ts: Date.now(),
+          url: page.url(),
+          title: this.memory.title,
+          pngBase64: base64,
+        });
+        return;
+      } catch (err) {
+        console.error('[browser-session] frame capture', err);
+      }
     }
+    // Fallback: the BROWSER binding isn't wired up in this environment (local
+    // miniflare, or production without the puppeteer package installed).
+    // Emit a placeholder frame every second so the canvas can render a
+    // "browser session offline" affordance without a hard error.
+    this.broadcast({
+      type: 'frame',
+      sessionId: this.state.id.toString(),
+      ts: Date.now(),
+      url: this.memory.url,
+      title: this.memory.title,
+      pngBase64: null,
+      placeholder: 'binding_unavailable',
+    });
   }
 
   // ----- WebSocket -----

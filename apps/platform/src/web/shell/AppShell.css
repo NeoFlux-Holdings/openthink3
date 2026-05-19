@@ -1,0 +1,199 @@
+/* AppShell — 2-column layout used by Library, Learning, Skills, Settings.
+   Reuses .shell__sidebar styles from Shell.css so visual rhythm stays
+   identical between Chat and subpages. */
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--ot-bg);
+  position: relative;
+}
+
+.app-shell:has(.shell__sidebar--icons) {
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+
+@media (max-width: 1100px) {
+  .app-shell {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .app-shell:has(.shell__sidebar--icons) {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+}
+
+.app-shell__main {
+  overflow-y: auto;
+  min-width: 0;
+  padding-bottom: 24px;
+}
+
+/* Hamburger lives top-left, only visible on mobile. */
+.app-shell__hamburger {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--ot-glass-bg);
+  backdrop-filter: var(--ot-glass-blur);
+  -webkit-backdrop-filter: var(--ot-glass-blur);
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1;
+  z-index: 70;
+  cursor: pointer;
+  box-shadow: var(--ot-shadow-md);
+  transition: border-color var(--ot-dur-quick, 140ms) var(--ot-ease, ease-out),
+    color var(--ot-dur-quick, 140ms) var(--ot-ease, ease-out),
+    transform var(--ot-dur-quick, 140ms) var(--ot-ease, ease-out);
+}
+
+.app-shell__hamburger:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+.app-shell__hamburger:active {
+  transform: scale(0.94);
+}
+
+.app-shell__scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 14, 0.45);
+  z-index: 55;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Bottom tab nav — hidden on desktop. */
+.app-shell__tabs {
+  display: none;
+}
+
+@media (max-width: 920px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    padding-bottom: 64px;
+  }
+
+  .app-shell .shell__sidebar {
+    display: none;
+  }
+
+  .app-shell__hamburger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app-shell__main {
+    padding-top: 56px; /* clear the floating hamburger */
+  }
+
+  .app-shell--drawer-open .shell__sidebar {
+    display: flex;
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(280px, 84vw);
+    z-index: 60;
+    box-shadow: 24px 0 60px rgba(20, 18, 14, 0.18);
+    animation: app-shell-drawer 200ms var(--ot-ease, ease-out);
+  }
+
+  .app-shell--drawer-open .app-shell__scrim {
+    display: block;
+  }
+
+  @keyframes app-shell-drawer {
+    from {
+      transform: translateX(-12px);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+
+  .app-shell__tabs {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--ot-glass-bg);
+    backdrop-filter: var(--ot-glass-blur);
+    -webkit-backdrop-filter: var(--ot-glass-blur);
+    border-top: 1px solid var(--ot-rule);
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+    z-index: 50;
+  }
+
+  .app-shell__tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    /* Min 56px tap target so thumbs don't miss. */
+    min-height: 56px;
+    padding: 8px 0 4px;
+    color: var(--ot-ink-mute);
+    font-size: 10px;
+    font-family: var(--ot-font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    position: relative;
+    transition: color var(--ot-dur-quick, 140ms) var(--ot-ease, ease-out),
+      transform var(--ot-dur-quick, 140ms) var(--ot-ease, ease-out);
+  }
+
+  .app-shell__tab::before {
+    /* Accent dot above the active tab — replaces the older transform-scale
+       hint with something readable. Animates in via a transform so the
+       width transitions smoothly rather than flashing. */
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 22px;
+    height: 2px;
+    border-radius: 0 0 4px 4px;
+    background: var(--ot-accent);
+    transform: translateX(-50%) scaleX(0);
+    transition: transform var(--ot-dur-base, 200ms) var(--ot-ease, ease-out);
+    transform-origin: center top;
+  }
+
+  .app-shell__tab-glyph {
+    font-size: 18px;
+    line-height: 1;
+    transition: transform var(--ot-dur-quick, 140ms) var(--ot-ease, ease-out);
+  }
+
+  .app-shell__tab:active .app-shell__tab-glyph {
+    transform: scale(0.92);
+  }
+
+  .app-shell__tab--active {
+    color: var(--ot-accent);
+  }
+
+  .app-shell__tab--active::before {
+    transform: translateX(-50%) scaleX(1);
+  }
+
+  .app-shell__tab--active .app-shell__tab-glyph {
+    transform: scale(1.1);
+  }
+}

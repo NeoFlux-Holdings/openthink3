@@ -13,6 +13,48 @@ export function OnboardingIdentity({ flow, merge, next }: Props) {
   const [email, setEmail] = useState(flow.email);
   const [agentName, setAgentName] = useState(flow.agentName);
   const [loadingName, setLoadingName] = useState(false);
+  // Eager-bubble email + agentName up to the parent's `flow` on every
+  // edit so a hash-navigate to Fork (or back/forward) doesn't drop a
+  // half-typed value. The Fork screen already validates `flow.agentName`
+  // → if we waited for Continue to merge, the user could back out and
+  // lose their work.
+  useEffect(() => {
+    if (email) merge({ email });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
+  useEffect(() => {
+    if (agentName) merge({ agentName });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentName]);
+  // Warm-reload detection: if the user already has one or more workspaces
+  // (i.e. they completed onboarding once before), surface a "resume to
+  // chat" banner at the top so a stale `#/onboarding/identity` bookmark
+  // doesn't force them to re-walk the wizard. We don't auto-redirect —
+  // some users genuinely want to set up a *second* agent, so they keep
+  // the option to start fresh.
+  const [resumeTarget, setResumeTarget] = useState<{
+    name: string;
+    agentName: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/workspaces')
+      .then((r) => r.json())
+      .then((data: {
+        workspaces?: Array<{ id: string; name: string; agentName: string }>;
+        activeId?: string | null;
+      }) => {
+        if (cancelled || !data.workspaces || data.workspaces.length === 0) return;
+        const active =
+          data.workspaces.find((w) => w.id === data.activeId) ?? data.workspaces[0];
+        if (active) setResumeTarget({ name: active.name, agentName: active.agentName });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const regenerate = useCallback(async () => {
     setLoadingName(true);
@@ -42,6 +84,39 @@ export function OnboardingIdentity({ flow, merge, next }: Props) {
 
   return (
     <OnboardingFrame step={1} of={3} title="Let's get you an agent." subtitle="Two fields. We pick the rest.">
+      {resumeTarget && (
+        <div className="onboarding__resume" role="status">
+          <div className="onboarding__resume-body">
+            <span className="onboarding__resume-glyph" aria-hidden>↩</span>
+            <div>
+              <strong>{resumeTarget.name}</strong> is already deployed.
+              <p className="ot-micro">
+                You set this up earlier as <code>{resumeTarget.agentName}</code>.
+                Skip ahead to chat, or stay here to spin up a second agent.
+              </p>
+            </div>
+          </div>
+          <div className="onboarding__resume-actions">
+            <button
+              type="button"
+              className="ot-btn"
+              onClick={() => {
+                merge({ agentName: resumeTarget.agentName });
+                window.location.hash = '#/shell';
+              }}
+            >
+              → Resume to chat
+            </button>
+            <button
+              type="button"
+              className="ot-btn ot-btn--ghost"
+              onClick={() => setResumeTarget(null)}
+            >
+              Start fresh
+            </button>
+          </div>
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="onboarding__form">
         <div className="onboarding__field">
           <label className="ot-label" htmlFor="email">
@@ -109,14 +184,37 @@ export function OnboardingFrame({
   title,
   subtitle,
   children,
+  onBack,
 }: {
   step: number;
   of: number;
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  // Optional escape hatch — when provided, renders a "← Back" link in
+  // the topbar AND wires Escape to call it. Lets each onboarding step
+  // declare its own back target without each component duplicating the
+  // key listener.
+  onBack?: () => void;
 }) {
   const pct = (step / of) * 100;
+  // Esc → back, when the parent offered one. We attach at the window
+  // level (rather than the card) so the user can be focused anywhere —
+  // a text input, a button, the body — and still escape out. Skipped
+  // when the input is already focused on a textarea (multi-line Esc
+  // typically means "blur", not "go back").
+  useEffect(() => {
+    if (!onBack) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'TEXTAREA') return;
+      e.preventDefault();
+      onBack();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onBack]);
   return (
     <div className="onboarding">
       <header className="onboarding__topbar">
@@ -124,6 +222,17 @@ export function OnboardingFrame({
           <a href="#" className="ot-brand">
             <span className="ot-brand-dot" /> OpenThink
           </a>
+          {onBack && (
+            <button
+              type="button"
+              className="onboarding__back"
+              onClick={onBack}
+              aria-label="Back to previous step"
+              title="Back (Esc)"
+            >
+              ← Back
+            </button>
+          )}
           <div className="onboarding__progress" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={of}>
             <span className="onboarding__progress-label">
               <span className="onboarding__progress-num">{String(step).padStart(2, '0')}</span>

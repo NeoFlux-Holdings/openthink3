@@ -96,3 +96,30 @@
     --ot-dur-slower: 0ms;
   }
 }
+
+/* Generic shimmer for skeleton loaders. Use as a class on any element you
+   want to look like it's "loading". The animation respects
+   prefers-reduced-motion via the cascade — `*-dur` tokens go to 0ms above. */
+.ot-skel {
+  background: linear-gradient(
+    90deg,
+    var(--ot-bg-soft) 0%,
+    rgba(232, 93, 74, 0.06) 50%,
+    var(--ot-bg-soft) 100%
+  );
+  background-size: 200% 100%;
+  animation: ot-shimmer 1.6s ease-in-out infinite;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.ot-skel--row {
+  display: block;
+  height: 14px;
+  margin: 6px 0;
+}
+
+@keyframes ot-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

@@ -5,12 +5,24 @@
   width: 100%;
 }
 
+@media (max-width: 720px) {
+  .skills-page {
+    padding: 24px 18px 90px;
+  }
+}
+
 .skills-page__header h2 {
   font-family: var(--ot-font-display);
   font-size: 36px;
   font-weight: 400;
   letter-spacing: -0.02em;
   margin: 0 0 6px;
+}
+
+@media (max-width: 720px) {
+  .skills-page__header h2 {
+    font-size: 28px;
+  }
 }
 
 .skills-page__lede {
@@ -38,10 +50,79 @@
   margin: 0;
 }
 
+/* Tester history import/export row — small ghost buttons sitting
+   beneath the section copy. Used to round-trip the agent's test-
+   prompt library across installations. */
+.skills-page__history-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.skills-page__history-btn {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 4px 12px;
+  /* The Import variant is a <label> wrapping a hidden file input —
+     reset cursor + alignment so it reads as a button regardless. */
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  position: relative;
+}
+
+/* The actual file input is positioned outside the visible flow so
+   the <label> can drive it via its native click delegation. */
+.skills-page__history-file {
+  position: absolute;
+  opacity: 0;
+  width: 0.1px;
+  height: 0.1px;
+  pointer-events: none;
+}
+
+@media (max-width: 600px) {
+  .skills-page__history-tools {
+    /* Phones: full-width buttons so they're tap-friendly + don't
+       overflow the section head. */
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .skills-page__history-btn {
+    justify-content: center;
+    font-size: 12px;
+    padding: 8px 14px;
+  }
+}
+
 .skills-page__packs {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
+  border-radius: var(--ot-radius-lg);
+  transition: box-shadow 600ms var(--ot-ease, ease-out),
+    background 600ms var(--ot-ease, ease-out);
+}
+
+/* Brief flash when the empty-state CTA scrolls the user up to the
+   catalog. Fades out via the transition above. */
+.skills-page__packs--flash {
+  box-shadow: 0 0 0 6px rgba(232, 93, 74, 0.18);
+  background: rgba(232, 93, 74, 0.03);
+}
+
+/* Empty-state CTA row — three buttons side by side with the same gap as
+   the rest of the empty-state body. Falls to a stack on narrow screens
+   so the buttons don't squash. */
+.skills-page__empty-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  justify-content: center;
 }
 
 .skill-pack {
@@ -79,6 +160,36 @@
   background: var(--ot-accent-soft);
 }
 
+.skill-pack__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.skill-pack__uninstall {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-mute);
+  padding: 2px 8px;
+  border-radius: var(--ot-radius-pill);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.skill-pack__uninstall:hover {
+  color: var(--ot-bad, #c2392e);
+  border-color: var(--ot-bad, #c2392e);
+  background: rgba(194, 57, 46, 0.06);
+}
+
 .skill-pack__head {
   display: flex;
   justify-content: space-between;
@@ -94,6 +205,165 @@
   font-size: 13px;
   color: var(--ot-ink-soft);
   margin: 0;
+}
+
+/* Pack-contents preview — only renders when the user has clicked
+   into a pack to "open" it. Lists the installed skills with an on/off
+   dot so a glance tells you which procedures from the pack actually
+   fire. Caps at 8 with a "+N more" tail. */
+.skill-pack__contents {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+}
+
+.skill-pack__contents-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ot-ink);
+  padding: 1px 0;
+}
+
+.skill-pack__contents-row--off {
+  color: var(--ot-ink-mute);
+}
+
+.skill-pack__contents-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ot-rule);
+  flex: 0 0 auto;
+}
+
+.skill-pack__contents-dot--on {
+  background: var(--ot-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ot-accent) 22%, transparent);
+}
+
+.skill-pack__contents-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.skill-pack__contents-more {
+  color: var(--ot-ink-mute);
+  padding-left: 14px;
+  font-style: italic;
+}
+
+.skill-pack__contents-empty {
+  margin: 8px 0 0;
+  color: var(--ot-ink-mute);
+  font-style: italic;
+}
+
+/* Filter row above the installed-skills list. Layouts as input + chips +
+   count on desktop, stacks on mobile. */
+.skills-page__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.skills-page__filter-input {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.skills-page__filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.skills-page__filter-chip {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  border-radius: var(--ot-radius-pill);
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-card);
+  color: var(--ot-ink-soft);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.skills-page__filter-chip:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+.skills-page__filter-chip--active {
+  background: var(--ot-accent-soft);
+  border-color: var(--ot-accent);
+  color: var(--ot-accent-deep);
+}
+
+.skills-page__filter-chip--clear {
+  background: transparent;
+  border-style: dashed;
+  color: var(--ot-ink-mute);
+}
+
+.skills-page__filter-count {
+  margin-left: auto;
+  font-family: var(--ot-font-mono);
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 600px) {
+  .skills-page__filter-count {
+    margin-left: 0;
+  }
+}
+
+/* Bulk-toggle cluster — sits next to the count chip in the filter
+   row. Pill buttons with a quiet rest state that lights up to accent
+   on hover, similar to the diff viewer's bulk action buttons. */
+.skills-page__bulk-toggle {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.skills-page__bulk-btn {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  border: 1px solid var(--ot-rule);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.skills-page__bulk-btn:hover:not(:disabled),
+.skills-page__bulk-btn:focus-visible {
+  color: var(--ot-ink);
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+.skills-page__bulk-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .skills-page__list {
@@ -113,6 +383,25 @@
   padding: 12px 18px;
   gap: 16px;
   border-bottom: 1px solid var(--ot-rule-soft);
+  cursor: grab;
+  /* Tab-focusable for keyboard nav; strong accent ring overrides the
+     dotted browser default. Inset left bar telegraphs which row owns
+     focus when the list is dense. */
+  outline: none;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    transform var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.skill-row:focus-visible {
+  background: color-mix(in srgb, var(--ot-accent) 8%, transparent);
+  box-shadow: inset 2px 0 0 var(--ot-accent),
+    0 0 0 2px color-mix(in srgb, var(--ot-accent) 28%, transparent);
+}
+
+.skill-row:active {
+  cursor: grabbing;
 }
 
 .skill-row:last-child {
@@ -123,12 +412,100 @@
   opacity: 0.55;
 }
 
+.skill-row--dragging {
+  opacity: 0.4;
+  transform: scale(0.985);
+}
+
+.skill-row--over {
+  background: rgba(232, 93, 74, 0.05);
+  border-top: 2px dashed var(--ot-accent);
+}
+
+/* Drag-handle grip — visible on row hover so users discover the
+   reorder affordance. The whole `<li>` is `draggable` so the grip is
+   purely a visual cue (aria-hidden). */
+.skill-row__handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 22px;
+  color: var(--ot-ink-mute);
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  user-select: none;
+  margin-right: -6px;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease);
+  flex: 0 0 auto;
+}
+
+.skill-row:hover .skill-row__handle {
+  opacity: 0.55;
+}
+
+.skill-row--dragging .skill-row__handle {
+  opacity: 0.9;
+}
+
 .skill-row__name {
   font-weight: 500;
   font-size: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Last-used recency badge — surfaces from the `lastUsed` field on
+   local-authored skills. Hot = used in the last 24h (accent tint),
+   cool = older (muted). The whole pill is a `title`-hoverable element
+   so the user gets the absolute timestamp on hover. */
+.skill-row__recent {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--ot-radius-pill);
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--ot-ink-mute);
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  cursor: help;
+}
+
+/* Fork action — only on local skill rows. Pulls the SKILL.md body
+   into the author panel so the user can iterate from a known-good
+   template. Quiet pill that lights up to accent on hover. */
+.skill-row__fork {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  align-self: center;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.skill-row__fork:hover,
+.skill-row__fork:focus-visible {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+.skill-row__recent--hot {
+  color: var(--ot-accent);
+  background: rgba(232, 93, 74, 0.08);
+  border-color: rgba(232, 93, 74, 0.35);
 }
 
 .skill-row__desc {
@@ -141,6 +518,516 @@
   font-size: 12px;
   color: var(--ot-ink-mute);
   margin-top: 4px;
+}
+
+/* Inline test-match details accordion under the description. Closed by
+   default; opens to reveal a one-shot tester that hits
+   /api/skills/<id>/match with a user-supplied sample message. */
+.skill-row__tester {
+  margin-top: 8px;
+}
+
+.skill-row__tester-summary {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  list-style: none;
+  padding: 2px 8px;
+  border-radius: var(--ot-radius-pill);
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-card);
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.skill-row__tester-summary::-webkit-details-marker {
+  display: none;
+}
+
+.skill-row__tester-summary:hover {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+.skill-row__tester-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  border-radius: 10px;
+}
+
+.skill-row__tester-row {
+  display: flex;
+  gap: 6px;
+}
+
+.skill-row__tester-row .ot-input {
+  flex: 1;
+}
+
+/* Sample-prompt chip strip — surfaces 3-4 starter messages derived
+   from the skill's description / whenToUse so users always have an
+   on-ramp without staring at a blank input. Distinct from history:
+   samples are stable seeds; history is the user's own past tries.
+   Same pill shape so they sit cleanly above history when both render. */
+.skill-row__tester-samples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.skill-row__tester-samples-label {
+  color: var(--ot-ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  margin-right: 2px;
+}
+
+.skill-row__tester-sample-chip {
+  font-family: var(--ot-font-display, var(--ot-font-body));
+  font-size: 11.5px;
+  padding: 3px 11px;
+  /* Sample chips read a hair more inviting than history chips — a
+     touch of accent tint signals "fresh suggestion" vs "you've run
+     this before". */
+  background: color-mix(in srgb, var(--ot-accent) 4%, var(--ot-bg-card));
+  border: 1px solid color-mix(in srgb, var(--ot-accent) 22%, var(--ot-rule));
+  border-radius: 999px;
+  color: var(--ot-ink);
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease),
+    transform var(--ot-dur-quick) var(--ot-ease);
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skill-row__tester-sample-chip:hover:not(:disabled),
+.skill-row__tester-sample-chip:focus-visible {
+  background: color-mix(in srgb, var(--ot-accent) 10%, var(--ot-bg-card));
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.skill-row__tester-sample-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Verdict glyph on a chip after a batch run — sits flush-left of the
+   sample text in a small monospace pill so the eye can scan the row
+   for ✓ / ○ / × without re-reading every chip. */
+.skill-row__tester-sample-glyph {
+  display: inline-block;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  margin-right: 6px;
+  padding: 0 4px;
+  border-radius: 999px;
+  vertical-align: 1px;
+}
+
+.skill-row__tester-sample-chip--hit {
+  background: color-mix(in srgb, #2e8b57 14%, var(--ot-bg-card));
+  border-color: color-mix(in srgb, #2e8b57 42%, var(--ot-rule));
+  color: #1f5c3a;
+}
+
+.skill-row__tester-sample-chip--hit .skill-row__tester-sample-glyph {
+  background: rgba(46, 139, 87, 0.22);
+  color: #1f5c3a;
+}
+
+.skill-row__tester-sample-chip--skip {
+  /* Soft neutral — the chip didn't activate, but the user might still
+     want to use it as a starting point. We don't want this to read as
+     "failed" because there's no failure here. */
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border-color: var(--ot-rule);
+  color: var(--ot-ink-mute);
+}
+
+.skill-row__tester-sample-chip--skip .skill-row__tester-sample-glyph {
+  background: var(--ot-bg-card);
+  color: var(--ot-ink-mute);
+}
+
+.skill-row__tester-sample-chip--err {
+  background: rgba(194, 57, 46, 0.08);
+  border-color: rgba(194, 57, 46, 0.4);
+  color: #8a3024;
+}
+
+/* Pinned sample — survives description edits + always shows first.
+   Subtle accent halo so the user can spot pins at a glance without
+   the chip getting visually heavier than the verdict modifiers. */
+.skill-row__tester-sample-chip--pinned {
+  border-style: solid;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ot-accent) 28%, transparent);
+}
+
+.skill-row__tester-sample-pin {
+  display: inline-block;
+  margin-right: 4px;
+  font-size: 10px;
+  /* The emoji is colorful by default — kill the saturation in the
+     resting state so it doesn't pull more attention than the chip's
+     text. The chip stays focusable + the pin still reads as a
+     distinct glyph. */
+  filter: grayscale(0.4);
+}
+
+.skill-row__tester-sample-chip--err .skill-row__tester-sample-glyph {
+  background: rgba(194, 57, 46, 0.18);
+  color: #8a3024;
+}
+
+/* "Run all" trigger — a small monospace chip that sits at the end of
+   the sample row. Reads as "test every chip at once" because that's
+   exactly what it does. Disabled state matches the other ghost
+   controls. */
+.skill-row__tester-samples-runall {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 2px 11px;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-soft);
+  cursor: pointer;
+  margin-left: 2px;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.skill-row__tester-samples-runall:hover:not(:disabled),
+.skill-row__tester-samples-runall:focus-visible {
+  background: color-mix(in srgb, var(--ot-accent) 6%, transparent);
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+  outline: none;
+}
+
+.skill-row__tester-samples-runall:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Negative-sample strip — same row shape as the positive strip, but
+   the label reads "shouldn't match" so the user understands the
+   verdict semantics flip here. Chips themselves rest with a soft
+   dashed border to telegraph "this is a negative-test seed" before
+   the user runs the batch; after the run they pick up the same
+   ✓ / × tints as the positive strip but with the meaning inverted
+   (handled in the JSX). */
+.skill-row__tester-samples--neg {
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--ot-rule-soft, var(--ot-rule));
+}
+
+.skill-row__tester-samples-label--neg {
+  color: var(--ot-ink-mute);
+  /* Subtle red-tinge so the label reads as the "warning side" of
+     the test surface without being loud. */
+  color: #8a3024;
+  opacity: 0.78;
+}
+
+.skill-row__tester-sample-chip--neg {
+  /* Base resting state — dashed border + neutral fill so the chip
+     reads as a negative-test seed before any batch has run. After
+     a batch the verdict modifier (--hit / --err) overrides. */
+  border-style: dashed;
+  background: var(--ot-bg-card);
+  color: var(--ot-ink-mute);
+}
+
+.skill-row__tester-sample-chip--neg:hover:not(:disabled),
+.skill-row__tester-sample-chip--neg:focus-visible {
+  border-style: solid;
+  color: var(--ot-ink);
+}
+
+/* When the verdict modifier kicks in we want the chip to switch
+   from dashed → solid so the post-run state looks definite. */
+.skill-row__tester-sample-chip--neg.skill-row__tester-sample-chip--hit,
+.skill-row__tester-sample-chip--neg.skill-row__tester-sample-chip--err {
+  border-style: solid;
+}
+
+/* Mobile: tighten padding so the chip row doesn't dominate a small
+   skill card. Chips already wrap via flex-wrap; this just trims the
+   visual weight on narrow viewports. */
+@media (max-width: 600px) {
+  .skill-row__tester-sample-chip {
+    font-size: 11px;
+    padding: 2px 9px;
+    max-width: 220px;
+  }
+  .skill-row__tester-samples {
+    gap: 5px;
+  }
+}
+
+/* Per-skill query history strip — recent test queries surface as
+   pill chips so the user can re-run a known-good sample with one
+   click after editing the skill. ArrowUp on an empty input pops the
+   most-recent query in (shell-history convention). */
+.skill-row__tester-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.skill-row__tester-history-label {
+  color: var(--ot-ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  margin-right: 2px;
+}
+
+.skill-row__tester-history-chip {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 2px 9px;
+  background: var(--ot-bg-sunken, var(--ot-bg-soft));
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-soft);
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skill-row__tester-history-chip:hover,
+.skill-row__tester-history-chip:focus-visible {
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+  outline: none;
+}
+
+/* Cross-skill recent strip — sits below the per-skill history with
+   a soft visual seam so the two pools read as related but distinct.
+   The chip itself picks up a dashed border to telegraph "this came
+   from a different skill" without making it harder to click. */
+.skill-row__tester-history--global {
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--ot-rule-soft, var(--ot-rule));
+  opacity: 0.92;
+}
+
+.skill-row__tester-history-chip--global {
+  border-style: dashed;
+}
+
+.skill-row__tester-history-chip--global:hover,
+.skill-row__tester-history-chip--global:focus-visible {
+  border-style: solid;
+}
+
+.skill-row__tester-history-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.skill-row__tester-history-clear {
+  background: transparent;
+  border: 0;
+  padding: 1px 6px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  border-radius: 999px;
+  transition: color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.skill-row__tester-history-clear:hover,
+.skill-row__tester-history-clear:focus-visible {
+  color: var(--ot-accent);
+  outline: none;
+}
+
+.skill-row__tester-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  font-size: 12px;
+}
+
+.skill-row__tester-result--hit {
+  background: rgba(79, 122, 77, 0.06);
+  border-color: rgba(79, 122, 77, 0.32);
+}
+
+.skill-row__tester-verdict {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ot-ink-mute);
+}
+
+.skill-row__tester-result--hit .skill-row__tester-verdict {
+  color: #1f5c3a;
+}
+
+.skill-row__tester-matched {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink-soft);
+  flex-basis: 100%;
+}
+
+/* What-if threshold slider — lets the user simulate a different
+   activation cutoff against the current result's score. Sits at
+   the bottom of the result card so verdict + score read first,
+   simulation reads second. */
+.skill-row__tester-thresh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--ot-rule);
+}
+
+.skill-row__tester-thresh-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  color: var(--ot-ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+}
+
+.skill-row__tester-thresh-slider {
+  flex: 1;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--ot-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Webkit thumb — accent dot that scales on hover for a touch of
+   tactile feedback. */
+.skill-row__tester-thresh-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ot-accent);
+  border: 2px solid var(--ot-bg-card);
+  box-shadow: 0 0 0 1px var(--ot-rule);
+  cursor: grab;
+  transition: transform var(--ot-dur-quick) var(--ot-ease);
+}
+
+.skill-row__tester-thresh-slider::-webkit-slider-thumb:hover,
+.skill-row__tester-thresh-slider:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.skill-row__tester-thresh-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.skill-row__tester-thresh-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ot-accent);
+  border: 2px solid var(--ot-bg-card);
+  box-shadow: 0 0 0 1px var(--ot-rule);
+  cursor: grab;
+}
+
+/* Drift indicator — when the slider position diverges from the
+   live threshold, the threshold-value chip in the score line picks
+   up an accent underline so the user knows they're in simulation
+   mode rather than reading production values. */
+.skill-row__tester-thresh-drift {
+  color: var(--ot-accent);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  font-weight: 600;
+  cursor: help;
+}
+
+/* Reset chip — snaps the slider back to the orchestrator's live
+   threshold so the user doesn't have to remember the original
+   value. Only renders when drifted, so it doubles as the visible
+   "you're in simulation" signal. */
+.skill-row__tester-thresh-reset {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.skill-row__tester-thresh-reset:hover,
+.skill-row__tester-thresh-reset:focus-visible {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+  outline: none;
+}
+
+@media (max-width: 600px) {
+  .skill-row__tester-thresh {
+    flex-wrap: wrap;
+  }
+  .skill-row__tester-thresh-label {
+    flex-basis: 100%;
+  }
+  .skill-row__tester-thresh-reset {
+    flex: 0 0 auto;
+  }
 }
 
 .skill-toggle {
@@ -174,4 +1061,205 @@
 
 .skill-toggle--on .skill-toggle__dot {
   transform: translateX(16px);
+}
+
+/* Smithers skill author panel. Source on the left, compiled preview on
+   the right; stacks on narrow viewports. */
+.skill-author {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+@media (max-width: 880px) {
+  .skill-author {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Draft-restored notice — surfaces when the editor opens with content
+   loaded from a prior session's localStorage draft. Spans both
+   columns so it sits above the textarea + preview pair, and includes
+   a discard link inline. */
+.skill-author__draft {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(232, 168, 0, 0.08);
+  border: 1px solid rgba(232, 168, 0, 0.32);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #7a5a00;
+}
+
+.skill-author__draft-glyph {
+  color: var(--ot-accent);
+  flex: 0 0 auto;
+}
+
+.skill-author__draft-discard {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--ot-accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.skill-author__draft-discard:hover {
+  color: var(--ot-accent-deep);
+}
+
+.skill-author__source {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  resize: vertical;
+  min-height: 240px;
+  width: 100%;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.skill-author__preview {
+  border: 1px solid var(--ot-rule);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--ot-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skill-author__title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border-bottom: 1px solid var(--ot-rule);
+  padding-bottom: 6px;
+}
+
+.skill-author__title strong {
+  font-family: var(--ot-font-display, 'Fraunces', serif);
+  font-size: 18px;
+  letter-spacing: -0.005em;
+}
+
+.skill-author__steps {
+  list-style: decimal;
+  padding-left: 22px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skill-author__step {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ot-ink);
+}
+
+.skill-author__step strong {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-right: 8px;
+}
+
+.skill-author__step p {
+  margin: 4px 0 0;
+  color: var(--ot-ink-mute);
+}
+
+.skill-author__error {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  color: var(--ot-bad, #c84439);
+  margin: 0;
+}
+
+/* Client-side linter hints — surface advisory warnings + info notes
+   beneath the compiled preview's title. Warning rows get a louder
+   amber tint; info rows stay quiet. Hints don't block save; they're
+   guidance for the author. */
+.skill-author__lints {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skill-author__lint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.skill-author__lint-glyph {
+  flex: 0 0 auto;
+  font-weight: 600;
+}
+
+.skill-author__lint--warn {
+  background: color-mix(in srgb, var(--ot-warn, #b87b0a) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ot-warn, #b87b0a) 32%, var(--ot-rule));
+  color: var(--ot-ink);
+}
+
+.skill-author__lint--warn .skill-author__lint-glyph {
+  color: var(--ot-warn, #b87b0a);
+}
+
+.skill-author__lint--info {
+  background: var(--ot-bg-sunken, var(--ot-bg-soft));
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-soft);
+}
+
+.skill-author__lint--info .skill-author__lint-glyph {
+  color: var(--ot-ink-mute);
+}
+
+.skill-author__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.skill-author__saved {
+  color: var(--ot-good, #4f7a4d);
+}
+
+@media (max-width: 640px) {
+  .skills-page {
+    padding: 24px 16px 80px;
+  }
+
+  .skills-page__packs {
+    grid-template-columns: 1fr;
+  }
+
+  .skill-author__source {
+    min-height: 180px;
+  }
+
+  .skill-author__actions {
+    flex-wrap: wrap;
+  }
 }

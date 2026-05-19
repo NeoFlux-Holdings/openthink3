@@ -1,14 +1,111 @@
 .shell {
   display: grid;
-  grid-template-columns: 220px minmax(360px, 1fr) minmax(360px, 1.4fr);
+  /* 4-col grid: sidebar | feed | resizer | canvas. The resizer is a thin
+     8px draggable handle; the canvas column accepts a `--canvas-w`
+     override set by the JS drag logic to lock it to a specific pixel
+     width. Falls back to the default minmax(360, 1.4fr) when no override
+     is set. */
+  grid-template-columns: 220px minmax(360px, 1fr) 8px minmax(360px, 1.4fr);
   height: 100vh;
   background: var(--ot-bg);
 }
 
+.shell.shell--canvas-sized {
+  grid-template-columns: 220px minmax(360px, 1fr) 8px var(--canvas-w, 56vw);
+}
+
+/* Collapsed sidebar — only the icons-rail (56px) is visible. CSS `:has()`
+   lets the grid container react to the aside's class without prop-drilling. */
+.shell:has(.shell__sidebar--icons) {
+  grid-template-columns: 56px minmax(360px, 1fr) 8px minmax(360px, 1.4fr);
+}
+
+.shell:has(.shell__sidebar--icons).shell--canvas-sized {
+  grid-template-columns: 56px minmax(360px, 1fr) 8px var(--canvas-w, 56vw);
+}
+
 @media (max-width: 1100px) {
   .shell {
-    grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.2fr);
+    grid-template-columns: 220px minmax(0, 1fr) 8px minmax(0, 1.2fr);
   }
+  .shell.shell--canvas-sized {
+    grid-template-columns: 220px minmax(0, 1fr) 8px var(--canvas-w, 48vw);
+  }
+  .shell:has(.shell__sidebar--icons) {
+    grid-template-columns: 56px minmax(0, 1fr) 8px minmax(0, 1.2fr);
+  }
+  .shell:has(.shell__sidebar--icons).shell--canvas-sized {
+    grid-template-columns: 56px minmax(0, 1fr) 8px var(--canvas-w, 48vw);
+  }
+}
+
+/* Resizer column — a thin vertical handle the user can drag to grow or
+   shrink the canvas pane. Subtle by default, accent-tinted on hover so
+   the cursor knows it's interactive. */
+.shell__resizer {
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  user-select: none;
+  touch-action: none;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+/* Thin vertical line down the middle of the resizer column. Visible at
+   rest as a faint rule so the column reads as a draggable seam rather
+   than empty space. Brightens to accent on hover/drag. */
+.shell__resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--ot-rule);
+  transform: translateX(-0.5px);
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+  pointer-events: none;
+}
+
+.shell__resizer:hover,
+.shell__resizer:active {
+  background: rgba(232, 93, 74, 0.12);
+}
+
+.shell__resizer:hover::before,
+.shell__resizer:active::before {
+  background: var(--ot-accent);
+}
+
+/* Three-dot grip cluster — a centered dot plus two box-shadow clones
+   above and below at +/-10px. Reads as a recognized drag-handle glyph
+   without any extra DOM. Visible (muted) at rest and brightens on
+   hover. */
+.shell__resizer-grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--ot-ink-mute);
+  opacity: 0.6;
+  box-shadow:
+    0 -10px 0 var(--ot-ink-mute),
+    0 10px 0 var(--ot-ink-mute);
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    box-shadow var(--ot-dur-quick) var(--ot-ease),
+    opacity var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__resizer:hover .shell__resizer-grip,
+.shell__resizer:active .shell__resizer-grip {
+  background: var(--ot-accent);
+  opacity: 1;
+  box-shadow:
+    0 -10px 0 var(--ot-accent),
+    0 10px 0 var(--ot-accent);
 }
 
 /* Mobile single-pane rules live at the bottom of this file so they win the
@@ -23,6 +120,117 @@
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
+  transition: padding var(--ot-dur-quick) var(--ot-ease);
+}
+
+/* Brand row hosts the collapse toggle next to the wordmark. */
+.shell__brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.shell__collapse-toggle {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-mute);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__collapse-toggle:hover {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+/* Icons-only collapsed state. Trim padding so the 56px column doesn't
+   feel cramped, and hide everything that isn't a glyph. The nav glyphs
+   center; thread list, search button, identity meta all disappear. */
+.shell__sidebar--icons {
+  padding: 20px 6px 16px;
+  align-items: center;
+}
+
+.shell__sidebar--icons .shell__brand-row {
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.shell__sidebar--icons .shell__brand-text {
+  display: none;
+}
+
+.shell__sidebar--icons .shell__new {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  justify-content: center;
+}
+
+.shell__sidebar--icons .shell__new-plus {
+  width: auto;
+  font-size: 18px;
+}
+
+.shell__sidebar--icons .shell__new > :not(.shell__new-plus) {
+  display: none;
+}
+
+.shell__sidebar--icons .shell__search {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  justify-content: center;
+}
+
+.shell__sidebar--icons .shell__search-input {
+  display: none;
+}
+
+.shell__sidebar--icons .shell__nav-item {
+  justify-content: center;
+  padding: 8px;
+}
+
+.shell__sidebar--icons .shell__nav-item > :not(.shell__nav-glyph):not(.shell__nav-badge) {
+  display: none;
+}
+
+.shell__sidebar--icons .shell__nav-glyph {
+  width: auto;
+  font-size: 14px;
+}
+
+.shell__sidebar--icons .shell__threads,
+.shell__sidebar--icons .shell__thread-tooltip,
+.shell__sidebar--icons .shell__budget,
+.shell__sidebar--icons .shell__identity-meta,
+.shell__sidebar--icons .shell__identity-plan,
+.shell__sidebar--icons .shell__ws-picker-manage {
+  display: none;
+}
+
+.shell__sidebar--icons .shell__identity {
+  border-top: 1px solid var(--ot-rule);
+  padding-top: 12px;
+}
+
+.shell__sidebar--icons .shell__identity-row {
+  justify-content: center;
+}
+
+.shell__sidebar--icons .shell__identity-avatar {
+  width: 34px;
+  height: 34px;
 }
 
 .shell__brand {
@@ -70,10 +278,19 @@
   border: 1px solid var(--ot-rule);
   border-radius: var(--ot-radius-sm);
   transition: border-color var(--ot-dur-quick) var(--ot-ease);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
 }
 
-.shell__search:focus-within {
+.shell__search:focus-within,
+.shell__search:hover {
   border-color: var(--ot-accent);
+}
+
+.shell__search-input--placeholder {
+  color: var(--ot-ink-mute);
+  font-style: italic;
 }
 
 .shell__search-glyph {
@@ -142,6 +359,46 @@
   color: var(--ot-accent);
 }
 
+.shell__nav-label {
+  flex: 1 1 auto;
+}
+
+/* Badge pill next to a nav item — small accent dot when there's
+   something to review (e.g. pending learning suggestions). */
+.shell__nav-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ot-accent);
+  color: white;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Collapsed sidebar hides labels — badge becomes a 6px dot in the
+   corner of the glyph instead so it's still visible. */
+.shell__sidebar--icons .shell__nav-item {
+  position: relative;
+}
+
+.shell__sidebar--icons .shell__nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 8px;
+  height: 8px;
+  padding: 0;
+  font-size: 0;
+  border: 2px solid var(--ot-bg-soft);
+}
+
 .shell__threads {
   margin-top: 16px;
   border-top: 1px solid var(--ot-rule);
@@ -163,6 +420,65 @@
   padding: 0 10px;
 }
 
+.shell__section--mini {
+  display: block;
+  font-size: 9px;
+  margin: 0 0 4px;
+}
+
+/* Pinned-workspaces quick-access row — sits between the top nav and
+   the thread list. Surfaces every pinned non-active workspace as a
+   clickable chip. Hidden entirely when there are no pinned
+   non-active workspaces to switch to. */
+.shell__pinned-ws {
+  padding: 8px 10px 0;
+  margin-bottom: 8px;
+}
+
+.shell__pinned-ws-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.shell__pinned-ws-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-pill);
+  font-size: 11px;
+  color: var(--ot-ink);
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__pinned-ws-chip:hover {
+  border-color: var(--ot-accent);
+  background: rgba(232, 93, 74, 0.06);
+  color: var(--ot-accent);
+}
+
+.shell__pinned-ws-glyph {
+  color: var(--ot-accent);
+  font-size: 9px;
+  flex: 0 0 auto;
+}
+
+.shell__pinned-ws-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .shell__thread {
   text-align: left;
   padding: 8px 10px;
@@ -172,6 +488,384 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Keyboard nav lands on this button via Tab + arrow keys (handled in
+   the row's onKeyDown). Give it an accent ring so the focus target
+   reads against the resting + active row tints. */
+.shell__thread:focus-visible {
+  outline: 2px solid var(--ot-accent);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--ot-accent) 12%, transparent);
+  color: var(--ot-ink);
+}
+
+.shell__thread-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--ot-radius-sm);
+  position: relative;
+}
+
+.shell__thread-row:hover {
+  background: rgba(232, 93, 74, 0.05);
+}
+
+.shell__thread-row--active {
+  background: rgba(232, 93, 74, 0.08);
+}
+
+.shell__thread-archive,
+.shell__thread-pin {
+  opacity: 0;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ot-ink-mute);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: opacity 120ms var(--ot-ease, ease-out),
+    color 120ms var(--ot-ease, ease-out);
+}
+
+.shell__thread-row:hover .shell__thread-archive,
+.shell__thread-row:hover .shell__thread-pin {
+  opacity: 1;
+}
+
+.shell__thread-pin:hover {
+  color: var(--ot-accent);
+  background: rgba(232, 93, 74, 0.08);
+}
+
+/* Pinned star stays visible always so the user can scan which rows
+   are pinned without hovering. */
+.shell__thread-pin--on {
+  opacity: 1 !important;
+  color: var(--ot-accent);
+}
+
+.shell__thread-row--pinned .shell__thread {
+  font-weight: 500;
+}
+
+.shell__thread-pin-glyph {
+  margin-right: 6px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.shell__pinned-label {
+  font-family: var(--ot-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+  padding: 6px 10px 2px;
+}
+
+.shell__pinned-divider {
+  height: 1px;
+  background: var(--ot-rule);
+  margin: 6px 10px;
+  opacity: 0.6;
+}
+
+/* Hover-preview tooltip that floats to the right of the sidebar showing the
+   thread's last message. Mounted at the aside root with position:fixed so
+   it escapes the sidebar's scroll container. The 220px sidebar + 14px gap
+   = 234px left offset, sized to fit a single visible turn comfortably. */
+.shell__thread-tooltip {
+  position: fixed;
+  left: 234px;
+  width: 320px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  padding: 12px 14px;
+  box-shadow: var(--ot-shadow-md);
+  z-index: 80;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: shell-tooltip-in 140ms var(--ot-ease, ease-out);
+}
+
+@keyframes shell-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.shell__thread-tooltip-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ot-ink);
+  line-height: 1.3;
+}
+
+.shell__thread-tooltip-msg {
+  font-size: 12px;
+  color: var(--ot-ink-soft);
+  line-height: 1.5;
+  /* Clamp to 3 lines so the tooltip stays predictable height. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.shell__thread-tooltip-role {
+  color: var(--ot-accent-deep);
+  font-weight: 500;
+}
+
+.shell__thread-tooltip-time {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ot-ink-mute);
+}
+
+/* Hide on touch / small screens — hover doesn't make sense there. */
+@media (max-width: 920px), (pointer: coarse) {
+  .shell__thread-tooltip {
+    display: none;
+  }
+}
+
+.shell__thread-archive:hover {
+  color: var(--ot-bad, #c84439);
+  background: rgba(232, 93, 74, 0.08);
+}
+
+.shell__section-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 6px;
+}
+
+/* Inline thread filter — only renders when threads.length ≥ 6 (in the
+   component). Small, monospaced, no border at rest. The clear button
+   appears only when there's text. */
+.shell__thread-filter {
+  position: relative;
+  margin: 4px 4px 6px;
+}
+
+.shell__thread-filter-input {
+  width: 100%;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-sm);
+  /* Extra left padding leaves room for the ⌕ glyph; extra right makes
+     room for the count chip + clear button. */
+  padding: 6px 56px 6px 26px;
+  font-family: var(--ot-font-mono);
+  font-size: 11.5px;
+  color: var(--ot-ink);
+  transition: border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__thread-filter-glyph {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  transform: translateY(-50%);
+  color: var(--ot-ink-mute);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.shell__thread-filter-count {
+  position: absolute;
+  top: 50%;
+  right: 28px;
+  transform: translateY(-50%);
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--ot-accent);
+  pointer-events: none;
+  cursor: help;
+}
+
+.shell__thread-filter-input:focus {
+  outline: none;
+  border-color: var(--ot-accent);
+  box-shadow: var(--ot-focus-ring);
+}
+
+.shell__thread-filter-input::placeholder {
+  color: var(--ot-ink-mute);
+  font-style: italic;
+}
+
+.shell__thread-filter-clear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ot-bg-soft);
+  color: var(--ot-ink-mute);
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.shell__thread-filter-clear:hover {
+  background: var(--ot-accent);
+  color: white;
+}
+
+.shell__thread-filter-empty {
+  padding: 6px 12px;
+  display: block;
+  font-style: italic;
+}
+
+/* Match-highlight span inside the rendered thread title. Subtle accent
+   tint + no underline so the title still reads cleanly. */
+.shell__thread-hl {
+  background: rgba(232, 93, 74, 0.18);
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
+}
+
+.shell__section-action {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 120ms var(--ot-ease, ease-out);
+}
+
+.shell__section-action:hover {
+  color: var(--ot-bad, #c84439);
+}
+
+.shell__archived-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: var(--ot-radius-sm);
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.shell__archived-toggle:hover {
+  color: var(--ot-accent);
+}
+
+.shell__archived-count {
+  font-family: var(--ot-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-mute);
+  text-transform: none;
+  min-width: 18px;
+  text-align: center;
+}
+
+.shell__archived-toggle:hover .shell__archived-count {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+.shell__archived {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 4px 0;
+  margin-top: 2px;
+  border-left: 1px dashed var(--ot-rule);
+}
+
+.shell__thread-row--archived .shell__thread {
+  opacity: 0.6;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.shell__thread-archived-title {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell__thread-archived-time {
+  color: var(--ot-ink-mute);
+}
+
+/* "Restore all" affordance at the top of the archived section.
+   Quiet ghost styling — the per-row ↺ stays the primary action,
+   this is the bulk shortcut. */
+.shell__archived-restore-all {
+  display: block;
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px dashed var(--ot-rule);
+  border-radius: var(--ot-radius-sm);
+  text-align: left;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__archived-restore-all:hover {
+  border-color: var(--ot-accent);
+  background: rgba(232, 93, 74, 0.06);
+  color: var(--ot-accent);
 }
 
 .shell__thread:hover {
@@ -237,6 +931,245 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+.shell__identity-row--link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  padding: 4px 0;
+  border-radius: 8px;
+  transition: background 120ms var(--ot-ease, ease-out);
+}
+
+.shell__identity-row--link:hover {
+  background: rgba(232, 93, 74, 0.06);
+}
+
+.shell__identity-avatar--button {
+  cursor: pointer;
+  border: 0;
+  transition: transform var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__identity-avatar--button:hover {
+  transform: scale(1.05);
+}
+
+.shell__identity-meta--link {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Workspace quick-pick popover — anchors above the identity row in the
+   sidebar footer. */
+.shell__ws-picker {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 10px;
+  right: 10px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  box-shadow: 0 12px 36px rgba(20, 18, 14, 0.16);
+  z-index: 30;
+  padding: 6px 0;
+  animation: shell-ws-picker-in 140ms var(--ot-ease, ease-out);
+}
+
+@keyframes shell-ws-picker-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.shell__ws-picker-head {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+  padding: 8px 12px 4px;
+}
+
+.shell__ws-picker-empty {
+  padding: 10px 12px;
+}
+
+.shell__ws-picker-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__ws-picker-item:hover {
+  background: rgba(232, 93, 74, 0.06);
+}
+
+.shell__ws-picker-item--active {
+  background: var(--ot-bg-soft);
+}
+
+/* The activate button takes all width except the pin slot. Click anywhere
+   on this row to switch workspaces. */
+.shell__ws-picker-activate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 8px 4px 8px 12px;
+  cursor: pointer;
+  text-align: left;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: inherit;
+}
+
+.shell__ws-picker-pin {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-mute);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  margin-right: 8px;
+  flex: 0 0 auto;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__ws-picker-item:hover .shell__ws-picker-pin {
+  opacity: 0.7;
+}
+
+.shell__ws-picker-pin:hover {
+  opacity: 1 !important;
+  color: var(--ot-accent);
+  background: rgba(232, 93, 74, 0.08);
+}
+
+.shell__ws-picker-pin--on {
+  opacity: 1 !important;
+  color: var(--ot-accent);
+}
+
+.shell__ws-picker-pin-glyph {
+  margin-right: 5px;
+  font-size: 10px;
+  opacity: 0.85;
+  vertical-align: 1px;
+}
+
+.shell__ws-picker-divider {
+  display: block;
+  position: absolute;
+  bottom: -3px;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: var(--ot-rule);
+  opacity: 0.6;
+}
+
+.shell__ws-picker-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ot-ink);
+  color: var(--ot-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ot-font-display);
+  font-size: 11px;
+  font-weight: 500;
+  flex: 0 0 auto;
+}
+
+.shell__ws-picker-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.shell__ws-picker-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ot-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell__ws-picker-sub {
+  font-family: var(--ot-font-mono);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell__ws-picker-check {
+  color: var(--ot-accent);
+  font-size: 14px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.shell__ws-picker-manage {
+  display: block;
+  padding: 8px 12px;
+  border-top: 1px dashed var(--ot-rule);
+  margin-top: 4px;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ot-ink-soft);
+  text-decoration: none;
+}
+
+.shell__ws-picker-manage:hover {
+  color: var(--ot-accent);
+}
+
+.shell__identity {
+  position: relative;
+}
+
+.shell__identity-plan {
+  margin-left: auto;
+  font-family: var(--ot-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(232, 93, 74, 0.12);
+  border: 1px solid rgba(232, 93, 74, 0.45);
+  color: var(--ot-accent);
+  align-self: center;
 }
 
 .shell__identity-pulse {
@@ -305,6 +1238,28 @@
   font-size: 18px;
   font-weight: 500;
   letter-spacing: -0.01em;
+}
+
+.shell__feed-title--button {
+  background: transparent;
+  border: 0;
+  padding: 2px 4px;
+  cursor: text;
+  border-radius: 6px;
+  color: inherit;
+  transition: background 100ms var(--ot-ease, ease-out);
+}
+
+.shell__feed-title--button:hover {
+  background: var(--ot-bg-soft);
+}
+
+.shell__feed-title--editing {
+  min-width: 220px;
+  max-width: 520px;
+  font-family: var(--ot-font-display);
+  font-size: 18px;
+  font-weight: 500;
 }
 
 .shell__socket {
@@ -431,6 +1386,544 @@
   color: var(--ot-ink);
 }
 
+/* Working Doc chip — pinned summary the agent maintains for the thread. */
+.shell__feed-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shell__feed-header-btn {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg);
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  transition: color 120ms var(--ot-ease, ease-out), border-color 120ms var(--ot-ease, ease-out);
+}
+
+.shell__feed-header-btn:hover {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+/* In-thread search bar — slides down from below the feed header when the
+   user opens it. Pinned with `position: sticky` inside the feed scroll so
+   it stays visible while the user scrolls through matches. */
+.shell__search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 24px;
+  background: var(--ot-bg-card);
+  border-bottom: 1px solid var(--ot-rule);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  animation: shell-search-in 160ms var(--ot-ease, ease-out);
+}
+
+@keyframes shell-search-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.shell__search-bar-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-sm);
+  font-family: var(--ot-font-ui);
+  font-size: 14px;
+  padding: 6px 10px;
+  color: var(--ot-ink);
+}
+
+.shell__search-bar-input:focus {
+  outline: none;
+  border-color: var(--ot-accent);
+  box-shadow: var(--ot-focus-ring);
+}
+
+.shell__search-bar-count {
+  flex: 0 0 auto;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+  min-width: 72px;
+  text-align: right;
+}
+
+.shell__search-bar-step,
+.shell__search-bar-close {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-soft);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__search-bar-step:hover:not(:disabled),
+.shell__search-bar-close:hover {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+.shell__search-bar-step:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Highlight applied to matched substrings inside message bodies. The
+   active match (the one the cursor is on) gets a stronger fill so the
+   user can see exactly which hit they're on. */
+.shell__msg-match {
+  background: rgba(232, 93, 74, 0.16);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.shell__msg-match--active {
+  background: var(--ot-accent);
+  color: white;
+  box-shadow: 0 0 0 2px rgba(232, 93, 74, 0.22);
+}
+
+/* @-mention pills rendered inline in message bodies. Type-colored so
+   `@thread:foo` and `@skill:bar` read distinct at a glance. The
+   monospace family signals "this is a token, not prose". */
+.shell__mention {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--ot-font-mono);
+  font-size: 0.85em;
+  padding: 1px 6px;
+  margin: 0 1px;
+  border-radius: var(--ot-radius-xs);
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-soft);
+  white-space: nowrap;
+}
+
+.shell__mention--thread {
+  background: rgba(75, 110, 175, 0.10);
+  border-color: rgba(75, 110, 175, 0.32);
+  color: #4b6eaf;
+}
+
+.shell__mention--skill {
+  background: var(--ot-accent-soft);
+  border-color: rgba(232, 93, 74, 0.32);
+  color: var(--ot-accent-deep);
+}
+
+/* User messages have accent-soft background, so flip mention pills inside
+   them to a slightly darker fill so they don't disappear. */
+.shell__msg--user .shell__mention {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(232, 93, 74, 0.45);
+}
+
+.shell__working-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(232, 93, 74, 0.05);
+  border: 1px dashed rgba(232, 93, 74, 0.35);
+  transition: padding var(--ot-dur-quick) var(--ot-ease);
+}
+
+/* Collapsed state — drop the padding so the row hugs its single line. */
+.shell__working-doc--collapsed {
+  padding: 6px 12px;
+  gap: 0;
+}
+
+.shell__working-doc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.shell__working-doc-collapse {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ot-accent);
+  font-size: 10px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__working-doc-collapse:hover {
+  background: rgba(232, 93, 74, 0.12);
+}
+
+.shell__working-doc-preview {
+  flex: 1 1 auto;
+  font-size: 12px;
+  color: var(--ot-ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  font-style: italic;
+}
+
+.shell__working-doc-pill {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ot-accent);
+}
+
+.shell__working-doc-toggle {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  margin-left: auto;
+}
+
+/* Autosave-status pill — sits between the "agent's notes" label and
+   the edit toggle. Three states: saving (muted), saved (green), err
+   (red). Cursor-help so the title attr can carry the absolute
+   timestamp for hover-precision. */
+.shell__working-doc-status {
+  /* margin-left:auto on the toggle handles right-alignment; status
+     sits just before the toggle naturally. */
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--ot-ink-mute);
+  cursor: help;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.shell__working-doc-status:not(:empty)::before {
+  content: '·';
+  margin-right: 6px;
+  opacity: 0.5;
+}
+
+.shell__working-doc-status--err {
+  color: #8a1c14;
+}
+
+/* Template chips below the editor — only shown when the doc is empty.
+   Each click drops the template body into the working doc + persists. */
+.shell__working-doc-templates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.shell__working-doc-template {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: var(--ot-radius-pill);
+  border: 1px solid rgba(232, 93, 74, 0.32);
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--ot-accent-deep);
+  cursor: pointer;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__working-doc-template:hover {
+  background: var(--ot-accent);
+  color: white;
+  border-color: var(--ot-accent);
+}
+
+.shell__working-doc-toggle:hover {
+  color: var(--ot-accent);
+}
+
+.shell__working-doc-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ot-ink);
+}
+
+.shell__working-doc-input {
+  width: 100%;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  border: 1px solid var(--ot-rule);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--ot-bg);
+  color: var(--ot-ink);
+}
+
+/* Tool-call chips. One per WS tool-start/done/blocked event. */
+.shell__tools {
+  list-style: none;
+  padding: 0;
+  margin: -4px 0 16px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.shell__tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--ot-ink);
+  cursor: default;
+}
+
+.shell__tool--running {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+.shell__tool--running .shell__tool-glyph {
+  animation: shell-tool-spin 1.2s linear infinite;
+}
+
+@keyframes shell-tool-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.shell__tool--done {
+  border-color: rgba(79, 122, 77, 0.5);
+  color: var(--ot-good, #4f7a4d);
+}
+
+.shell__tool--blocked,
+.shell__tool--error {
+  border-color: rgba(232, 93, 74, 0.5);
+  color: var(--ot-bad, #c84439);
+}
+
+.shell__tool-glyph {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.shell__tool-meta {
+  color: var(--ot-ink-mute);
+  font-size: 10px;
+}
+
+.shell__tool-handle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.shell__tool-handle[aria-disabled="true"] {
+  cursor: default;
+}
+
+.shell__tool-caret {
+  margin-left: 2px;
+  color: var(--ot-ink-mute);
+  font-size: 9px;
+}
+
+.shell__tool--expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.shell__tool-stack {
+  margin: -4px 0 16px 14px;
+}
+
+.shell__tool-result {
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-rule);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: var(--ot-font-ui, 'Inter', sans-serif);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ot-ink);
+}
+
+.shell__tool-result-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shell__tool-result-body p {
+  margin: 0;
+}
+
+.shell__tool-result-meta {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+}
+
+.shell__tool-result-meta strong {
+  color: var(--ot-ink);
+}
+
+.shell__tool-result-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shell__tool-result-sev {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.shell__tool-result-sev--low {
+  background: rgba(75, 110, 175, 0.12);
+  color: #4b6eaf;
+}
+
+.shell__tool-result-sev--med {
+  background: rgba(216, 162, 49, 0.18);
+  color: #b87b0a;
+}
+
+.shell__tool-result-sev--high {
+  background: rgba(232, 93, 74, 0.18);
+  color: var(--ot-accent);
+}
+
+.shell__tool-result-raw {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  background: var(--ot-bg-soft);
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.shell__tool-result-note {
+  font-style: italic;
+  color: var(--ot-ink-mute);
+  margin: 0;
+}
+
+.shell__tool-result-link {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-accent);
+  text-decoration: none;
+}
+
+.shell__tool-result-link:hover {
+  text-decoration: underline;
+}
+
+.shell__code-mode {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-soft);
+  color: var(--ot-ink);
+  cursor: pointer;
+  margin-left: 8px;
+  transition: color 120ms var(--ot-ease, ease-out),
+    border-color 120ms var(--ot-ease, ease-out);
+}
+
+.shell__code-mode:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+.shell__code-mode--always {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+  background: rgba(232, 93, 74, 0.08);
+}
+
+.shell__code-mode--off {
+  color: var(--ot-ink-mute);
+  border-style: dashed;
+}
+
 .shell__msg--assistant .shell__msg-body {
   padding-left: 14px;
   border-left: 2px solid var(--ot-accent-soft);
@@ -448,6 +1941,58 @@
   max-width: min(560px, 80%);
   color: var(--ot-accent-deep);
   font-weight: 500;
+}
+
+/* Hover-revealed message actions (copy, etc.). Per-message group so the
+   chrome only appears for the message the cursor is over. Mouse only —
+   touch users get a long-press → native menu via the body itself. */
+.shell__msg {
+  position: relative;
+}
+
+.shell__msg-actions {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease);
+  pointer-events: none;
+}
+
+.shell__msg:hover .shell__msg-actions,
+.shell__msg-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.shell__msg-action {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-mute);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__msg-action:hover {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+@media (pointer: coarse) {
+  /* On touch, always show the actions — there's no hover. */
+  .shell__msg-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 /* ----- Composer ----- */
@@ -512,8 +2057,12 @@
 .shell__composer-input {
   width: 100%;
   min-height: 64px;
+  /* Max-height is also enforced in JS (auto-grow effect in Shell.tsx)
+     so this is a belt-and-suspenders backstop. resize:none because
+     auto-grow now owns vertical sizing — a manual resize handle in
+     the corner would compete and feel janky. */
   max-height: 240px;
-  resize: vertical;
+  resize: none;
   background: var(--ot-bg-soft);
   border: 1px solid transparent;
   border-radius: var(--ot-radius-md);
@@ -522,7 +2071,8 @@
   line-height: 1.5;
   font-family: var(--ot-font-ui);
   transition: border-color var(--ot-dur-quick) var(--ot-ease),
-    background-color var(--ot-dur-quick) var(--ot-ease);
+    background-color var(--ot-dur-quick) var(--ot-ease),
+    height 80ms linear;
 }
 
 .shell__composer-input:focus {
@@ -537,12 +2087,324 @@
   font-style: italic;
 }
 
+/* Composer autocomplete popover — anchors above the textarea, slides in
+   from below. Type-ahead for slash commands and @-mentions. Click or
+   Enter on a row to insert. */
+.shell__suggest {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: calc(100% - 2px);
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  box-shadow: 0 12px 36px rgba(20, 18, 14, 0.16);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  overflow-y: auto;
+  animation: shell-suggest-in 140ms var(--ot-ease, ease-out);
+}
+
+@keyframes shell-suggest-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.shell__suggest-head {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+  padding: 8px 12px 4px;
+  border-bottom: 1px dashed var(--ot-rule-soft);
+}
+
+.shell__suggest-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: 0;
+  padding: 8px 12px;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__suggest-item--active,
+.shell__suggest-item:hover {
+  background: rgba(232, 93, 74, 0.06);
+}
+
+.shell__suggest-label {
+  flex: 0 0 auto;
+  font-family: var(--ot-font-mono);
+  font-size: 13px;
+  color: var(--ot-ink);
+  font-weight: 500;
+  min-width: 110px;
+}
+
+.shell__suggest-hint {
+  flex: 1 1 auto;
+  font-size: 12px;
+  color: var(--ot-ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Slash-command preview chip — shown above the composer textarea when
+   the user has typed a recognized slash command and the autocomplete
+   dropdown is no longer active (i.e. they're now writing the body).
+   Visual reminder that pressing Enter dispatches the command. */
+.shell__slash-preview {
+  position: absolute;
+  left: 20px;
+  bottom: calc(100% + 4px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 8px;
+  background: var(--ot-bg-card);
+  border: 1px solid rgba(232, 93, 74, 0.35);
+  border-radius: var(--ot-radius-pill);
+  box-shadow: 0 4px 14px rgba(20, 18, 14, 0.08);
+  z-index: 4;
+  max-width: calc(100% - 40px);
+  animation: shell-suggest-in 140ms var(--ot-ease, ease-out);
+}
+
+.shell__slash-preview-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(232, 93, 74, 0.14);
+  color: var(--ot-accent);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.shell__slash-preview-name {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ot-accent);
+  white-space: nowrap;
+}
+
+.shell__slash-preview-hint {
+  font-size: 12px;
+  color: var(--ot-ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  /* On narrow screens, the chip can wrap rather than ellipsis-clip. */
+  .shell__slash-preview {
+    max-width: calc(100% - 28px);
+    left: 14px;
+  }
+
+  .shell__slash-preview-hint {
+    white-space: normal;
+    line-height: 1.3;
+  }
+}
+
+/* Pasted attachment chips — sit below the composer textarea so they don't
+   compete with typing space. Each chip shows a tiny thumbnail, filename +
+   size, and an × to drop the attachment before sending. */
+.shell__attachments {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0 0;
+}
+
+.shell__attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  padding: 4px 8px 4px 4px;
+  max-width: 240px;
+  animation: shell-attachment-in 180ms var(--ot-ease, ease-out);
+}
+
+@keyframes shell-attachment-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.shell__attachment-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-rule);
+  flex: 0 0 auto;
+}
+
+/* Thumb is wrapped in an <a> to data: URL so the user can preview the
+   attachment in a new tab before sending. The link doesn't need its own
+   border; the inner thumb already has one. */
+.shell__attachment-thumb-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: transform var(--ot-dur-quick) var(--ot-ease),
+    box-shadow var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__attachment-thumb-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(20, 18, 14, 0.15);
+}
+
+/* Glyph variant for non-image attachments — same 36×36 slot, but
+   renders an emoji-style icon centered on a soft bg so the row stays
+   visually consistent across image + non-image entries. */
+.shell__attachment-thumb--glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--ot-ink-soft);
+}
+
+.shell__attachment-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  font-family: var(--ot-font-mono);
+}
+
+.shell__attachment-name {
+  font-size: 11px;
+  color: var(--ot-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.shell__attachment-size {
+  font-size: 10px;
+  color: var(--ot-ink-mute);
+  letter-spacing: 0.04em;
+}
+
+.shell__attachment-remove {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  font-size: 13px;
+  line-height: 1;
+  border: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__attachment-remove:hover {
+  background: var(--ot-accent);
+  color: white;
+}
+
 .shell__composer-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* Composer keyboard hint — single dim line below the meta row.
+   Surfaces the high-frequency bindings (Enter / Shift+Enter / palette)
+   plus a "?" affordance that opens the full ShortcutsHelp panel. */
+.shell__composer-hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--ot-ink-mute);
+  padding: 0 2px;
+}
+
+.shell__composer-hint-more {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__composer-hint-more:hover,
+.shell__composer-hint-more:focus-visible {
+  color: var(--ot-ink);
+  background: var(--ot-rule-soft, var(--ot-rule));
+}
+
+.shell__kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  background: var(--ot-bg-sunken, var(--ot-rule));
+  border: 1px solid var(--ot-rule);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: var(--ot-ink-soft);
+  line-height: 1.2;
+}
+
+@media (max-width: 600px) {
+  /* Drop the inline shortcuts on narrow viewports — the "?" link is
+     enough to surface them on demand without crowding the composer. */
+  .shell__composer-hint > span:first-child {
+    display: none;
+  }
+  .shell__composer-hint {
+    justify-content: flex-end;
+  }
 }
 
 .shell__mode {
@@ -577,6 +2439,90 @@
   border-radius: var(--ot-radius-pill);
   padding: 9px 22px;
   gap: 8px;
+}
+
+/* Voice-dictation button — sits between the counter and Send. Quiet
+   ghost-style at rest; pulses an accent red when actively listening.
+   Disabled in non-Speech-API browsers (Firefox primarily) with a
+   muted color + crossed-out cursor. */
+.shell__voice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-card);
+  color: var(--ot-ink-soft);
+  font-size: 15px;
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__voice:hover:not(:disabled) {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+.shell__voice:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.shell__voice--listening {
+  background: var(--ot-accent);
+  border-color: var(--ot-accent);
+  color: white;
+  animation: shell-voice-pulse 1.2s infinite ease-in-out;
+}
+
+@keyframes shell-voice-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(232, 93, 74, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(232, 93, 74, 0);
+  }
+}
+
+/* Running char/token counter sandwiched between code-mode toggle and
+   the Send button. Three tiers: ok (muted), warn (amber, ≥4k chars),
+   danger (red, ≥8k chars). Pure cue — the worker doesn't gate on it. */
+.shell__count {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--ot-ink-mute);
+  padding: 4px 8px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-bg-soft);
+  cursor: help;
+  white-space: nowrap;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.shell__count--warn {
+  color: #7a5a00;
+  background: rgba(232, 168, 0, 0.12);
+}
+
+.shell__count--danger {
+  color: #8a1c14;
+  background: rgba(232, 93, 74, 0.12);
+}
+
+@media (max-width: 720px) {
+  /* On narrow viewports the counter wraps to its own row above the
+     Send button so it doesn't squash the mode/code toggles. */
+  .shell__count {
+    order: -1;
+    width: 100%;
+    text-align: center;
+  }
 }
 
 .shell__send[disabled] {
@@ -623,7 +2569,7 @@
     backdrop-filter: var(--ot-glass-blur);
     -webkit-backdrop-filter: var(--ot-glass-blur);
     border-top: 1px solid var(--ot-rule);
-    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
     z-index: 50;
   }
 
@@ -631,24 +2577,49 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    padding: 4px 0;
+    gap: 3px;
+    min-height: 56px;
+    padding: 8px 0 4px;
     color: var(--ot-ink-mute);
     font-size: 11px;
     font-family: var(--ot-font-mono);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     background: transparent;
+    position: relative;
     transition: color var(--ot-dur-quick) var(--ot-ease);
   }
 
+  .shell__tab::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 22px;
+    height: 2px;
+    border-radius: 0 0 4px 4px;
+    background: var(--ot-accent);
+    transform: translateX(-50%) scaleX(0);
+    transition: transform var(--ot-dur-base, 200ms) var(--ot-ease, ease-out);
+    transform-origin: center top;
+  }
+
   .shell__tab-glyph {
-    font-size: 16px;
+    font-size: 18px;
     line-height: 1;
+    transition: transform var(--ot-dur-quick) var(--ot-ease);
+  }
+
+  .shell__tab:active .shell__tab-glyph {
+    transform: scale(0.92);
   }
 
   .shell__tab--active {
     color: var(--ot-accent);
+  }
+
+  .shell__tab--active::before {
+    transform: translateX(-50%) scaleX(1);
   }
 
   .shell__tab--active .shell__tab-glyph {
@@ -658,7 +2629,8 @@
 
 /* ===== Mobile single-pane mode — last in the cascade so it wins ===== */
 @media (max-width: 920px) {
-  .shell {
+  .shell,
+  .shell.shell--canvas-sized {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr auto;
     padding-bottom: 64px;
@@ -666,6 +2638,7 @@
 
   .shell .shell__sidebar,
   .shell .shell__thread-feed,
+  .shell .shell__resizer,
   .shell .shell__canvas-pane {
     display: none;
   }

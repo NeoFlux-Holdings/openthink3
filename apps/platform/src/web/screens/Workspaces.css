@@ -1,0 +1,606 @@
+.workspaces {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 32px 80px;
+}
+
+.workspaces__header {
+  margin-bottom: 24px;
+}
+
+/* Header row — title flush-left, export/import buttons flush-right.
+   Lede sits below. Wraps on narrow viewports so the buttons stack
+   under the title instead of crowding it. */
+.workspaces__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.workspaces__io {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.workspaces__io-btn {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.workspaces__io-btn:hover,
+.workspaces__io-btn:focus-visible {
+  color: var(--ot-ink);
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+.workspaces__header h2 {
+  font-family: var(--ot-font-display, 'Fraunces', serif);
+  font-size: 36px;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+
+.workspaces__lede {
+  font-size: 14px;
+  color: var(--ot-ink);
+  max-width: 56ch;
+  line-height: 1.5;
+}
+
+.workspaces__new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 28px;
+  padding: 18px;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  border-radius: 14px;
+}
+
+.workspaces__new-row {
+  display: flex;
+  gap: 10px;
+}
+
+.workspaces__name {
+  flex: 1;
+  font-size: 15px;
+}
+
+.workspaces__desc {
+  font-size: 13px;
+}
+
+/* Agent-name preview row — shows the slugified workspace name + a
+   regenerate button so the user can confirm or override what the
+   server will pin the DO instance to. */
+.workspaces__agent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.workspaces__agent-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ot-ink-mute);
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.workspaces__agent-input {
+  flex: 1;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+}
+
+.workspaces__agent-suggest,
+.workspaces__agent-reset {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.workspaces__agent-reset {
+  font-size: 13px;
+  width: 32px;
+  padding: 4px 0;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .workspaces__agent-row {
+    flex-wrap: wrap;
+  }
+  .workspaces__agent-label {
+    width: 100%;
+  }
+}
+
+.workspaces__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Archived workspaces section — collapsed by default, sits below the
+   active list. Toggle button shows a count badge so the user knows
+   whether there's anything worth expanding without clicking. */
+.workspaces__archived-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ot-rule);
+}
+
+.workspaces__archived-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.workspaces__archived-toggle:hover,
+.workspaces__archived-toggle:focus-visible {
+  color: var(--ot-ink);
+  background: var(--ot-rule-soft, transparent);
+  outline: none;
+}
+
+.workspaces__archived-count {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 1px 8px;
+  background: var(--ot-bg-sunken, var(--ot-rule));
+  border-radius: 999px;
+  color: var(--ot-ink-soft);
+}
+
+.workspaces__archived-list {
+  list-style: none;
+  padding: 8px 0 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.workspaces__archived-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--ot-bg-sunken, var(--ot-bg-soft));
+  border: 1px solid var(--ot-rule);
+  border-radius: 10px;
+  opacity: 0.85;
+}
+
+.workspaces__archived-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.workspaces__archived-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.workspaces__archived-delete {
+  color: var(--ot-danger, #b94545);
+}
+
+/* Sort-mode segmented toggle — sits above the workspace list when
+   there's more than one workspace. Persisted in localStorage. */
+.workspaces__sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.workspaces__sort-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ot-ink-mute);
+  margin-right: 4px;
+}
+
+.workspaces__sort-opt {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border-radius: var(--ot-radius-pill);
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-card);
+  color: var(--ot-ink-soft);
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.workspaces__sort-opt:hover {
+  color: var(--ot-ink);
+  border-color: var(--ot-accent);
+}
+
+.workspaces__sort-opt--active {
+  background: rgba(232, 93, 74, 0.1);
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+.workspaces__item-activity {
+  color: var(--ot-ink-soft);
+  cursor: help;
+}
+
+.workspaces__empty {
+  padding: 18px;
+  border: 1px dashed var(--ot-rule);
+  border-radius: 14px;
+  color: var(--ot-ink-mute);
+}
+
+.workspaces__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg);
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    box-shadow var(--ot-dur-quick) var(--ot-ease);
+  /* tabIndex={0} makes the li keyboard-focusable. Strip the default
+     dotted outline + provide a strong, accent-tinted ring so users can
+     actually see where they are without it looking like a 1990s alert. */
+  outline: none;
+}
+
+.workspaces__item:focus-visible {
+  border-color: var(--ot-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ot-accent) 40%, transparent),
+    var(--ot-shadow-sm);
+}
+
+.workspaces__item--previewing {
+  border-color: var(--ot-accent);
+  box-shadow: var(--ot-shadow-sm);
+}
+
+/* Pinned-preview card — the source row whose popover is currently
+   sticky-open. We bump the left edge with an accent strip + a slightly
+   stronger shadow so the user knows which card the floating popover
+   belongs to when the cursor is over a different row. */
+.workspaces__item--preview-pinned {
+  box-shadow: inset 3px 0 0 var(--ot-accent),
+    0 4px 16px color-mix(in srgb, var(--ot-accent) 14%, transparent);
+  background: color-mix(in srgb, var(--ot-accent) 4%, var(--ot-bg));
+}
+
+.workspaces__item--preview-pinned::after {
+  content: '📌';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Hover-preview popover — slides in from the right edge of the card on
+   desktop, drops below on narrow screens. Shows the top 3 most-recent
+   threads in the workspace so the user can recognize it before
+   switching. Lazy-loaded once per card per session. */
+.workspaces__preview {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 12px);
+  transform: translateY(-50%);
+  width: 280px;
+  padding: 12px 14px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(20, 18, 14, 0.12);
+  z-index: 6;
+  pointer-events: none;
+  animation: workspaces-preview-in 140ms var(--ot-ease, ease-out);
+}
+
+@keyframes workspaces-preview-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+}
+
+.workspaces__preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ot-ink-mute);
+  margin-bottom: 6px;
+}
+
+/* Pin button in the preview header — click to keep the popover open
+   after pointer leaves. Quiet glyph by default, lights up the accent
+   when pinned so the state is obvious. */
+.workspaces__preview-pin {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.workspaces__preview-pin:hover,
+.workspaces__preview-pin:focus-visible {
+  color: var(--ot-accent);
+  border-color: var(--ot-rule);
+  outline: none;
+}
+
+.workspaces__preview-pin--on {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+  background: color-mix(in srgb, var(--ot-accent) 14%, transparent);
+}
+
+/* Pinned popover variant — slightly heavier shadow + a subtle accent
+   border so the user knows it's "sticky" vs. the transient hover. */
+.workspaces__preview--pinned {
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--ot-accent) 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--ot-accent) 32%, var(--ot-rule));
+}
+
+.workspaces__preview-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workspaces__preview-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.workspaces__preview-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ot-ink);
+}
+
+.workspaces__preview-age {
+  flex: 0 0 auto;
+  color: var(--ot-ink-mute);
+}
+
+.workspaces__preview-empty,
+.workspaces__preview-loading {
+  font-size: 12px;
+  color: var(--ot-ink-mute);
+}
+
+/* On narrow screens the right-side popover would clip outside the
+   viewport, so drop it below the card and let it span the card's
+   width. */
+@media (max-width: 900px) {
+  .workspaces__preview {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    width: auto;
+    transform: none;
+  }
+
+  @keyframes workspaces-preview-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+.workspaces__item--active {
+  border-color: var(--ot-accent);
+  background: rgba(232, 93, 74, 0.06);
+}
+
+.workspaces__item--pinned::before {
+  content: '✦';
+  color: var(--ot-accent);
+  margin-right: 4px;
+}
+
+/* Drag-reorder states. `dragging` dims the source so the user sees
+   where the item left from; `over` shows a top-edge highlight on the
+   drop target so the insertion point is clear. Only fires in manual
+   sort mode (the other modes don't honor manual ordering). */
+.workspaces__item--dragging {
+  opacity: 0.45;
+  transform: scale(0.99);
+}
+
+.workspaces__item--over {
+  border-top: 2px dashed var(--ot-accent);
+  transform: translateY(2px);
+}
+
+.workspaces__item-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.workspaces__item-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.workspaces__item-name {
+  font-family: var(--ot-font-display, 'Fraunces', serif);
+  font-size: 22px;
+  letter-spacing: -0.005em;
+}
+
+.workspaces__item-sub {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+  margin-top: 4px;
+}
+
+.workspaces__item-spend {
+  color: var(--ot-good, #4f7a4d);
+}
+
+.workspaces__item-desc {
+  font-size: 13px;
+  color: var(--ot-ink);
+  margin-top: 8px;
+  max-width: 60ch;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 14-day thread-update heatmap strip. Renders 14 fixed-width cells
+   inside a 24px-high band; cell height is proportional to that day's
+   count. Today gets a faint accent border so the right edge is easy
+   to find. Tooltip per cell carries the day label + count. */
+.workspaces__heatmap {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 22px;
+  margin-top: 8px;
+  max-width: 200px;
+}
+
+.workspaces__heatmap-cell {
+  display: inline-block;
+  width: 9px;
+  min-height: 2px;
+  background: var(--ot-rule);
+  border-radius: 1px;
+  transition: background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.workspaces__heatmap-cell--has {
+  background: color-mix(in srgb, var(--ot-accent) 60%, var(--ot-rule));
+}
+
+.workspaces__heatmap-cell--today {
+  outline: 1px solid var(--ot-accent);
+  outline-offset: 1px;
+}
+
+.workspaces__heatmap-cell:hover {
+  background: var(--ot-accent);
+}
+
+/* Inline markdown elements inside the description. Mostly default but
+   `<code>` gets the mono treatment + a chip background, and links
+   get the accent color. */
+.workspaces__item-desc code {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  padding: 1px 5px;
+  background: var(--ot-bg-sunken, var(--ot-bg-soft));
+  border: 1px solid var(--ot-rule);
+  border-radius: 4px;
+}
+
+.workspaces__item-desc a {
+  color: var(--ot-accent);
+  text-decoration: none;
+  border-bottom: 1px dashed color-mix(in srgb, var(--ot-accent) 50%, var(--ot-rule));
+}
+
+.workspaces__item-desc a:hover {
+  border-bottom-style: solid;
+}
+
+.workspaces__item-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .workspaces {
+    padding: 24px 16px 80px;
+  }
+
+  .workspaces__item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .workspaces__new-row {
+    flex-direction: column;
+  }
+}

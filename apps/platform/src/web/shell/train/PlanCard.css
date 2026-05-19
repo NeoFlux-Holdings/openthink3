@@ -204,3 +204,71 @@
   margin: 0 0 12px;
   white-space: pre;
 }
+
+/* Per-step output preview — collapsed by default (error auto-expands).
+   Click the toggle to expand into a small mono pane below the step. */
+.plan-step__output {
+  margin-top: 6px;
+  border-radius: var(--ot-radius-sm);
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule-soft);
+  overflow: hidden;
+}
+
+.plan-step__output--error {
+  border-color: rgba(194, 57, 46, 0.3);
+  background: rgba(194, 57, 46, 0.06);
+}
+
+.plan-step__output-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 6px 10px;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.plan-step__output--error .plan-step__output-toggle {
+  color: var(--ot-bad, #c2392e);
+}
+
+.plan-step__output-toggle:hover {
+  background: var(--ot-bg-card);
+}
+
+.plan-step__output-chevron {
+  display: inline-block;
+  width: 10px;
+  font-size: 10px;
+}
+
+.plan-step__output-time {
+  margin-left: 4px;
+  color: var(--ot-ink-mute);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.plan-step__output-body {
+  margin: 0;
+  padding: 8px 10px;
+  border-top: 1px solid var(--ot-rule-soft);
+  background: var(--ot-bg);
+  font-family: var(--ot-font-mono);
+  font-size: 11.5px;
+  color: var(--ot-ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow-y: auto;
+}

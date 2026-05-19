@@ -5,12 +5,28 @@
   width: 100%;
 }
 
+@media (max-width: 720px) {
+  .learning {
+    padding: 24px 18px 90px;
+  }
+}
+
 .learning__header h2 {
   font-family: var(--ot-font-display);
   font-size: 36px;
   font-weight: 400;
   letter-spacing: -0.02em;
   margin: 0 0 6px;
+}
+
+@media (max-width: 720px) {
+  .learning__header h2 {
+    font-size: 28px;
+  }
+
+  .summary-card__value {
+    font-size: 36px !important;
+  }
 }
 
 .learning__lede {
@@ -107,6 +123,872 @@
   text-align: center;
 }
 
+/* Memories empty-state row — pair of CTAs centered under the
+   description so the user has a clear next step instead of a dead-end
+   message. Mirrors the Skills page empty layout. */
+.learning__memories-empty-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+/* Duplicate-detector banner + cluster panel. The banner is always
+   visible when N≥1 clusters were detected; clicking it toggles a
+   collapsible list of clusters, each with a "Keep newest" merge
+   button. */
+.learning__dedup {
+  margin: 0 0 12px;
+  border: 1px solid rgba(232, 168, 0, 0.42);
+  border-radius: 12px;
+  background: rgba(232, 168, 0, 0.06);
+  overflow: hidden;
+}
+
+.learning__dedup-banner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: #7a5a00;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.learning__dedup-banner strong {
+  font-family: var(--ot-font-display, 'Fraunces', serif);
+  font-size: 16px;
+  font-weight: 600;
+  margin-right: 2px;
+}
+
+.learning__dedup-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #b8860b;
+  color: white;
+  font-size: 13px;
+  flex: 0 0 22px;
+}
+
+.learning__dedup-chevron {
+  margin-left: auto;
+  color: var(--ot-ink-mute);
+  font-size: 12px;
+}
+
+.learning__dedup-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid rgba(232, 168, 0, 0.3);
+  background: var(--ot-bg);
+}
+
+.learning__dedup-cluster {
+  padding: 10px 14px;
+  border-bottom: 1px dashed var(--ot-rule-soft);
+}
+
+.learning__dedup-cluster:last-child {
+  border-bottom: 0;
+}
+
+.learning__dedup-cluster-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.learning__dedup-rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.learning__dedup-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 80px;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.learning__dedup-row--keeper {
+  background: rgba(46, 139, 87, 0.06);
+}
+
+.learning__dedup-row-tag {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ot-ink-mute);
+}
+
+.learning__dedup-row--keeper .learning__dedup-row-tag {
+  color: #1f5c3a;
+  font-weight: 600;
+}
+
+.learning__dedup-row-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Memory category filter chips — wrap above the list. Each chip carries
+   the category name + a count, and clicking activates that filter. */
+.learning__memory-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+/* Free-text memory search — sits above the category chip row. Magnify
+   glyph drops into the input via flex; clear-× pops in when text is
+   present. Persisted to localStorage so reload keeps the filter
+   alive; Esc clears it without leaving the field. */
+.learning__memory-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding-left: 14px;
+  background: var(--ot-bg-sunken, var(--ot-bg-soft));
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md, 10px);
+  transition: border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.learning__memory-search:focus-within {
+  border-color: var(--ot-accent);
+}
+
+.learning__memory-search-glyph {
+  color: var(--ot-ink-mute);
+  font-size: 14px;
+}
+
+.learning__memory-search-input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  padding: 8px 10px;
+  font: inherit;
+  color: var(--ot-ink);
+}
+
+.learning__memory-search-input:focus {
+  outline: none;
+}
+
+.learning__memory-search-clear {
+  background: transparent;
+  border: 0;
+  padding: 4px 10px;
+  color: var(--ot-ink-mute);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.learning__memory-search-clear:hover,
+.learning__memory-search-clear:focus-visible {
+  color: var(--ot-accent);
+  outline: none;
+}
+
+/* Sort dropdown — sits inside the search row, separated by a thin
+   left divider so it reads as a sibling control. Compact: just a
+   "sort" label + select, no chrome around the wrapper. */
+.learning__memory-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 12px;
+  border-left: 1px solid var(--ot-rule);
+  height: 100%;
+}
+
+.learning__memory-sort-label {
+  color: var(--ot-ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+}
+
+.learning__memory-sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 6px 22px 6px 4px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ot-ink);
+  cursor: pointer;
+  border-radius: var(--ot-radius-sm);
+  /* Caret pseudo-glyph drawn via background-image so the select can
+     keep its native dropdown behavior without showing the platform
+     chrome. Tinted with the muted ink so it doesn't compete with the
+     content. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--ot-ink-mute) 50%),
+    linear-gradient(135deg, var(--ot-ink-mute) 50%, transparent 50%);
+  background-position: calc(100% - 12px) 50%, calc(100% - 8px) 50%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.learning__memory-sort-select:hover,
+.learning__memory-sort-select:focus-visible {
+  background-color: var(--ot-bg-soft);
+  color: var(--ot-ink);
+  outline: none;
+}
+
+@media (max-width: 600px) {
+  .learning__memory-sort {
+    /* On a phone the sort drops below the search input so neither
+       has to fight for horizontal space. Border-left flips to a top
+       rule so the visual seam stays sensible. */
+    border-left: 0;
+    border-top: 1px solid var(--ot-rule);
+    padding: 6px 8px 0;
+    width: 100%;
+  }
+  .learning__memory-sort-select {
+    flex: 1;
+    font-size: 14px;
+    padding: 6px 22px 6px 8px;
+  }
+}
+
+.learning__memory-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--ot-radius-pill);
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-card);
+  color: var(--ot-ink-soft);
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.learning__memory-filter:hover {
+  color: var(--ot-ink);
+  border-color: var(--ot-accent);
+}
+
+.learning__memory-filter--active {
+  background: var(--ot-accent-soft);
+  border-color: var(--ot-accent);
+  color: var(--ot-accent-deep);
+}
+
+.learning__memory-filter-n {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ot-bg-soft);
+  color: var(--ot-ink-mute);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.learning__memory-filter--active .learning__memory-filter-n {
+  background: var(--ot-accent);
+  color: white;
+}
+
+/* Clear-category variant — appears only when a category filter is
+   active and has rows. Wears a danger tint at rest so the destructive
+   action stands apart from the other filter chips; hover saturates
+   to make the click target obvious. */
+.learning__memory-filter--clear {
+  margin-left: 8px;
+  color: var(--ot-danger, #b94545);
+  border-color: color-mix(in srgb, var(--ot-danger, #b94545) 38%, var(--ot-rule));
+  border-style: dashed;
+  background: transparent;
+}
+
+.learning__memory-filter--clear:hover,
+.learning__memory-filter--clear:focus-visible {
+  color: var(--ot-danger, #b94545);
+  border-color: var(--ot-danger, #b94545);
+  border-style: solid;
+  background: color-mix(in srgb, var(--ot-danger, #b94545) 8%, transparent);
+  outline: none;
+}
+
+/* Editable memory list. Each memory is a horizontal flex row with a
+   category pill, the content (button → input when editing), and meta. */
+.learning__memories {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.learning__memory {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: start;
+  padding: 12px 16px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+}
+
+.learning__memory--skel {
+  display: block;
+  padding: 16px;
+}
+
+.learning__memory-cat {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.learning__memory-cat--user_facts { background: rgba(79, 122, 77, 0.12); color: #4f7a4d; }
+.learning__memory-cat--active_work { background: rgba(184, 123, 10, 0.12); color: #b87b0a; }
+.learning__memory-cat--preferences { background: rgba(75, 110, 175, 0.12); color: #4b6eaf; }
+.learning__memory-cat--domain_knowledge { background: rgba(232, 93, 74, 0.12); color: var(--ot-accent); }
+.learning__memory-cat--people { background: rgba(123, 79, 181, 0.12); color: #7b4fb5; }
+
+.learning__memory-content {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--ot-radius-sm);
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ot-ink);
+  cursor: text;
+  padding: 4px 8px;
+  margin-left: -8px;
+  width: 100%;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.learning__memory-content:hover {
+  background: var(--ot-bg-soft);
+  border-color: var(--ot-rule);
+}
+
+.learning__memory-edit {
+  font-size: 14px;
+  line-height: 1.55;
+  font-family: var(--ot-font-ui);
+  width: 100%;
+  resize: vertical;
+}
+
+/* Wrapper so the diff strip can sit right under the textarea inside
+   the row layout — the grid the memory uses puts the editor at a
+   specific column, and we want the diff to share that column rather
+   than crowd into the tag strip next to it. */
+.learning__memory-edit-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* "What changed" preview under the memory editor. A compact card with
+   a tiny stats row + the word-level diff inline. Token colors echo the
+   prompt-diff in Settings so the visual language stays consistent. */
+.learning__memory-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-sm, 8px);
+  /* No user-select on the wrapper would prevent copy; we only block
+     mousedown focus theft via JS so text selection still works. */
+}
+
+.learning__memory-diff-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.learning__memory-diff-add {
+  color: #1f5c3a;
+  font-family: var(--ot-font-mono);
+  font-weight: 600;
+}
+
+.learning__memory-diff-del {
+  color: #8a3024;
+  font-family: var(--ot-font-mono);
+  font-weight: 600;
+}
+
+.learning__memory-diff-hint {
+  color: var(--ot-ink-mute);
+  margin-left: auto;
+}
+
+.learning__memory-diff-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: var(--ot-font-ui);
+  color: var(--ot-ink-soft);
+  word-wrap: break-word;
+  /* Preserve original whitespace from the tokens so the diff reads
+     like the source text — multiple spaces and newlines stay intact. */
+  white-space: pre-wrap;
+}
+
+.learning__memory-diff-tok {
+  display: inline;
+}
+
+.learning__memory-diff-tok--same {
+  color: var(--ot-ink-soft);
+}
+
+.learning__memory-diff-tok--add {
+  background: rgba(46, 139, 87, 0.18);
+  color: #1f5c3a;
+  border-radius: 2px;
+  padding: 0 2px;
+  text-decoration: underline;
+  text-decoration-color: rgba(46, 139, 87, 0.45);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.learning__memory-diff-tok--del {
+  background: rgba(194, 57, 46, 0.14);
+  color: #8a3024;
+  border-radius: 2px;
+  padding: 0 2px;
+  text-decoration: line-through;
+  text-decoration-color: rgba(194, 57, 46, 0.55);
+  text-decoration-thickness: 1px;
+}
+
+/* Mobile: tighten padding + drop the right-aligned hint to its own
+   line so the stats row doesn't try to compete with the diff body. */
+@media (max-width: 600px) {
+  .learning__memory-diff {
+    padding: 8px 10px;
+    gap: 5px;
+  }
+  .learning__memory-diff-hint {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .learning__memory-diff-text {
+    font-size: 12.5px;
+  }
+}
+
+.learning__memory-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.learning__memory-remove {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  font-size: 13px;
+  line-height: 1;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.learning__memory-remove:hover {
+  background: rgba(232, 93, 74, 0.12);
+  color: var(--ot-bad, #c2392e);
+}
+
+/* When-to-use tag chip row — sits below the category filter when at
+   least one memory carries a non-empty whenToUse string. Tokens are
+   extracted client-side from those strings; clicking a chip toggles
+   it into an AND-filter against the visible memory list. */
+.learning__memory-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin: 6px 0 10px;
+}
+
+.learning__memory-tags-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ot-ink-mute);
+  margin-right: 6px;
+}
+
+.learning__memory-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  border-radius: var(--ot-radius-pill);
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-card);
+  color: var(--ot-ink-soft);
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.learning__memory-tag:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+.learning__memory-tag--active {
+  background: rgba(232, 93, 74, 0.1);
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+.learning__memory-tag--clear {
+  border-style: dashed;
+}
+
+/* Custom-tag variant — visually distinguish the user-curated tag layer
+   from the inferred when-to-use tokens above. We use an accent-tinted
+   background while inactive (vs the transparent default for derived
+   chips) so a glance distinguishes the two systems. */
+.learning__memory-tag--custom {
+  background: color-mix(in srgb, var(--ot-accent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--ot-accent) 28%, var(--ot-rule));
+}
+
+.learning__memory-tag--custom.learning__memory-tag--active {
+  background: color-mix(in srgb, var(--ot-accent) 28%, transparent);
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+.learning__memory-tags--custom {
+  /* Bring the custom-tag row tight against the when-to-use row so they
+     read as a stacked pair, not as separate sections. */
+  margin-top: -4px;
+}
+
+/* Per-memory tag strip — inline chips inside each memory li, plus
+   the edit affordance ("✎" or "+ tag"). Wraps under the meta row on
+   narrow viewports so the action buttons stay in line. */
+.learning__memory-tag-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  grid-column: 1 / -1;
+}
+
+.learning__memory-tag--item {
+  font-size: 10px;
+  padding: 1px 7px;
+}
+
+.learning__memory-tag--edit {
+  border-style: dashed;
+  color: var(--ot-ink-mute);
+  background: transparent;
+}
+
+.learning__memory-tag--edit:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+.learning__memory-tag-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.learning__memory-tag-edit input {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+/* Inline tag-autocomplete strip — surfaces 1–6 existing tags from the
+   user's pool, filtered by the partial word they're typing. Active
+   chip (↑/↓ navigation) gets a stronger accent ring so the keyboard
+   loop is visually trackable. */
+.learning__memory-tag-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin-top: 2px;
+  padding-bottom: 2px;
+}
+
+.learning__memory-tag-suggest-chip {
+  font-family: var(--ot-font-mono);
+  font-size: 10.5px;
+  padding: 2px 8px;
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-soft);
+  cursor: pointer;
+  transition: background var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.learning__memory-tag-suggest-chip:hover,
+.learning__memory-tag-suggest-chip:focus-visible {
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+  outline: none;
+}
+
+.learning__memory-tag-suggest-chip--active {
+  background: color-mix(in srgb, var(--ot-accent) 14%, var(--ot-bg-card));
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+  /* The active chip is the one ↑/↓ navigation has landed on — a tiny
+     glow so the keyboard user can find it without re-reading the row. */
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ot-accent) 22%, transparent);
+}
+
+/* Mobile pass — at ≤600px the custom-tag UI gets larger tap targets,
+   the per-item edit input goes full-width, and the memory grid
+   collapses to a single column so the meta + tag-strip don't
+   compete for horizontal space with the content. */
+@media (max-width: 600px) {
+  .learning__memory {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .learning__memory-meta {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .learning__memory-tag-strip {
+    margin-top: 4px;
+    gap: 6px;
+  }
+
+  /* Bump touch targets a hair so chips clear the 30px tap-zone
+     guideline without losing the dense look on desktop. */
+  .learning__memory-tag--item {
+    font-size: 11px;
+    padding: 3px 9px;
+  }
+
+  .learning__memory-tag--edit {
+    font-size: 12px;
+    padding: 3px 10px;
+  }
+
+  .learning__memory-tag-edit {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .learning__memory-tag-edit input {
+    /* iOS Safari auto-zooms inputs whose font is <16px on focus;
+       16px is the magic threshold to suppress that. */
+    font-size: 16px;
+    padding: 6px 10px;
+  }
+
+  /* Mobile tighten — suggestion chips compress so a typeahead row of
+     6 doesn't shove the helper-text line into a third visual row. */
+  .learning__memory-tag-suggest-chip {
+    font-size: 11px;
+    padding: 3px 9px;
+    max-width: 140px;
+  }
+
+  /* The two tag rows (when-to-use + custom) also stack chips tighter
+     to avoid wrapping on a third row when the user has many tags. */
+  .learning__memory-tags {
+    gap: 6px;
+  }
+}
+
+/* Recent-workflow-runs list. One row per Goal/Retrain run; left
+   carries a kind pill, middle has the summary + timestamp + id, right
+   carries the status pill. */
+.learning__workflows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.learning__workflow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--ot-rule);
+  border-radius: 10px;
+  background: var(--ot-bg-card);
+}
+
+.learning__workflow-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.learning__workflow-summary {
+  font-size: 13px;
+  color: var(--ot-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.learning__workflow-kind {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex: 0 0 auto;
+}
+
+.learning__workflow-kind--goal {
+  color: var(--ot-accent);
+  background: rgba(232, 93, 74, 0.08);
+  border: 1px solid rgba(232, 93, 74, 0.3);
+}
+
+.learning__workflow-kind--retrain {
+  color: #4b6eaf;
+  background: rgba(75, 110, 175, 0.08);
+  border: 1px solid rgba(75, 110, 175, 0.3);
+}
+
+.learning__workflow-status {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+
+/* Re-run affordance — only renders next to terminal-state goal rows.
+   Sits between the body and the status pill so the user reads
+   summary → action → outcome left-to-right. Pill style consistent
+   with the other ghost actions. */
+.learning__workflow-resume {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.learning__workflow-resume:hover,
+.learning__workflow-resume:focus-visible {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+.learning__workflow-status--queued {
+  color: var(--ot-ink-mute);
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+}
+
+.learning__workflow-status--running {
+  color: var(--ot-accent);
+  background: rgba(232, 93, 74, 0.08);
+  border: 1px solid rgba(232, 93, 74, 0.3);
+}
+
+.learning__workflow-status--done,
+.learning__workflow-status--complete {
+  color: #1f5c3a;
+  background: rgba(79, 122, 77, 0.08);
+  border: 1px solid rgba(79, 122, 77, 0.3);
+}
+
+.learning__workflow-status--failed,
+.learning__workflow-status--cancelled,
+.learning__workflow-status--error {
+  color: #8a1c14;
+  background: rgba(232, 93, 74, 0.08);
+  border: 1px solid rgba(232, 93, 74, 0.3);
+}
+
 .learning__categories {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -132,4 +1014,50 @@
   margin: 0 0 6px;
   font-size: 13px;
   color: var(--ot-ink-soft);
+}
+
+/* Quick-add row at the bottom of each category card. Lets the user
+   drop a fresh memory straight into the matching bucket without
+   navigating up to the chat or memory list. Stays compact —
+   input + button, no labels (the placeholder + button text carry
+   the meaning). */
+.learning__category-quickadd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--ot-rule-soft, var(--ot-rule));
+}
+
+.learning__category-quickadd-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--ot-font-ui);
+  font-size: 12px;
+  padding: 5px 9px;
+}
+
+.learning__category-quickadd-input::placeholder {
+  color: var(--ot-ink-mute);
+  font-style: italic;
+}
+
+.learning__category-quickadd-btn {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  .learning__category-quickadd-input {
+    /* iOS no-zoom threshold so tapping into a category card's
+       input doesn't punch through to a 16px-zoomed view. */
+    font-size: 16px;
+    padding: 6px 10px;
+  }
+  .learning__category-quickadd-btn {
+    font-size: 13px;
+    padding: 6px 14px;
+  }
 }

@@ -4,6 +4,30 @@
   gap: 20px;
 }
 
+.sync-panel__refresh {
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ot-ink-mute);
+  margin-left: auto;
+  transition: color 120ms var(--ot-ease, ease-out),
+    border-color 120ms var(--ot-ease, ease-out);
+}
+
+.sync-panel__refresh:hover {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+.sync-panel__refresh:disabled {
+  cursor: default;
+}
+
 .sync-panel__head {
   display: flex;
   align-items: center;
@@ -26,18 +50,232 @@
   background: var(--ot-bg-card);
 }
 
+/* Each commit is now a button-row + optional inline-diff body. The
+   row is the clickable surface; the body collapses by default and
+   expands when the user wants to inspect what landed. Tabbing through
+   the list still works because the row IS a real button. */
 .sync-commit {
-  display: grid;
-  grid-template-columns: 80px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  font-size: 13px;
+  display: flex;
+  flex-direction: column;
   border-bottom: 1px solid var(--ot-rule-soft);
 }
 
 .sync-commit:last-child {
   border-bottom: none;
+}
+
+/* The row itself — laid out the way the old .sync-commit was, but
+   prefixed with a small caret cell so users have a clear "this is
+   expandable" affordance. Styled as a button so keyboard nav lands
+   naturally; hover/focus surface a soft accent fill. */
+.sync-commit__row {
+  display: grid;
+  grid-template-columns: 14px 80px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-commit__row:hover,
+.sync-commit__row:focus-visible {
+  background: color-mix(in srgb, var(--ot-accent) 5%, var(--ot-bg-card));
+  outline: none;
+}
+
+.sync-commit--open .sync-commit__row {
+  background: color-mix(in srgb, var(--ot-accent) 7%, var(--ot-bg-card));
+}
+
+/* Keyboard focus rail — when the user navigates with j/k, the active
+   commit row gets a left-edge accent stripe + soft bg shift so it's
+   obvious where they are. Pairs cleanly with the open-state shift
+   (which uses a stronger bg tint). */
+.sync-commit--kbd-focus {
+  background: color-mix(in srgb, var(--ot-accent) 5%, transparent);
+  border-left: 3px solid var(--ot-accent);
+}
+
+.sync-commit--kbd-focus .sync-commit__row {
+  /* Compensate for the 3px border so content doesn't shift right
+     when focus lands on a row. */
+  padding-left: 11px;
+}
+
+/* `<kbd>` hint chips in the commits header — telegraph that j/k nav
+   is available. Hidden on phone widths where touch users wouldn't
+   benefit and the label has less room. */
+.sync-panel__commits-hint {
+  color: var(--ot-ink-mute);
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.sync-panel__commits-hint kbd {
+  display: inline-block;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  margin: 0 1px;
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border: 1px solid var(--ot-rule);
+  border-radius: 4px;
+  color: var(--ot-ink);
+  line-height: 1.2;
+}
+
+@media (max-width: 600px) {
+  .sync-panel__commits-hint {
+    display: none;
+  }
+}
+
+.sync-commit__caret {
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+  font-family: var(--ot-font-mono);
+  transition: color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-commit__row:hover .sync-commit__caret,
+.sync-commit__row:focus-visible .sync-commit__caret,
+.sync-commit--open .sync-commit__caret {
+  color: var(--ot-accent);
+}
+
+/* Per-commit diff body — slides in below the row when expanded. The
+   `.sync-file` machinery from the dry-run viewer takes care of
+   filename + counts + unified-line styling, so we just need a
+   container that respects the indented "this belongs to the row
+   above" visual hierarchy. */
+.sync-commit__diff {
+  padding: 0 14px 12px 32px;
+  border-top: 1px dashed var(--ot-rule-soft);
+}
+
+.sync-commit__diff-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.sync-commit__diff-summary {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-family: var(--ot-font-mono);
+  color: var(--ot-ink-mute);
+  flex-wrap: wrap;
+}
+
+/* Inline find input inside a commit's expanded diff body. Lives at
+   the right edge of the summary line; same `⌕ ${n}` chip shape as
+   the dry-run DiffViewer's find input so the surface reads
+   consistently across both UIs. */
+.sync-commit__diff-find {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  padding: 0 4px 0 10px;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-commit__diff-find:focus-within {
+  border-color: var(--ot-accent);
+}
+
+.sync-commit__diff-find-input {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 3px 4px;
+  color: var(--ot-ink);
+  width: 130px;
+}
+
+.sync-commit__diff-find-input:focus {
+  outline: none;
+}
+
+.sync-commit__diff-find-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .sync-commit__diff-find {
+    /* On phones the summary row tends to wrap; let the find input
+       claim a full row so neither the +/- chips nor the count chip
+       get squeezed. */
+    margin-left: 0;
+    flex-basis: 100%;
+    margin-top: 4px;
+  }
+  .sync-commit__diff-find-input {
+    flex: 1;
+    width: auto;
+    font-size: 14px;
+  }
+}
+
+.sync-commit__diff-status {
+  margin: 8px 0 0;
+  color: var(--ot-ink-mute);
+}
+
+.sync-commit__diff-error {
+  margin: 8px 0 0;
+  color: #7a5a00;
+}
+
+.sync-commit__diff-retry {
+  background: transparent;
+  border: 0;
+  padding: 0 4px;
+  color: var(--ot-accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.sync-commit__diff-retry:hover {
+  color: var(--ot-accent-deep, var(--ot-accent));
+}
+
+/* Mobile: the row's grid can't show four columns cleanly on a phone,
+   so we collapse the author into a stacked sub-row. Caret + sha stay
+   anchored so the click target reads as an obvious affordance. */
+@media (max-width: 600px) {
+  .sync-commit__row {
+    grid-template-columns: 14px 70px 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 8px;
+    row-gap: 2px;
+    padding: 10px 12px;
+  }
+  .sync-commit__author {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    font-size: 11px;
+  }
+  .sync-commit__diff {
+    padding: 0 12px 10px 22px;
+  }
 }
 
 .sync-commit__sha {
@@ -66,6 +304,36 @@
 .sync-panel__actions {
   display: flex;
   gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sync-panel__pr-toast {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ot-good, #2e8b57);
+  background: #d9efe2;
+  border: 1px solid rgba(46, 139, 87, 0.32);
+  padding: 4px 10px;
+  border-radius: var(--ot-radius-pill);
+  animation: sync-pr-toast-in 220ms var(--ot-ease, ease-out);
+}
+
+@keyframes sync-pr-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sync-panel__pr-toast a {
+  color: var(--ot-good, #2e8b57);
+  text-decoration: underline;
 }
 
 .sync-panel__diff {
@@ -94,6 +362,165 @@
   color: var(--ot-ink);
 }
 
+/* Header summary chip + bulk actions cluster. The stats chip mirrors
+   the per-file +/- pills, just totaled across every file in the diff.
+   The bulk buttons (expand-all / collapse-all / copy) share a
+   consistent pill style with the existing view-toggle. */
+.sync-panel__diff-stats {
+  color: var(--ot-ink-mute);
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+}
+
+.sync-panel__bulk-toggle {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.sync-panel__bulk-btn {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  border: 1px solid var(--ot-rule);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-panel__bulk-btn:hover,
+.sync-panel__bulk-btn:focus-visible {
+  color: var(--ot-ink);
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+/* Find-in-diff input — sits inline with the bulk controls in the
+   DiffViewer header. Ctrl/Cmd+F captures focus to it. A small hit-
+   count chip surfaces inside when a query is active so the user
+   can scan for "any match in this diff?" at a glance. */
+.sync-panel__find {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  padding: 0 4px 0 10px;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-panel__find:focus-within {
+  border-color: var(--ot-accent);
+}
+
+.sync-panel__find-glyph {
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+}
+
+.sync-panel__find-input {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 3px 4px;
+  color: var(--ot-ink);
+  width: 140px;
+}
+
+.sync-panel__find-input:focus {
+  outline: none;
+}
+
+.sync-panel__find-input::-webkit-search-cancel-button {
+  /* Hide the native clear-X — we render our own button so the chip
+     row stays visually consistent across browsers. */
+  display: none;
+}
+
+.sync-panel__find-count {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  background: color-mix(in srgb, var(--ot-accent) 14%, transparent);
+  color: var(--ot-accent-deep, var(--ot-accent));
+  border-radius: 999px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.sync-panel__find-count--zero {
+  /* Zero matches: soft warning tint so the user sees "your pattern
+     isn't here" without having to scroll the empty file list. */
+  background: rgba(232, 168, 0, 0.16);
+  color: #7a5a00;
+}
+
+.sync-panel__find-clear {
+  background: transparent;
+  border: 0;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  border-radius: 999px;
+  transition: color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-panel__find-clear:hover,
+.sync-panel__find-clear:focus-visible {
+  color: var(--ot-accent);
+  outline: none;
+}
+
+.sync-panel__find-empty {
+  padding: 12px 16px;
+  margin: 0;
+  color: var(--ot-ink-mute);
+}
+
+/* Per-file match count chip in the file summary row — same shape as
+   the +/- stats chips, with a soft accent tint so it's visually
+   distinct from line-change counts. */
+.sync-find__file-count {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ot-accent) 10%, transparent);
+  color: var(--ot-accent-deep, var(--ot-accent));
+}
+
+/* Inline match highlight wrapping each occurrence of the query
+   inside a diff line. Yellow tint so it pops over any of the
+   diff--add / diff--del / diff--ctx backgrounds. */
+.sync-find__hit {
+  background: rgba(255, 224, 102, 0.6);
+  color: #4a3500;
+  padding: 0 1px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  /* Mobile: find input goes full-width on its own line inside the
+     dialog header so it doesn't fight the bulk buttons for space. */
+  .sync-panel__find {
+    flex: 1 0 100%;
+    margin-top: 4px;
+  }
+  .sync-panel__find-input {
+    width: 100%;
+    font-size: 14px;
+  }
+}
+
 .sync-panel__diff pre {
   margin: 0;
   padding: 12px 16px;
@@ -104,6 +531,271 @@
   max-height: 320px;
   overflow: auto;
   white-space: pre;
+}
+
+.sync-panel__files {
+  max-height: 540px;
+  overflow: auto;
+}
+
+/* View toggle in the diff header — pill segmented control mirroring
+   the composer mode picker on the chat surface. */
+.sync-panel__view-toggle {
+  display: inline-flex;
+  margin-left: auto;
+  margin-right: 8px;
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-bg-soft);
+  padding: 2px;
+  gap: 0;
+}
+
+.sync-panel__view-opt {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--ot-radius-pill);
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-soft);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-panel__view-opt:hover {
+  color: var(--ot-ink);
+}
+
+.sync-panel__view-opt--active {
+  background: var(--ot-ink);
+  color: white;
+}
+
+/* Side-by-side diff layout — two equal-width columns. Each row is a
+   grid so left/right cells align horizontally. */
+.sync-split {
+  border-top: 1px solid var(--ot-rule-soft);
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.sync-split__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--ot-rule-soft);
+}
+
+.sync-split__row:last-child {
+  border-bottom: none;
+}
+
+.sync-split__cell {
+  margin: 0;
+  padding: 4px 10px;
+  white-space: pre;
+  overflow-x: auto;
+  border-right: 1px solid var(--ot-rule-soft);
+  min-width: 0;
+}
+
+.sync-split__cell:last-child {
+  border-right: none;
+}
+
+.sync-split__cell--ctx {
+  color: var(--ot-ink-soft);
+}
+
+.sync-split__cell--add {
+  background: rgba(46, 139, 87, 0.08);
+  color: #1f5c3a;
+}
+
+.sync-split__cell--del {
+  background: rgba(194, 57, 46, 0.08);
+  color: #8a1c14;
+}
+
+.sync-split__cell--empty {
+  background: var(--ot-bg-soft);
+}
+
+/* Word-level highlight inside a paired add/del row. The cell already
+   carries the line-level tint; the `<mark>` deepens the same color
+   family so only the actually-changed tokens pop. */
+.sync-split__word {
+  background: transparent;
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+.sync-split__word--add {
+  background: rgba(46, 139, 87, 0.25);
+  color: #14552e;
+}
+
+.sync-split__word--del {
+  background: rgba(194, 57, 46, 0.22);
+  color: #6e120c;
+}
+
+.sync-split__hunk {
+  grid-column: 1 / -1;
+  padding: 6px 12px;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: #6b8be0;
+  background: rgba(107, 139, 224, 0.08);
+  border-top: 1px solid var(--ot-rule-soft);
+  border-bottom: 1px solid var(--ot-rule-soft);
+}
+
+@media (max-width: 700px) {
+  .sync-split__row {
+    grid-template-columns: 1fr;
+  }
+  .sync-split__cell {
+    border-right: none;
+    border-bottom: 1px solid var(--ot-rule-soft);
+  }
+  .sync-split__cell:last-child {
+    border-bottom: none;
+  }
+}
+
+.sync-file {
+  border-bottom: 1px solid var(--ot-rule-soft);
+}
+
+.sync-file:last-child {
+  border-bottom: none;
+}
+
+.sync-file__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px 10px 32px;
+  cursor: pointer;
+  list-style: none;
+  position: relative;
+  font-size: 13px;
+  user-select: none;
+  transition: background 120ms var(--ot-ease, ease-out);
+}
+
+.sync-file__head::-webkit-details-marker {
+  display: none;
+}
+
+.sync-file__head::before {
+  content: '▸';
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ot-ink-mute);
+  font-size: 10px;
+  transition: transform 120ms var(--ot-ease, ease-out);
+}
+
+.sync-file[open] > .sync-file__head::before {
+  transform: translateY(-50%) rotate(90deg);
+}
+
+.sync-file__head:hover {
+  background: var(--ot-bg-soft);
+}
+
+.sync-file__path {
+  font-family: var(--ot-font-mono);
+  font-size: 12.5px;
+  color: var(--ot-ink);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sync-file__stats {
+  display: inline-flex;
+  gap: 8px;
+  font-family: var(--ot-font-mono);
+  font-size: 11.5px;
+  flex-shrink: 0;
+}
+
+.sync-file__add {
+  color: #1f5c3a;
+  font-weight: 600;
+}
+
+.sync-file__del {
+  color: #8a1c14;
+  font-weight: 600;
+}
+
+/* Per-file conflict count badge — warning-colored, sits to the left of
+   the +/- stats so the user sees it before they expand the file. */
+.sync-file__conflict {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  border-radius: var(--ot-radius-pill);
+  background: rgba(232, 168, 0, 0.16);
+  color: #7a5a00;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid rgba(232, 168, 0, 0.42);
+}
+
+/* Top-level dry-run banner conflict chip — same color story, just a
+   little roomier since it lives in the header alongside the file count. */
+.sync-panel__conflict-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+  padding: 3px 10px;
+  border-radius: var(--ot-radius-pill);
+  background: rgba(232, 168, 0, 0.16);
+  color: #7a5a00;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(232, 168, 0, 0.42);
+  cursor: help;
+}
+
+/* Highlight a single line inside the diff body that contains an
+   unresolved merge marker. The line keeps its add/del/ctx coloring but
+   gains a warm yellow border + bold weight so it pops in a wall of
+   green/red. */
+.sync-panel__diff .diff--conflict {
+  border-left: 3px solid #b8860b;
+  padding-left: 4px;
+  font-weight: 700;
+  background: rgba(232, 168, 0, 0.12) !important;
+  color: #7a5a00 !important;
+}
+
+.sync-file > pre {
+  border-top: 1px solid var(--ot-rule-soft);
+  max-height: 360px;
 }
 
 .sync-panel__diff .diff--file {
@@ -135,10 +827,328 @@
 
 .sync-panel__diff footer {
   display: flex;
+  align-items: center;
   gap: 10px;
   padding: 10px 14px;
   border-top: 1px solid var(--ot-rule);
   background: var(--ot-bg-soft);
+}
+
+.sync-panel__apply-result {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink-soft);
+  margin-left: auto;
+  letter-spacing: 0.04em;
+  animation: sync-apply-in 200ms var(--ot-ease, ease-out);
+}
+
+/* Multi-phase progress strip — shows during the apply flow. Each phase
+   has its own row with a glyph (○ pending, ◐ active, ✓ done) + the
+   phase label. The active row pulses its glyph so the user sees that
+   work is in flight even when phases are time-based. */
+.sync-panel__phases {
+  list-style: none;
+  padding: 12px 16px;
+  margin: 0;
+  border-top: 1px solid var(--ot-rule);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--ot-bg);
+}
+
+.sync-panel__phase {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-family: var(--ot-font-mono);
+  color: var(--ot-ink-mute);
+  transition: color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-panel__phase-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 12px;
+  color: inherit;
+}
+
+.sync-panel__phase--active {
+  color: var(--ot-accent);
+  font-weight: 500;
+}
+
+.sync-panel__phase--active .sync-panel__phase-glyph {
+  animation: sync-phase-pulse 0.9s infinite ease-in-out;
+}
+
+@keyframes sync-phase-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+.sync-panel__phase--done {
+  color: #1f5c3a;
+}
+
+.sync-panel__phase-err {
+  margin: 0;
+  padding: 10px 16px;
+  background: rgba(232, 93, 74, 0.08);
+  border-top: 1px solid rgba(232, 93, 74, 0.32);
+  color: #8a1c14;
+  font-size: 12px;
+}
+
+@keyframes sync-apply-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sync-panel__prs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+/* Filter chip row + sort dropdown — sits between the head and the PR
+   list. Only renders when there are 2+ PRs (a single row has nothing
+   to filter). Both controls persist their selection to localStorage. */
+.sync-panel__prs-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 6px 0 8px;
+}
+
+.sync-panel__prs-filters {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.sync-panel__prs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-panel__prs-chip:hover:not(:disabled),
+.sync-panel__prs-chip:focus-visible {
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+  outline: none;
+}
+
+.sync-panel__prs-chip--active {
+  background: color-mix(in srgb, var(--ot-accent) 18%, transparent);
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+.sync-panel__prs-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sync-panel__prs-chip-n {
+  color: var(--ot-ink-mute);
+  font-size: 9px;
+}
+
+.sync-panel__prs-sort {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  background: var(--ot-bg-sunken, var(--ot-bg-soft));
+  border: 1px solid var(--ot-rule);
+  border-radius: 6px;
+  padding: 3px 6px;
+  color: var(--ot-ink);
+  margin-left: auto;
+}
+
+/* Merge-method picker — applies to the inline + bulk merge actions.
+   Sits beside the sort dropdown so all three "knob" controls
+   cluster together. Same compact monospace look. */
+.sync-panel__prs-merge-method {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--ot-font-mono);
+}
+
+.sync-panel__prs-merge-method-select {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  background: var(--ot-bg-sunken, var(--ot-bg-soft));
+  border: 1px solid var(--ot-rule);
+  border-radius: 6px;
+  padding: 3px 6px;
+  color: var(--ot-ink);
+  cursor: pointer;
+}
+
+.sync-panel__prs-merge-method-select:hover,
+.sync-panel__prs-merge-method-select:focus-visible {
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+/* PR search input — sits beside the sort dropdown so all three
+   narrowing controls cluster on the right. Same compact monospace
+   feel as the rest of the PR controls. */
+.sync-panel__prs-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  padding: 0 4px 0 10px;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-panel__prs-search:focus-within {
+  border-color: var(--ot-accent);
+}
+
+.sync-panel__prs-search-glyph {
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+}
+
+.sync-panel__prs-search-input {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 3px 4px;
+  color: var(--ot-ink);
+  width: 160px;
+}
+
+.sync-panel__prs-search-input:focus {
+  outline: none;
+}
+
+.sync-panel__prs-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.sync-panel__prs-search-clear {
+  background: transparent;
+  border: 0;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  border-radius: 999px;
+  transition: color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-panel__prs-search-clear:hover,
+.sync-panel__prs-search-clear:focus-visible {
+  color: var(--ot-accent);
+  outline: none;
+}
+
+@media (max-width: 600px) {
+  /* Phone: search input claims its own row so the chip cluster +
+     sort dropdown don't get squeezed. */
+  .sync-panel__prs-search {
+    flex-basis: 100%;
+    margin-top: 4px;
+  }
+  .sync-panel__prs-search-input {
+    width: 100%;
+    flex: 1;
+    font-size: 14px;
+  }
+}
+
+.sync-panel__prs-checked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sync-panel__prs-refresh {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-mute);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    transform var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-panel__prs-refresh:hover:not(:disabled) {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+  transform: rotate(45deg);
+}
+
+.sync-panel__prs-refresh:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sync-pr__state--open {
+  background: rgba(46, 139, 87, 0.12);
+  color: #1f5c3a;
+  border: 1px solid rgba(46, 139, 87, 0.32);
+}
+
+.sync-pr__state--merged {
+  background: rgba(123, 79, 181, 0.12);
+  color: #5a3a8a;
+  border: 1px solid rgba(123, 79, 181, 0.32);
+}
+
+.sync-pr__state--closed {
+  background: rgba(194, 57, 46, 0.08);
+  color: var(--ot-ink-mute);
+  border: 1px solid var(--ot-rule);
+}
+
+.sync-pr__state--draft {
+  background: var(--ot-bg-soft);
+  color: var(--ot-ink-mute);
+  border: 1px dashed var(--ot-rule);
 }
 
 .sync-panel__prs ul {
@@ -159,6 +1169,7 @@
   background: var(--ot-bg-card);
   border: 1px solid var(--ot-rule);
   border-radius: var(--ot-radius-md);
+  flex-wrap: wrap;
 }
 
 .sync-pr a {
@@ -168,10 +1179,354 @@
   text-decoration: none;
 }
 
+.sync-pr > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Reviewer status chip — surfaces per-PR draft / pending / ready states
+   from the existing GitHub /pulls list response (no extra round-trips).
+   Each kind gets a distinct color family so the eye reads "draft → not
+   yet ready", "pending → waiting on reviewers", "ready → unblocked". */
+.sync-pr__review {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  border-radius: var(--ot-radius-pill);
+  border: 1px solid transparent;
+  cursor: help;
+  flex: 0 0 auto;
+}
+
+.sync-pr__review--draft {
+  color: var(--ot-ink-soft);
+  background: var(--ot-bg-soft);
+  border-color: var(--ot-rule);
+}
+
+.sync-pr__review--pending {
+  color: #7a5a00;
+  background: rgba(232, 168, 0, 0.12);
+  border-color: rgba(232, 168, 0, 0.4);
+}
+
+.sync-pr__review--ready {
+  color: #1f5c3a;
+  background: rgba(79, 122, 77, 0.08);
+  border-color: rgba(79, 122, 77, 0.32);
+}
+
 .sync-pr--merged {
   border-color: rgba(123, 79, 181, 0.4);
 }
 
 .sync-pr--closed {
   opacity: 0.6;
+}
+
+/* Keyboard focus rail — j/k navigation lands on a PR; mirror the
+   commit-list focus treatment so the two surfaces feel coherent.
+   Stronger left-border accent + soft bg shift (padding compensated
+   so content doesn't jump on focus). */
+.sync-pr--kbd-focus {
+  background: color-mix(in srgb, var(--ot-accent) 5%, transparent);
+  border-left: 3px solid var(--ot-accent);
+  padding-left: 9px;
+}
+
+/* Multi-select toggle — checkbox-like button on each ready PR row.
+   When on, the row picks up a soft accent fill so the selection is
+   readable across the list. Non-ready rows render a same-sized
+   placeholder so the grid alignment stays consistent. */
+.sync-pr__select {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--ot-rule);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ot-accent);
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+  flex: 0 0 18px;
+}
+
+.sync-pr__select:hover:not(:disabled),
+.sync-pr__select:focus-visible {
+  border-color: var(--ot-accent);
+  background: color-mix(in srgb, var(--ot-accent) 8%, transparent);
+  outline: none;
+}
+
+.sync-pr__select--on {
+  background: var(--ot-accent);
+  color: var(--ot-bg-card);
+  border-color: var(--ot-accent);
+}
+
+.sync-pr__select--placeholder {
+  border-style: dashed;
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sync-pr--selected {
+  background: color-mix(in srgb, var(--ot-accent) 7%, transparent);
+}
+
+/* Bulk-merge action bar — pops in above the PR list once ≥2 ready
+   PRs are selected. Compact pill with a count + Clear + the
+   primary action button. */
+.sync-panel__prs-bulk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 6px 0;
+  background: color-mix(in srgb, var(--ot-accent) 5%, var(--ot-bg-soft));
+  border: 1px solid color-mix(in srgb, var(--ot-accent) 22%, var(--ot-rule));
+  border-radius: var(--ot-radius-md);
+  flex-wrap: wrap;
+  animation: sync-prs-bulk-in 180ms var(--ot-ease, ease-out);
+}
+
+@keyframes sync-prs-bulk-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sync-panel__prs-bulk-merge {
+  margin-left: auto;
+}
+
+/* Live progress bar for the serial bulk-merge loop. Renders inline
+   inside the action bar so the user gets a felt sense of progress
+   without a separate modal. Fill color flips to a warning tint when
+   one or more merges have failed mid-batch — the user shouldn't
+   miss "something went wrong" while the loop keeps grinding. */
+.sync-panel__prs-bulk-progress {
+  flex: 1;
+  min-width: 100px;
+  max-width: 240px;
+  height: 6px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.sync-panel__prs-bulk-progress-fill {
+  height: 100%;
+  background: var(--ot-accent);
+  border-radius: 999px;
+  transition: width var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-panel__prs-bulk-progress-fill--has-failures {
+  /* Mid-batch failure tints the bar amber so the user notices
+     without needing to wait for the end-of-batch toast. */
+  background: linear-gradient(
+    90deg,
+    var(--ot-accent),
+    rgba(232, 168, 0, 0.85)
+  );
+}
+
+/* Inline Merge action — only renders on ready-state PRs. Reads like a
+   small, confident pill button: accent ring, monospace label, tightens
+   on hover. Disabled while another PR is mid-merge so we don't fire
+   two concurrent /merge calls (GitHub serializes them anyway, but the
+   second one would just 409). */
+.sync-pr__merge {
+  font-family: var(--ot-font-mono);
+  font-size: 11.5px;
+  padding: 4px 11px;
+  background: color-mix(in srgb, var(--ot-accent) 8%, var(--ot-bg-card));
+  border: 1px solid color-mix(in srgb, var(--ot-accent) 28%, var(--ot-rule));
+  border-radius: var(--ot-radius-pill);
+  color: var(--ot-accent-deep, var(--ot-accent));
+  cursor: pointer;
+  transition: background var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    transform var(--ot-dur-quick) var(--ot-ease);
+  flex: 0 0 auto;
+  letter-spacing: 0.02em;
+}
+
+.sync-pr__merge:hover:not(:disabled),
+.sync-pr__merge:focus-visible {
+  background: color-mix(in srgb, var(--ot-accent) 18%, var(--ot-bg-card));
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.sync-pr__merge:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Mark-ready action — surfaces only on draft PRs. Reads as a quieter,
+   warmer cousin of the Merge button: it doesn't *land* anything, it
+   just transitions the PR's state so reviewers + auto-codeowners
+   wake up. We tint it with a soft amber to match the
+   sync-pr__review--pending color family (drafts and pending both live
+   in the "waiting for something" semantic). */
+.sync-pr__ready {
+  font-family: var(--ot-font-mono);
+  font-size: 11.5px;
+  padding: 4px 11px;
+  background: rgba(232, 168, 0, 0.08);
+  border: 1px solid rgba(232, 168, 0, 0.36);
+  border-radius: var(--ot-radius-pill);
+  color: #7a5a00;
+  cursor: pointer;
+  transition: background var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    transform var(--ot-dur-quick) var(--ot-ease);
+  flex: 0 0 auto;
+  letter-spacing: 0.02em;
+}
+
+.sync-pr__ready:hover:not(:disabled),
+.sync-pr__ready:focus-visible {
+  background: rgba(232, 168, 0, 0.18);
+  border-color: rgba(232, 168, 0, 0.6);
+  color: #5a4400;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.sync-pr__ready:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 600px) {
+  .sync-pr__ready {
+    font-size: 11px;
+    padding: 3px 9px;
+  }
+}
+
+/* Inline diff preview toggle — only on open PRs. Compact pill
+   that toggles an inline diff body below the row. Mirrors the
+   commit-list expand-caret affordance for visual coherence. */
+.sync-pr__preview {
+  font-family: var(--ot-font-mono);
+  font-size: 10.5px;
+  padding: 3px 9px;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.sync-pr__preview:hover,
+.sync-pr__preview:focus-visible {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+  outline: none;
+}
+
+/* +/− line counts inline in the Preview pill — surface once the
+   PR's diff has loaded so the user can size up the change at a
+   glance. Inline-flex so the two numbers sit beside each other
+   without dropping to a new line. */
+.sync-pr__preview-stats {
+  display: inline-flex;
+  gap: 5px;
+  margin-left: 6px;
+  padding-left: 6px;
+  border-left: 1px solid var(--ot-rule);
+  font-variant-numeric: tabular-nums;
+}
+
+.sync-pr__preview-stats-files {
+  color: var(--ot-ink-mute);
+  font-weight: 500;
+}
+
+.sync-pr__preview-stats-add {
+  color: #1f5c3a;
+  font-weight: 600;
+}
+
+.sync-pr__preview-stats-del {
+  color: #8a3024;
+  font-weight: 600;
+}
+
+/* The PR row's diff body — full-width child of the flex-wrap PR
+   row. Spans the whole row width so the diff has room to breathe;
+   pads in from the row's existing indent so it nests visually
+   under the PR. */
+.sync-pr__diff {
+  margin-top: 8px;
+  padding: 0 0 4px 24px;
+  border-top: 1px dashed var(--ot-rule-soft, var(--ot-rule));
+}
+
+/* Inline error chip next to a PR that just failed to merge — reads as
+   a soft warning, not destructive. Title attribute carries the full
+   message; the row stays compact. */
+.sync-pr__merge-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  background: rgba(232, 168, 0, 0.12);
+  color: #7a5a00;
+  border: 1px solid rgba(232, 168, 0, 0.4);
+  border-radius: var(--ot-radius-pill);
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 0 auto;
+}
+
+/* Mobile: the PR row already wraps via flex-wrap, but the merge button
+   gets a smidge tighter so it fits cleanly when stacked under the
+   review chip on narrow viewports. */
+@media (max-width: 600px) {
+  .sync-pr__merge {
+    font-size: 11px;
+    padding: 3px 9px;
+  }
+  .sync-pr__merge-error {
+    max-width: 100%;
+    flex-basis: 100%;
+    white-space: normal;
+    text-overflow: clip;
+  }
 }

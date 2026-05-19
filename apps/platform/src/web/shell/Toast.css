@@ -1,0 +1,146 @@
+/* Toast host — stacks at bottom-right, slides in from below. Touch users
+   get a wider top-tap-target via a min-height; click-to-dismiss everywhere. */
+.ot-toast-host {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+/* Outer wrapper — a `<div>` now (was `<button>`) so the in-pill progress
+   bar can absolutely-position against it. The inner `.ot-toast__body`
+   button is the real click target. */
+.ot-toast {
+  position: relative;
+  pointer-events: auto;
+  border-radius: 999px;
+  background: var(--ot-ink);
+  color: var(--ot-bg);
+  font-family: var(--ot-font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 10px 30px rgba(20, 18, 14, 0.18);
+  animation: ot-toast-in 200ms var(--ot-ease-out, ease-out);
+  animation-fill-mode: backwards;
+  min-height: 36px;
+  overflow: hidden;
+  /* Subtle vertical lift when hovered so the user knows the pause-on-
+     hover affordance is live. */
+  transition: transform 120ms var(--ot-ease, ease-out);
+}
+
+.ot-toast:hover {
+  transform: translateY(-1px);
+}
+
+.ot-toast__body {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Bottom-edge progress bar — width animates from 100% → 0 as the
+   remaining lifetime burns down. Uses currentColor at low alpha so it
+   reads against any toast kind without needing per-kind overrides. */
+.ot-toast__progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.35;
+  border-radius: 0 0 999px 999px;
+  pointer-events: none;
+  transition: width 100ms linear;
+}
+
+@keyframes ot-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ot-toast--ok {
+  background: var(--ot-ink);
+}
+
+.ot-toast--err {
+  background: #c2392e;
+  color: white;
+}
+
+.ot-toast--info {
+  background: var(--ot-bg-card);
+  color: var(--ot-ink);
+  border: 1px solid var(--ot-rule);
+}
+
+.ot-toast-glyph {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex: 0 0 16px;
+}
+
+.ot-toast--info .ot-toast-glyph {
+  background: var(--ot-accent-soft);
+  color: var(--ot-accent-deep);
+}
+
+.ot-toast-msg {
+  flex: 1;
+}
+
+/* Dedupe counter — shown when the same message+kind fired within the
+   dedupe window. Small mono pill at the right end of the toast body. */
+.ot-toast-count {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: inherit;
+  flex: 0 0 auto;
+}
+
+.ot-toast--info .ot-toast-count {
+  background: var(--ot-accent-soft);
+  color: var(--ot-accent-deep);
+}
+
+@media (max-width: 600px) {
+  .ot-toast-host {
+    left: 20px;
+    right: 20px;
+    bottom: calc(80px + env(safe-area-inset-bottom));
+    /* Clear the mobile tab bar. */
+  }
+  .ot-toast {
+    width: 100%;
+  }
+  .ot-toast__body {
+    justify-content: center;
+  }
+}

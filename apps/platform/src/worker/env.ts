@@ -58,12 +58,17 @@ export interface Env {
 
   // Vars
   OPENTHINK_VERSION: string;
+  OPENTHINK_UPSTREAM_REPO?: string;
 
   // Secrets (set via `wrangler secret put`)
   ANTHROPIC_API_KEY?: string;
   OPENAI_API_KEY?: string;
   GITHUB_TOKEN?: string;
   CLOUDFLARE_API_TOKEN?: string;
+  STRIPE_API_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_PRICE_DOMAIN?: string;
+  STRIPE_PRICE_WORKERS_PAID?: string;
 }
 
 export interface Variables {

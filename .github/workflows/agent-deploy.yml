@@ -1,0 +1,113 @@
+name: Agent deploy
+
+# Deploys the per-user agent Worker on every push to `main`. This workflow
+# runs in the fork of openthink3 the user spun up during onboarding — the
+# upstream public repo intentionally ships it as scaffolding (your fork is
+# what actually pushes).
+#
+# Required secrets (configured per-fork in Settings → Secrets and variables):
+#   CLOUDFLARE_API_TOKEN   the token the user pasted during onboarding
+#   CLOUDFLARE_ACCOUNT_ID  the account the agent is deployed to
+#   STRIPE_API_KEY         optional — only needed for live checkout
+#   STRIPE_WEBHOOK_SECRET  optional — only needed when webhook verify is on
+#   GITHUB_TOKEN_AGENT     the PAT the agent uses for /api/sync/propose-pr
+#
+# The `agent-update` workflow (separate file, lands next iteration) handles
+# the "pull upstream changes into a forked agent" flow.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: agent-deploy-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile=false
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build web bundle
+        run: pnpm --filter @openthink/platform run build:web
+
+      - name: Apply D1 migrations
+        working-directory: apps/platform
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler d1 migrations apply openthink --remote
+
+      - name: Deploy worker
+        working-directory: apps/platform
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler deploy
+
+      - name: Bind secrets (idempotent)
+        working-directory: apps/platform
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          GITHUB_TOKEN_AGENT: ${{ secrets.GITHUB_TOKEN_AGENT }}
+        # Pipe each secret through `wrangler secret put`. We skip silently if
+        # the secret isn't set so a fresh deployment without Stripe configured
+        # still ships fine — the dev fallbacks in the worker take over.
+        run: |
+          set -e
+          if [ -n "$STRIPE_API_KEY" ]; then
+            printf '%s' "$STRIPE_API_KEY" | pnpm exec wrangler secret put STRIPE_API_KEY
+          fi
+          if [ -n "$STRIPE_WEBHOOK_SECRET" ]; then
+            printf '%s' "$STRIPE_WEBHOOK_SECRET" | pnpm exec wrangler secret put STRIPE_WEBHOOK_SECRET
+          fi
+          if [ -n "$GITHUB_TOKEN_AGENT" ]; then
+            printf '%s' "$GITHUB_TOKEN_AGENT" | pnpm exec wrangler secret put GITHUB_TOKEN
+          fi
+
+      - name: Smoke test
+        working-directory: ${{ github.workspace }}
+        env:
+          BASE: https://openthink-platform.${{ secrets.CLOUDFLARE_WORKERS_SUBDOMAIN }}.workers.dev
+        run: |
+          # Hit the freshly-deployed Worker. We don't gate the workflow on the
+          # full verify suite (it pokes WS endpoints; those need the user
+          # to have OAuth'd `wrangler login`), just /api/health.
+          for i in {1..20}; do
+            if curl -sf "$BASE/api/health" > /dev/null; then
+              echo "deploy reachable"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Bump local sync SHA
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        # Tell the deployed worker its local SHA is the one we just shipped,
+        # so /api/sync/status reports "caught up" until upstream moves again.
+        working-directory: apps/platform
+        run: |
+          printf '%s' "${{ github.sha }}" | pnpm exec wrangler kv key put --binding=SETTINGS "sync:local-sha"

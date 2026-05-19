@@ -5,12 +5,6 @@
   background: var(--ot-bg);
 }
 
-@media (max-width: 800px) {
-  .settings {
-    grid-template-columns: 1fr;
-  }
-}
-
 .settings__nav {
   background: var(--ot-bg-soft);
   border-right: 1px solid var(--ot-rule);
@@ -40,6 +34,8 @@
   border-radius: var(--ot-radius-sm);
   font-size: 14px;
   color: var(--ot-ink-soft);
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
 }
 
 .settings__tab:hover {
@@ -54,9 +50,240 @@
   font-weight: 500;
 }
 
+/* Dirty-tab indicator — a small accent dot floats to the right of the
+   label when the tab has staged but unsaved edits. Pulses gently so
+   the user notices even out of the corner of their eye. */
+.settings__tab--dirty .settings__tab-dot {
+  display: inline-block;
+}
+
+.settings__tab-dot {
+  display: none;
+  margin-left: 6px;
+  color: var(--ot-accent);
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 0;
+  vertical-align: middle;
+  animation: settings-tab-dot-pulse 1.4s infinite ease-in-out;
+}
+
+/* Attention badge — tabs that have a real situation the user should
+   look at (sync behind, spend cap reached, etc.). Distinct from the
+   dirty dot (accent) and the filter-count chip (numeric); uses a
+   warning tint so the eye picks it up first. */
+.settings__tab-attention {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--ot-warn, #b87b0a) 18%, transparent);
+  color: var(--ot-warn, #b87b0a);
+  border: 1px solid color-mix(in srgb, var(--ot-warn, #b87b0a) 50%, var(--ot-rule));
+  line-height: 1;
+  animation: settings-tab-attention-pulse 2s infinite ease-in-out;
+}
+
+@keyframes settings-tab-attention-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.82;
+  }
+}
+
+/* "Just lit up" pulse — runs for ~2.5s when a tab's attention badge
+   first appears (or its reason changes). More dramatic than the
+   base breath: bigger scale, a ring of glow that radiates outward,
+   then settles back into the gentle breath. Suppressed on the
+   active tab via the JS side (`pulsingTabs` is cleared the moment
+   the user selects that tab). */
+.settings__tab-attention--pulse {
+  animation:
+    settings-tab-attention-flash 0.55s 3 ease-out,
+    settings-tab-attention-pulse 2s infinite ease-in-out 1.65s;
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--ot-warn, #b87b0a) 60%, transparent);
+}
+
+@keyframes settings-tab-attention-flash {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ot-warn, #b87b0a) 75%, transparent);
+    background: color-mix(in srgb, var(--ot-warn, #b87b0a) 18%, transparent);
+  }
+  40% {
+    transform: scale(1.4);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--ot-warn, #b87b0a) 0%, transparent);
+    background: color-mix(in srgb, var(--ot-warn, #b87b0a) 45%, transparent);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ot-warn, #b87b0a) 0%, transparent);
+    background: color-mix(in srgb, var(--ot-warn, #b87b0a) 18%, transparent);
+  }
+}
+
+/* Honor reduced-motion: drop the dramatic ring radiation but keep
+   a brief opacity bump so the user still has a "something just
+   happened" signal without the bouncing. */
+@media (prefers-reduced-motion: reduce) {
+  .settings__tab-attention--pulse {
+    animation: settings-tab-attention-flash-reduced 0.6s 2 ease-out;
+  }
+  @keyframes settings-tab-attention-flash-reduced {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+}
+
+@keyframes settings-tab-dot-pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Active-filter count badge on Settings tabs — mutually exclusive
+   with the dirty-dot (only one chrome at a time). Accent-tinted pill
+   reads as "this tab has narrowing applied" without screaming for
+   attention. */
+.settings__tab-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(232, 93, 74, 0.14);
+  color: var(--ot-accent);
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  vertical-align: middle;
+  cursor: pointer;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.settings__tab-filter-badge:hover,
+.settings__tab-filter-badge:focus-visible {
+  background: var(--ot-accent);
+  color: white;
+  outline: none;
+}
+
 .settings__main {
   padding: 48px 56px 80px;
   overflow-y: auto;
+}
+
+/* Mobile: collapse the side-nav into a horizontal scrolling strip of
+   pill-shaped chips at the top of the content area. Keeps every tab one
+   tap away without the giant vertical stack that 1fr / 1fr gave us before
+   (which pushed all content below the fold on small phones). */
+@media (max-width: 800px) {
+  .settings {
+    grid-template-columns: 1fr;
+  }
+
+  .settings__nav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--ot-glass-bg);
+    backdrop-filter: var(--ot-glass-blur);
+    -webkit-backdrop-filter: var(--ot-glass-blur);
+    border-right: none;
+    border-bottom: 1px solid var(--ot-rule);
+    padding: 14px 18px 12px;
+  }
+
+  .settings__nav h2 {
+    margin: 0 0 10px;
+    font-size: 18px;
+  }
+
+  .settings__nav ul {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    gap: 6px;
+    margin: 0 -18px;
+    padding: 2px 18px;
+    scrollbar-width: none;
+  }
+
+  .settings__nav ul::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings__nav li {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  .settings__tab {
+    width: auto;
+    padding: 7px 14px;
+    border-radius: var(--ot-radius-pill);
+    background: var(--ot-bg-card);
+    border: 1px solid var(--ot-rule);
+    white-space: nowrap;
+    font-size: 13px;
+  }
+
+  .settings__tab--active {
+    background: var(--ot-accent);
+    border-color: var(--ot-accent);
+    color: white;
+    box-shadow: 0 2px 8px rgba(184, 60, 40, 0.22);
+  }
+
+  .settings__main {
+    padding: 28px 20px 80px;
+  }
+
+  /* Mobile already has the nav sticky at top:0, so a second sticky
+     header underneath would just steal scroll real-estate. Revert. */
+  .settings-pane header {
+    position: static;
+    margin: 0;
+    padding: 0;
+    border-bottom: none;
+  }
+}
+
+/* Pane header sticks to the top of .settings__main on scroll so the user
+   never loses orientation about which tab they're on when scrolling a
+   long panel (Behavior, Knowledge, Audit). Negative-margin trick bleeds
+   the header to the scroll container edges so the content scrolls UNDER
+   the header rather than alongside it; a small border-bottom + opaque bg
+   covers the underlying scroll content. */
+.settings-pane header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--ot-bg);
+  margin: -48px -56px 18px;
+  padding: 14px 56px 12px;
+  border-bottom: 1px solid var(--ot-rule);
 }
 
 .settings-pane header h3 {
@@ -83,6 +310,116 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* Two-button row for Export/Import in the agent-config backup
+   section. Wraps on narrow viewports. */
+.settings__config-backup-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* Inline restore summary — surfaces below the snapshot import buttons
+   after a successful (or partial-success) restore. Groups results
+   into "Restored", "Skipped", and "Manual-only" so the user can scan
+   what happened at a glance. Persists until dismissed (the toast
+   alone fades too fast to read for a multi-section snapshot). */
+.settings__import-summary {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.settings__import-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.settings__import-summary-head strong {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink-soft);
+}
+
+.settings__import-summary-dismiss {
+  background: transparent;
+  border: 0;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.settings__import-summary-dismiss:hover {
+  background: var(--ot-bg-soft);
+  color: var(--ot-ink);
+}
+
+.settings__import-summary-group {
+  margin-top: 6px;
+}
+
+.settings__import-summary-group .ot-micro {
+  display: block;
+  margin-bottom: 4px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings__import-summary-group ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings__import-summary-group li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ot-ink);
+}
+
+.settings__import-summary-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--ot-radius-pill);
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+
+.settings__import-summary-tag--ok {
+  background: rgba(79, 122, 77, 0.1);
+  color: #1f5c3a;
+  border: 1px solid rgba(79, 122, 77, 0.32);
+}
+
+.settings__import-summary-tag--info {
+  background: rgba(232, 168, 0, 0.1);
+  color: #7a5a00;
+  border: 1px solid rgba(232, 168, 0, 0.32);
+}
+
+.settings__import-summary-manual {
+  margin: 0;
+  color: var(--ot-ink-soft);
+  line-height: 1.5;
 }
 
 .settings__field-value {
@@ -222,8 +559,45 @@
 
 .settings__spent-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 10px;
   font-size: 13px;
+  flex-wrap: wrap;
+}
+
+/* Vs-yesterday delta chip in the spend bar row. Up = warning (we're
+   burning more), down = good (saving), flat = neutral. The label
+   itself is small and unobtrusive — it nudges, doesn't shout. */
+.settings__spent-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--ot-radius-pill);
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  cursor: default;
+}
+
+.settings__spent-delta--up {
+  color: #8a1c14;
+  background: rgba(232, 93, 74, 0.08);
+  border-color: rgba(232, 93, 74, 0.25);
+}
+
+.settings__spent-delta--down {
+  color: #1f5c3a;
+  background: rgba(79, 122, 77, 0.08);
+  border-color: rgba(79, 122, 77, 0.25);
+}
+
+.settings__spent-delta--flat {
+  color: var(--ot-ink-soft);
+  background: var(--ot-bg-card);
+  border-color: var(--ot-rule);
 }
 
 .settings__access-list {
@@ -238,9 +612,4308 @@
 .settings__access-list li {
   display: flex;
   justify-content: space-between;
+  gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--ot-rule-soft);
   align-items: center;
+}
+
+.settings__access-list li > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings__access-remove {
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-mute);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.settings__access-remove:hover {
+  background: rgba(232, 93, 74, 0.12);
+  color: #8a1c14;
+}
+
+/* Add-email row — input + button. Stays inline on desktop, wraps on
+   narrow viewports. */
+.settings__access-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.settings__access-add .ot-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ot-input--err {
+  border-color: rgba(232, 93, 74, 0.65);
+  background: rgba(232, 93, 74, 0.04);
+}
+
+.ot-input--err:focus {
+  border-color: #8a1c14;
+  box-shadow: 0 0 0 2px rgba(232, 93, 74, 0.18);
+}
+
+.settings__access-err {
+  color: #8a1c14;
+  margin: 6px 0 0;
+}
+
+.settings__access-pending {
+  color: #7a5a00;
+  margin: 8px 0 0;
+}
+
+@media (max-width: 640px) {
+  .settings__access-add {
+    flex-direction: column;
+  }
+  .settings__access-add .ot-btn {
+    align-self: flex-start;
+  }
+}
+
+/* ----- Behavior tab ----- */
+.settings__group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 0;
+  border-top: 1px solid var(--ot-rule-soft);
+}
+
+.settings__group:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.settings__group h4 {
+  font-family: var(--ot-font-display, 'Fraunces', serif);
+  font-size: 18px;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+
+.settings__template-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Import/export bar under the template row. Quiet ghost buttons; the
+   clear-custom button only appears when there are imported templates
+   to drop. */
+.settings__template-io {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.settings__template-io-btn {
+  background: transparent;
+  border: 0;
+  padding: 4px 8px;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--ot-ink-mute);
+  border-radius: var(--ot-radius-sm);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.settings__template-io-btn:hover {
+  background: var(--ot-bg-soft);
+  color: var(--ot-accent);
+}
+
+.settings__template-io-btn--clear:hover {
+  color: #8a1c14;
+}
+
+.settings__template {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-soft);
+  color: var(--ot-ink);
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease),
+    box-shadow var(--ot-dur-quick) var(--ot-ease);
+}
+
+.settings__template:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+/* Strong keyboard ring — chip is small enough that the dotted browser
+   default is hard to see against the rounded border. Inset accent
+   shadow + bumped border keep the focus target unmistakable. */
+.settings__template:focus-visible {
+  outline: none;
+  border-color: var(--ot-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ot-accent) 38%, transparent);
+}
+
+.settings__template--active {
+  background: rgba(232, 93, 74, 0.1);
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+/* "Empty" cohort tint — chip is interactive but its filter cohort has
+   zero rows in the current window. Drops the contrast a notch so the
+   eye skips it without disabling the chip entirely (the user might
+   still want to load a date range that has rows). */
+.settings__template--empty {
+  opacity: 0.55;
+  color: var(--ot-ink-mute);
+}
+
+.settings__template--empty:hover {
+  opacity: 0.85;
+}
+
+/* Inline count chip embedded in each kind filter button. Reads as
+   "this chip would surface N rows" — pinned to the right of the
+   label with a soft pill so the kind name stays the primary
+   element. Tabular-nums so the digits don't jitter when counts
+   update across re-fetches. */
+.audit__kind-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 0 6px;
+  min-width: 16px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  font-family: var(--ot-font-mono);
+  font-size: 9.5px;
+  color: var(--ot-ink-mute);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings__template--active .audit__kind-count {
+  /* On the active chip, lift the count chip to match the accent so
+     the badge doesn't read as a separate UI region. */
+  background: color-mix(in srgb, var(--ot-accent) 14%, var(--ot-bg-card));
+  border-color: color-mix(in srgb, var(--ot-accent) 35%, var(--ot-rule));
+  color: var(--ot-accent);
+}
+
+.settings__template--empty .audit__kind-count {
+  opacity: 0.75;
+}
+
+/* Each template chip is now wrapped so the hover-preview popover can
+   anchor against the chip without disrupting the row's flex layout. */
+.settings__template-wrap {
+  position: relative;
+}
+
+/* Template body popover — appears on hover/focus after a short
+   debounce. Shows the first ~140 chars of the system-prompt body so
+   the user can read what they'd apply before clicking. */
+.settings__template-preview {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 8;
+  width: 320px;
+  max-width: 90vw;
+  padding: 10px 12px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(20, 18, 14, 0.14);
+  pointer-events: none;
+  animation: settings-template-preview-in 140ms var(--ot-ease, ease-out);
+}
+
+@keyframes settings-template-preview-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.settings__template-preview-head {
+  display: block;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ot-ink-mute);
+  margin-bottom: 6px;
+}
+
+.settings__template-preview-body {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ot-ink);
+  /* Cap at ~6 lines so wordy templates don't blow up the popover. */
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.settings__prompt {
+  width: 100%;
+  font-family: var(--ot-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 120px;
+}
+
+/* Diff vs default — sits below the system prompt textarea + above
+   the preview accordion. Word-level diff colored in line with the
+   Library + Sync diff conventions (added = accent green, removed =
+   accent red). Reset-to-default button at the foot. */
+.settings__prompt-diff {
+  margin-top: 12px;
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  background: var(--ot-bg-soft);
+}
+
+.settings__prompt-diff-summary {
+  cursor: pointer;
+  padding: 8px 14px;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  color: var(--ot-ink-soft);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings__prompt-diff-summary:hover {
+  color: var(--ot-ink);
+}
+
+.settings__prompt-diff-body {
+  padding: 4px 14px 12px;
+}
+
+.settings__prompt-diff-stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.settings__prompt-diff-add {
+  color: var(--ot-ok, #4f7a4d);
+}
+
+.settings__prompt-diff-del {
+  color: var(--ot-danger, #b94545);
+}
+
+.settings__prompt-diff-text {
+  margin: 0;
+  font-family: var(--ot-font-mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.settings__prompt-diff-tok--same {
+  color: var(--ot-ink-soft);
+}
+
+.settings__prompt-diff-tok--add {
+  background: color-mix(in srgb, var(--ot-ok, #4f7a4d) 16%, transparent);
+  color: var(--ot-ink);
+  border-radius: 2px;
+  padding: 1px 0;
+}
+
+.settings__prompt-diff-tok--del {
+  background: color-mix(in srgb, var(--ot-danger, #b94545) 16%, transparent);
+  color: var(--ot-ink);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--ot-danger, #b94545) 70%, transparent);
+  border-radius: 2px;
+  padding: 1px 0;
+}
+
+.settings__prompt-diff-reset {
+  margin-top: 10px;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  border: 1px dashed var(--ot-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.settings__prompt-diff-reset:hover,
+.settings__prompt-diff-reset:focus-visible {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+/* "Try this prompt" details accordion — sits under the system prompt
+   textarea. Closed-by-default to keep the Behavior tab tidy; opens to
+   a one-shot Workers AI roundtrip the user can fire to sanity-check
+   tone. */
+.settings__prompt-preview {
+  margin-top: 12px;
+  border: 1px dashed var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  background: var(--ot-bg-soft);
+  padding: 0;
+}
+
+.settings__prompt-preview[open] {
+  background: var(--ot-bg-card);
+}
+
+.settings__prompt-preview-summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ot-ink);
+  user-select: none;
+}
+
+.settings__prompt-preview-summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings__prompt-preview-body {
+  padding: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings__prompt-preview-row {
+  display: flex;
+  gap: 8px;
+}
+
+.settings__prompt-preview-row .ot-input {
+  flex: 1;
+}
+
+.settings__prompt-preview-reply {
+  padding: 10px 12px;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+}
+
+.settings__prompt-preview-reply .ot-micro {
+  display: block;
+  margin-bottom: 4px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+}
+
+.settings__prompt-preview-reply p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--ot-ink);
+}
+
+/* Preview history — recent prompt/reply pairs collected as the user
+   iterates on system prompts. Each row pairs the message with the
+   reply; clicking "↻ Run again" re-fires that message against the
+   current system prompt. Rows tagged with a stale promptHash get a
+   subtle badge so the user knows the reply was for a different
+   version of the prompt. */
+.settings__prompt-preview-history {
+  margin-top: 12px;
+}
+
+.settings__prompt-preview-history-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.settings__prompt-preview-history-clear {
+  background: transparent;
+  border: 0;
+  padding: 1px 8px;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  border-radius: 999px;
+  transition: color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.settings__prompt-preview-history-clear:hover,
+.settings__prompt-preview-history-clear:focus-visible {
+  color: var(--ot-accent);
+  outline: none;
+}
+
+.settings__prompt-preview-history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings__prompt-preview-history-row {
+  position: relative;
+  padding: 10px 12px;
+  background: var(--ot-bg-sunken, var(--ot-bg-soft));
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.settings__prompt-preview-history-row--stale {
+  opacity: 0.7;
+}
+
+.settings__prompt-preview-history-msg,
+.settings__prompt-preview-history-reply {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings__prompt-preview-history-msg .ot-micro,
+.settings__prompt-preview-history-reply .ot-micro {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+}
+
+.settings__prompt-preview-history-msg p,
+.settings__prompt-preview-history-reply p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ot-ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.settings__prompt-preview-history-stale {
+  color: var(--ot-warn, #b87b0a);
+  margin-left: 4px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: normal;
+}
+
+.settings__prompt-preview-history-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-self: center;
+}
+
+.settings__prompt-preview-history-rerun,
+.settings__prompt-preview-history-diff-btn {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.settings__prompt-preview-history-rerun:hover:not(:disabled),
+.settings__prompt-preview-history-rerun:focus-visible,
+.settings__prompt-preview-history-diff-btn:hover,
+.settings__prompt-preview-history-diff-btn:focus-visible {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+/* Inline diff overlay inside a history row's reply column. Borrows
+   the prompt-diff token tinting (added = green, removed = red,
+   context = dim) so the conventions match the system-prompt diff
+   above. */
+.settings__prompt-preview-history-diff {
+  margin: 0;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 600px) {
+  .settings__prompt-preview-history-row {
+    grid-template-columns: 1fr;
+  }
+  .settings__prompt-preview-history-rerun {
+    justify-self: flex-end;
+  }
+}
+
+.settings__row {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  align-items: center;
+  gap: 14px;
+}
+
+.settings__row-label {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ot-ink-mute);
+  text-transform: uppercase;
+}
+
+.settings__thinking {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--ot-bg-soft);
+}
+
+.settings__thinking-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+}
+
+/* Sampling sliders — temperature + top-p. Three-column row: label,
+   slider, current value + reset arrow. The reset clears the override
+   so the orchestrator falls back to the provider's default. */
+.settings__sampling {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings__sampling-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 60px 28px;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings__sampling-val {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  text-align: right;
+  color: var(--ot-ink);
+}
+
+.settings__sampling-reset {
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 12px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.settings__sampling-reset:hover:not(:disabled),
+.settings__sampling-reset:focus-visible {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+.settings__sampling-reset:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.settings__sampling-hint {
+  margin: 10px 0 0;
+  color: var(--ot-ink-mute);
+  line-height: 1.55;
+}
+
+@media (max-width: 600px) {
+  .settings__sampling-row {
+    grid-template-columns: 1fr 60px 28px;
+    grid-template-rows: auto auto;
+    column-gap: 8px;
+    row-gap: 4px;
+  }
+  /* Label takes the whole first row. */
+  .settings__sampling-row > label {
+    grid-column: 1 / -1;
+  }
+}
+
+.settings__style {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-soft);
+  color: var(--ot-ink);
+  font-family: var(--ot-font-ui, 'Inter', sans-serif);
+  cursor: pointer;
+}
+
+.settings__style--active {
+  background: rgba(232, 93, 74, 0.1);
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+.settings__saved {
+  align-self: flex-end;
+  color: var(--ot-good, #4f7a4d);
+}
+
+/* ----- Knowledge tab ----- */
+.knowledge__form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--ot-bg-soft);
+  border-radius: 12px;
+  border: 1px solid var(--ot-rule);
+}
+
+.knowledge__form-row {
+  display: flex;
+  gap: 8px;
+}
+
+.knowledge__form-row .ot-input {
+  flex: 1;
+}
+
+.knowledge__details {
+  margin-top: 6px;
+}
+
+.knowledge__details summary {
+  cursor: pointer;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+  padding: 4px 0;
+}
+
+.knowledge__text {
+  width: 100%;
+  margin-top: 6px;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  resize: vertical;
+}
+
+.knowledge__drop {
+  margin-top: 6px;
+  padding: 16px;
+  border: 1px dashed var(--ot-rule);
+  border-radius: 10px;
+  background: var(--ot-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: background-color 120ms var(--ot-ease, ease-out),
+    border-color 120ms var(--ot-ease, ease-out);
+}
+
+.knowledge__drop--over {
+  background: rgba(232, 93, 74, 0.06);
+  border-color: var(--ot-accent);
+}
+
+.knowledge__drop p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ot-ink);
+}
+
+.knowledge__list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.knowledge__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg);
+  cursor: grab;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    transform var(--ot-dur-quick) var(--ot-ease);
+}
+
+.knowledge__item:active {
+  cursor: grabbing;
+}
+
+.knowledge__item--dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+}
+
+/* Bulk-select states — selectable swaps the cursor to pointer so the
+   user knows the row click toggles selection (instead of preview),
+   selected applies an accent tint. */
+.knowledge__item--selectable {
+  cursor: pointer;
+}
+
+.knowledge__item--selected {
+  background: color-mix(in srgb, var(--ot-accent) 10%, transparent);
+  border-color: var(--ot-accent);
+}
+
+/* Square checkbox-style affordance — sits in the slot the drag-handle
+   normally occupies so the layout stays unchanged. */
+.knowledge__select-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid var(--ot-rule);
+  background: var(--ot-bg);
+  color: var(--ot-accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.knowledge__select-check:hover {
+  border-color: var(--ot-accent);
+}
+
+.knowledge__select-check:focus-visible {
+  outline: 2px solid var(--ot-accent);
+  outline-offset: 1px;
+}
+
+.knowledge__select-check--on {
+  background: var(--ot-accent);
+  border-color: var(--ot-accent);
+  color: var(--ot-bg);
+}
+
+/* Bulk-tag input row — sits flush under the bulk action bar when the
+   user is in select mode AND has a non-empty pick. */
+.knowledge__bulk-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 12px;
+  padding: 6px 8px;
+  background: color-mix(in srgb, var(--ot-accent) 6%, var(--ot-bg-sunken, transparent));
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md, 10px);
+}
+
+.knowledge__bulk-tag-input {
+  flex: 1;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+@media (max-width: 600px) {
+  .knowledge__bulk-tag {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .knowledge__bulk-tag-input {
+    font-size: 16px; /* iOS no-zoom threshold */
+  }
+}
+
+.knowledge__item--over {
+  border-color: var(--ot-accent);
+  border-top-width: 2px;
+  border-top-style: dashed;
+  transform: translateY(2px);
+}
+
+.knowledge__item--pinned {
+  border-color: rgba(232, 93, 74, 0.45);
+  background: rgba(232, 93, 74, 0.05);
+}
+
+/* Drag-handle dot grip — visible on item hover so the user knows the row
+   is reorderable. The whole row is `draggable` so the handle is purely a
+   visual affordance (aria-hidden). Pops to full opacity when hovered so
+   the click target reads as "grab here". */
+.knowledge__drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 22px;
+  color: var(--ot-ink-mute);
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  cursor: grab;
+  user-select: none;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease);
+}
+
+.knowledge__item:hover .knowledge__drag-handle {
+  opacity: 0.55;
+}
+
+.knowledge__item:hover .knowledge__drag-handle:hover {
+  opacity: 1;
+}
+
+.knowledge__item--dragging .knowledge__drag-handle {
+  opacity: 0.9;
+  cursor: grabbing;
+}
+
+.knowledge__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.knowledge__meta--button {
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 6px;
+  color: inherit;
+  transition: background 100ms var(--ot-ease, ease-out);
+}
+
+.knowledge__meta--button:hover {
+  background: rgba(232, 93, 74, 0.05);
+}
+
+.knowledge__title {
+  font-size: 14px;
+}
+
+.knowledge__source {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 280px;
+}
+
+.knowledge__actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* URL refresh failure indicator — small inline chip next to the
+   "added" timestamp on URL items that have failed at least one
+   refresh in the local session. Clears on successful refresh. */
+.knowledge__url-fail {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 1px 7px;
+  background: color-mix(in srgb, var(--ot-warn, #b87b0a) 14%, transparent);
+  color: var(--ot-warn, #b87b0a);
+  border: 1px solid color-mix(in srgb, var(--ot-warn, #b87b0a) 36%, var(--ot-rule));
+  border-radius: 999px;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+/* Tag filter row — sits between the add-knowledge form and the
+   item list. Wraps onto multiple lines so a 20-tag pool stays usable
+   on narrow viewports. Each chip is a button — click activates the
+   global filter, click again deactivates. */
+.knowledge__tag-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 12px 0 8px;
+  padding: 8px 10px;
+  background: var(--ot-bg-sunken);
+  border: 1px solid var(--ot-rule);
+  border-radius: 8px;
+}
+
+.knowledge__tag-filters-label {
+  color: var(--ot-ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  margin-right: 4px;
+}
+
+.knowledge__tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-soft);
+  cursor: pointer;
+  transition: background var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.knowledge__tag-chip:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+.knowledge__tag-chip:focus-visible {
+  outline: 2px solid var(--ot-accent);
+  outline-offset: 1px;
+}
+
+.knowledge__tag-chip--active {
+  background: color-mix(in srgb, var(--ot-accent) 22%, transparent);
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+.knowledge__tag-chip-n {
+  color: var(--ot-ink-mute);
+  font-size: 10px;
+}
+
+.knowledge__tag-chip--clear {
+  border-style: dashed;
+  color: var(--ot-ink-mute);
+}
+
+.knowledge__tag-chip--clear:hover {
+  border-color: var(--ot-danger, #b94545);
+  color: var(--ot-danger, #b94545);
+}
+
+/* Per-item tag strip — sits between the meta button and the actions
+   cluster within each item row. flex-wraps so a long tag list breaks
+   to a second line within the strip rather than pushing the action
+   buttons off-row. */
+.knowledge__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  max-width: 280px;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  /* On narrow screens let the strip eat as much room as it needs so
+     the chips don't get crammed into a 90px column. */
+  .knowledge__tags {
+    max-width: 100%;
+    flex-basis: 100%;
+    margin: 4px 0;
+  }
+  .knowledge__item {
+    flex-wrap: wrap;
+  }
+}
+
+.knowledge__tag-chip--item {
+  font-size: 10px;
+  padding: 2px 7px;
+  background: var(--ot-bg-sunken);
+}
+
+.knowledge__tag-edit-btn {
+  background: transparent;
+  border: 1px dashed var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-mute);
+  font-size: 10px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.knowledge__tag-edit-btn:hover {
+  border-color: var(--ot-accent);
+  color: var(--ot-ink);
+}
+
+.knowledge__tags-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.knowledge__tags-input {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+@media (max-width: 600px) {
+  .knowledge__tags-edit {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+  .knowledge__tags-input {
+    /* iOS Safari auto-zooms inputs whose font is <16px on focus;
+       16px is the threshold to suppress that. */
+    font-size: 16px;
+    padding: 6px 10px;
+  }
+  /* Bump per-item chips so tags clear the 30px tap-zone guideline
+     without losing the dense look on desktop. */
+  .knowledge__tag-chip--item {
+    font-size: 11px;
+    padding: 3px 9px;
+  }
+  .knowledge__tag-edit-btn {
+    font-size: 12px;
+    padding: 3px 10px;
+  }
+}
+
+.knowledge__tags-hint {
+  color: var(--ot-ink-mute);
+  font-size: 10px;
+}
+
+/* Upload progress bar — sits inside the drop zone while a file is being
+   uploaded. Fills 0→100, then stays at 100 for ~600ms before unmounting
+   so the user sees a confirmation beat. */
+.knowledge__upload {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: knowledge-upload-in 180ms var(--ot-ease, ease-out);
+}
+
+@keyframes knowledge-upload-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.knowledge__upload-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink-soft);
+}
+
+.knowledge__upload-name {
+  max-width: 70%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.knowledge__upload-pct {
+  color: var(--ot-accent-deep);
+  font-weight: 600;
+}
+
+.knowledge__upload-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--ot-bg-sunken);
+  overflow: hidden;
+}
+
+.knowledge__upload-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ot-accent), var(--ot-accent-deep));
+  border-radius: 999px;
+  transition: width 120ms var(--ot-ease, ease-out);
+}
+
+/* Accent flash + inline notice for a URL-from-paste auto-detect.
+   Tints the URL input border so the user sees their paste landed in
+   the right field, plus a micro-line explaining why. */
+.ot-input--detected {
+  border-color: var(--ot-accent);
+  background: rgba(232, 93, 74, 0.04);
+  animation: knowledge-url-detected-flash 800ms ease-out;
+}
+
+@keyframes knowledge-url-detected-flash {
+  0% {
+    box-shadow: 0 0 0 4px rgba(232, 93, 74, 0.24);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(232, 93, 74, 0);
+  }
+}
+
+.knowledge__url-detected {
+  color: var(--ot-accent);
+  margin: 4px 0 0;
+}
+
+/* "N URLs detected" hint shown below the URL form when the input
+   contains a multi-URL paste. Quieter than the auto-detect flash —
+   this is a steady-state indicator while the batch is queued. */
+.knowledge__url-batch {
+  color: #7a5a00;
+  margin: 4px 0 0;
+}
+
+.knowledge__url-detected strong {
+  font-weight: 600;
+}
+
+/* Upload failure banner — replaces the previous one-line error message
+   with a richer block that surfaces a retry button. The retry uses the
+   captured file + title from the failed attempt so the user doesn't
+   have to re-pick the file. */
+.knowledge__upload-err {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-top: 6px;
+  background: rgba(232, 93, 74, 0.06);
+  border: 1px solid rgba(232, 93, 74, 0.3);
+  border-radius: 10px;
+}
+
+.knowledge__upload-err-glyph {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(232, 93, 74, 0.18);
+  color: #8a1c14;
+  font-size: 12px;
+  flex: 0 0 22px;
+}
+
+.knowledge__upload-err-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.knowledge__upload-err-body strong {
+  font-size: 13px;
+  color: #8a1c14;
+}
+
+.knowledge__upload-err-body .ot-micro {
+  color: var(--ot-ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge__upload-err-retry {
+  flex: 0 0 auto;
+}
+
+.knowledge__upload-err-dismiss {
+  background: transparent;
+  border: 0;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 6px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.knowledge__upload-err-dismiss:hover {
+  background: rgba(232, 93, 74, 0.12);
+  color: #8a1c14;
+}
+
+.knowledge__bulk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 8px;
+  flex-wrap: wrap;
+}
+
+.knowledge__bulk-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.knowledge__bulk-clear {
+  color: var(--ot-bad, #c2392e);
+  border-color: var(--ot-rule);
+}
+
+.knowledge__bulk-clear:hover:not(:disabled) {
+  border-color: var(--ot-bad, #c2392e);
+  background: rgba(194, 57, 46, 0.06);
+}
+
+.knowledge__empty {
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px dashed var(--ot-rule);
+  background: var(--ot-bg-soft);
+}
+
+.knowledge__kind {
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+/* Kind-icon glyph that replaces the previous text pill. Each kind gets
+   a tinted background so files/text/urls scan distinct at a glance,
+   and the icon itself communicates the sub-type for files (PDF vs
+   image vs code, etc.). */
+.knowledge__kind-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  font-size: 13px;
+  flex: 0 0 26px;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-soft);
+  user-select: none;
+}
+
+.knowledge__kind-icon--url {
+  background: rgba(75, 110, 175, 0.1);
+  border-color: rgba(75, 110, 175, 0.32);
+  color: #4b6eaf;
+}
+
+.knowledge__kind-icon--text {
+  background: rgba(232, 168, 0, 0.1);
+  border-color: rgba(232, 168, 0, 0.32);
+  color: #7a5a00;
+}
+
+.knowledge__kind-icon--file {
+  background: rgba(232, 93, 74, 0.08);
+  border-color: rgba(232, 93, 74, 0.28);
+  color: var(--ot-accent);
+}
+
+/* ----- Automation: per-tool deny list ----- */
+.settings__deny {
+  margin-top: 18px;
+}
+
+.settings__deny h4 {
+  margin: 0 0 4px;
+  font-family: var(--ot-font-display);
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.settings__deny-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.settings__deny-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ot-accent-soft);
+  color: var(--ot-accent-deep);
+  border: 1px solid rgba(232, 93, 74, 0.35);
+  padding: 4px 4px 4px 10px;
+  border-radius: var(--ot-radius-pill);
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+}
+
+.settings__deny-chip code {
+  background: transparent;
+  padding: 0;
+  border: 0;
+  color: inherit;
+}
+
+.settings__deny-chip-x {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(232, 93, 74, 0.18);
+  color: var(--ot-accent-deep);
+  font-size: 11px;
+  line-height: 1;
+  border: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings__deny-chip-x:hover {
+  background: var(--ot-accent);
+  color: white;
+}
+
+.settings__deny-form {
+  display: flex;
+  gap: 6px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.settings__deny-input {
+  flex: 1 1 auto;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+}
+
+/* ----- Cloudflare bindings panel ----- */
+/* Last-validated chip — sits below the API token Field showing
+   the relative time since the most recent successful validate.
+   Fresh validates (≤7d) read as a soft ✓ confirmation; stale ones
+   (>7d) flip to an amber-tinted hint encouraging a re-check. */
+.cf-last-validated {
+  margin: -8px 0 12px;
+  color: var(--ot-ink-soft);
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ot-accent) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ot-accent) 22%, var(--ot-rule));
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+}
+
+.cf-last-validated__glyph {
+  color: var(--ot-accent);
+  font-weight: 700;
+}
+
+.cf-last-validated--stale {
+  background: rgba(232, 168, 0, 0.08);
+  border-color: rgba(232, 168, 0, 0.4);
+  color: #7a5a00;
+}
+
+.cf-last-validated--stale .cf-last-validated__glyph {
+  color: #7a5a00;
+}
+
+/* Inline token-validate panel — collapses below the action row when
+   the user clicks "Validate token…". Keeps the chrome minimal so the
+   surface reads as a focused side-quest, not a major workflow. */
+.cf-validate {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: cf-validate-in 180ms var(--ot-ease, ease-out);
+}
+
+@keyframes cf-validate-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cf-validate__lede {
+  margin: 0;
+  color: var(--ot-ink-soft);
+}
+
+.cf-validate__row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.cf-validate__input {
+  flex: 1;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+}
+
+.cf-validate__verdict {
+  margin: 0;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: var(--ot-radius-sm, 6px);
+}
+
+.cf-validate__verdict--ok {
+  color: #1f5c3a;
+  background: rgba(46, 139, 87, 0.1);
+  border: 1px solid rgba(46, 139, 87, 0.32);
+}
+
+.cf-validate__verdict--err {
+  color: #8a3024;
+  background: rgba(194, 57, 46, 0.08);
+  border: 1px solid rgba(194, 57, 46, 0.32);
+}
+
+.cf-validate__verdict a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+@media (max-width: 600px) {
+  .cf-validate__row {
+    flex-direction: column;
+  }
+}
+
+.cf-bindings {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--ot-rule);
+}
+
+/* Workers AI live-ping panel — sits between the Cloudflare token /
+   plan fields and the live-bindings list. Compact section with a
+   one-button check + the most recent result. */
+.ai-ping {
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule);
+  border-radius: 10px;
+}
+
+.ai-ping__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-ping__head h4 {
+  margin: 0;
+  font-family: var(--ot-font-display);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.ai-ping__result {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+}
+
+.ai-ping__result-glyph {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 12px;
+  flex: 0 0 22px;
+}
+
+.ai-ping__result--ok {
+  border-color: rgba(79, 122, 77, 0.32);
+  background: rgba(79, 122, 77, 0.04);
+}
+
+.ai-ping__result--ok .ai-ping__result-glyph {
+  background: rgba(79, 122, 77, 0.18);
+  color: #1f5c3a;
+}
+
+.ai-ping__result--err {
+  border-color: rgba(232, 93, 74, 0.32);
+  background: rgba(232, 93, 74, 0.04);
+}
+
+.ai-ping__result--err .ai-ping__result-glyph {
+  background: rgba(232, 93, 74, 0.16);
+  color: #8a1c14;
+}
+
+.ai-ping__result-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ai-ping__result-body strong {
+  font-family: var(--ot-font-mono);
+  font-size: 13px;
+}
+
+.ai-ping__result-body .ot-micro {
+  color: var(--ot-ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.cf-bindings__title {
+  margin: 0 0 4px;
+  font-family: var(--ot-font-display);
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.cf-bindings__list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cf-binding {
+  display: grid;
+  grid-template-columns: 80px 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  font-size: 12.5px;
+}
+
+.cf-binding--off {
+  opacity: 0.6;
+  background: var(--ot-bg-soft);
+  border-style: dashed;
+}
+
+.cf-binding__kind {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-bg-soft);
+  color: var(--ot-ink-soft);
+  text-align: center;
+}
+
+.cf-binding__kind--do { background: rgba(232, 93, 74, 0.10); color: var(--ot-accent-deep); }
+.cf-binding__kind--workflow { background: rgba(123, 79, 181, 0.10); color: #7b4fb5; }
+.cf-binding__kind--kv { background: rgba(46, 139, 87, 0.10); color: #2e8b57; }
+.cf-binding__kind--d1 { background: rgba(75, 110, 175, 0.10); color: #4b6eaf; }
+.cf-binding__kind--r2 { background: rgba(184, 123, 10, 0.10); color: #b87b0a; }
+.cf-binding__kind--queue { background: rgba(107, 139, 224, 0.10); color: #6b8be0; }
+.cf-binding__kind--ai { background: rgba(232, 93, 74, 0.10); color: var(--ot-accent-deep); }
+.cf-binding__kind--browser { background: rgba(46, 139, 87, 0.10); color: #2e8b57; }
+.cf-binding__kind--vectorize { background: rgba(123, 79, 181, 0.10); color: #7b4fb5; }
+.cf-binding__kind--sandbox { background: rgba(184, 123, 10, 0.10); color: #b87b0a; }
+
+.cf-binding__label {
+  color: var(--ot-ink);
+  font-weight: 500;
+}
+
+.cf-binding__name {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  background: var(--ot-bg-soft);
+  padding: 2px 6px;
+  border-radius: var(--ot-radius-xs);
+  color: var(--ot-ink-mute);
+}
+
+.cf-binding__status {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ot-good, #4f7a4d);
+}
+
+.cf-binding--off .cf-binding__status {
+  color: var(--ot-ink-mute);
+}
+
+@media (max-width: 600px) {
+  .cf-binding {
+    grid-template-columns: 70px 1fr;
+  }
+  .cf-binding__name,
+  .cf-binding__status {
+    grid-column: 1 / -1;
+    text-align: left;
+    margin-top: -2px;
+  }
+}
+
+/* ----- Invocations tab ----- */
+.invocations__summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) auto auto;
+  gap: 12px;
+  margin-bottom: 14px;
+  align-items: stretch;
+}
+
+.invocations__export {
+  align-self: center;
+  white-space: nowrap;
+}
+
+/* Two-button segmented density toggle. Pill-shaped, sits next to the
+   Export button. The active button gets the accent color; the inactive
+   side is ghost-muted. */
+/* Free-text invocations filter — sits between the stats and the
+   density toggle. Matches against thread title, model, status, AND
+   the per-row deduped tools list. Persisted to localStorage so a
+   reload keeps the filter alive. */
+.invocations__search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md, 10px);
+  padding: 0 8px 0 0;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.invocations__search:focus-within {
+  border-color: var(--ot-accent);
+}
+
+.invocations__search-input {
+  border: 0;
+  background: transparent;
+  padding: 6px 12px;
+  font-size: 12px;
+  width: 240px;
+}
+
+.invocations__search-input:focus {
+  outline: none;
+}
+
+.invocations__search-count {
+  font-family: var(--ot-font-mono);
+  color: var(--ot-ink-mute);
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 600px) {
+  .invocations__search {
+    grid-column: 1 / -1;
+  }
+  .invocations__search-input {
+    width: 100%;
+    font-size: 16px; /* iOS no-zoom */
+  }
+}
+
+.invocations__density {
+  align-self: center;
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-pill);
+  padding: 2px;
+}
+
+.invocations__density-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-mute);
+  border-radius: var(--ot-radius-pill);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.invocations__density-btn:hover {
+  color: var(--ot-ink);
+}
+
+.invocations__density-btn--active {
+  background: var(--ot-accent);
+  color: white;
+}
+
+@media (max-width: 720px) {
+  .invocations__summary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .invocations__export {
+    grid-column: 1 / -1;
+    align-self: start;
+    width: max-content;
+  }
+  .invocations__density {
+    grid-column: 1 / -1;
+    width: max-content;
+    align-self: start;
+  }
+}
+
+.invocations__stat {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--ot-rule);
+  background: var(--ot-bg-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.invocations__stat-num {
+  font-family: var(--ot-font-display, 'Fraunces', serif);
+  font-size: 28px;
+  letter-spacing: -0.01em;
+}
+
+.invocations__stat-label {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ot-ink-mute);
+}
+
+.invocations__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.invocations__table th,
+.invocations__table td {
+  text-align: left;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--ot-rule-soft);
+}
+
+/* Compact density — tighter vertical rhythm + slightly smaller text so
+   heavy users can scan more rows without scrolling. The header keeps
+   its original size because the metadata pills look weird shrunk. */
+.invocations__table--compact {
+  font-size: 12px;
+}
+
+.invocations__table--compact th,
+.invocations__table--compact td {
+  padding: 4px 8px;
+}
+
+.invocations__table--compact .invocations__model {
+  font-size: 11px;
+}
+
+.invocations__table th {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ot-ink-mute);
+  font-weight: 500;
+}
+
+.invocations__model {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+}
+
+.invocations__status {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.invocations__status--ok {
+  background: rgba(79, 122, 77, 0.18);
+  color: var(--ot-good, #4f7a4d);
+}
+
+.invocations__status--partial {
+  background: rgba(216, 162, 49, 0.18);
+  color: #b87b0a;
+}
+
+.invocations__status--failed {
+  background: rgba(232, 93, 74, 0.18);
+  color: var(--ot-accent);
+}
+
+.spend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spend-header h4 {
+  margin: 0;
+}
+
+.spend-header__export {
+  font-size: 11px;
+}
+
+.spend-header__exports {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Cross-workspace spend breakdown — only renders for users with 2+
+   workspaces. One row per workspace, sorted by today's spend descending.
+   Each row's bar is normalized to the heaviest workspace so relative
+   usage reads at a glance. Click a row to switch to that workspace. */
+.spend-cross {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ot-rule);
+}
+
+.spend-cross__list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spend-cross__row {
+  border-radius: 6px;
+  transition: background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.spend-cross__row:hover {
+  background: color-mix(in srgb, var(--ot-accent) 6%, transparent);
+}
+
+.spend-cross__row--current {
+  background: color-mix(in srgb, var(--ot-accent) 12%, transparent);
+}
+
+.spend-cross__row-btn {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  color: var(--ot-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.spend-cross__row-btn:disabled {
+  cursor: default;
+}
+
+.spend-cross__row-btn:focus-visible {
+  outline: 2px solid var(--ot-accent);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+.spend-cross__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spend-cross__bar {
+  height: 8px;
+  background: var(--ot-bg-sunken, var(--ot-rule));
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.spend-cross__bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--ot-accent);
+  border-radius: 4px;
+  transition: width 220ms var(--ot-ease, ease-out);
+}
+
+.spend-cross__cost {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  color: var(--ot-ink-soft);
+  min-width: 64px;
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  .spend-cross__row-btn {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    row-gap: 4px;
+  }
+  .spend-cross__bar {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .spend-header__exports {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
+/* Stacked horizontal bar showing each tool's share of today's spend. */
+.spend-bar {
+  display: flex;
+  height: 18px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--ot-bg-sunken);
+  border: 1px solid var(--ot-rule);
+  margin: 12px 0 10px;
+}
+
+.spend-bar__seg {
+  height: 100%;
+  display: block;
+  transition: filter var(--ot-dur-quick) var(--ot-ease);
+}
+
+.spend-bar__seg:hover {
+  filter: brightness(1.08);
+}
+
+/* By-provider rollup — aggregates the per-tool list by leading-slug
+   so the user can scan "where am I burning money at the vendor
+   level" without parsing every model variant individually. Sits
+   beneath the per-tool legend with a clear visual seam. */
+.spend-providers {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--ot-rule);
+}
+
+.spend-providers__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.spend-providers__title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ot-ink);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.spend-providers__sub {
+  color: var(--ot-ink-mute);
+}
+
+.spend-bar--providers {
+  /* Slightly slimmer than the per-tool bar — secondary surface
+     visually de-emphasized. */
+  height: 14px;
+  margin: 8px 0 8px;
+}
+
+.spend-providers__legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spend-providers__row {
+  display: grid;
+  grid-template-columns: 12px 1fr 80px 50px;
+  gap: 8px;
+  align-items: center;
+  font-family: var(--ot-font-mono);
+  font-size: 11.5px;
+}
+
+.spend-providers__name {
+  color: var(--ot-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spend-providers__cents {
+  color: var(--ot-ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.spend-providers__pct {
+  color: var(--ot-ink-mute);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  .spend-providers__row {
+    grid-template-columns: 12px 1fr auto auto;
+    gap: 6px;
+    font-size: 11px;
+  }
+  .spend-providers__cents,
+  .spend-providers__pct {
+    width: auto;
+  }
+}
+
+.spend-legend {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+}
+
+@media (max-width: 600px) {
+  .spend-legend {
+    grid-template-columns: 1fr;
+  }
+}
+
+.spend-legend__row {
+  display: grid;
+  grid-template-columns: 12px 1fr 80px auto auto 12px;
+  gap: 8px;
+  align-items: center;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  /* Row is now a click-target for the per-tool drilldown — give it
+     a hover affordance + a focus ring so keyboard nav works. */
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 4px;
+  margin: 0 -4px;
+  transition: background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.spend-legend__row:hover {
+  background: color-mix(in srgb, var(--ot-accent) 8%, transparent);
+}
+
+.spend-legend__row:focus-visible {
+  outline: 2px solid var(--ot-accent);
+  outline-offset: 1px;
+}
+
+.spend-legend__row--expanded {
+  background: color-mix(in srgb, var(--ot-accent) 14%, transparent);
+}
+
+.spend-legend__chevron {
+  color: var(--ot-ink-mute);
+  font-size: 10px;
+  text-align: center;
+  transition: transform var(--ot-dur-quick) var(--ot-ease), color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.spend-legend__row:hover .spend-legend__chevron,
+.spend-legend__row--expanded .spend-legend__chevron {
+  color: var(--ot-ink);
+}
+
+/* When the row has no sparkline (e.g. server returned no hourly data),
+   collapse the chart column so the cost/share don't get pushed right. */
+.spend-legend__row:not(:has(.spend-legend__spark)) {
+  grid-template-columns: 12px 1fr auto auto 12px;
+}
+
+/* Per-tool drilldown — appears under the legend when a row is open.
+   Compact summary stats grid + a 20-row table of recent invocations.
+   Designed to look like an inline detail panel, not a modal. */
+.spend-drilldown {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--ot-accent) 6%, var(--ot-bg-sunken));
+  border: 1px solid color-mix(in srgb, var(--ot-accent) 22%, var(--ot-rule));
+  border-radius: 8px;
+}
+
+.spend-drilldown__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.spend-drilldown__title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+
+.spend-drilldown__title code {
+  font-size: 12px;
+  background: var(--ot-bg-sunken);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--ot-rule);
+}
+
+.spend-drilldown__close {
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-mute);
+  font-size: 18px;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background var(--ot-dur-quick) var(--ot-ease), color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.spend-drilldown__close:hover {
+  color: var(--ot-ink);
+  background: var(--ot-rule);
+}
+
+.spend-drilldown__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+@media (max-width: 600px) {
+  .spend-drilldown__stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.spend-drilldown__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--ot-bg-sunken);
+  border: 1px solid var(--ot-rule);
+  border-radius: 6px;
+}
+
+.spend-drilldown__stat-val {
+  font-family: var(--ot-font-mono);
+  font-size: 13px;
+  color: var(--ot-ink);
+}
+
+.spend-drilldown__stat-val--bad {
+  color: var(--ot-danger, #b94545);
+}
+
+.spend-drilldown__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+}
+
+.spend-drilldown__table th,
+.spend-drilldown__table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ot-rule);
+}
+
+.spend-drilldown__table th {
+  font-weight: 500;
+  color: var(--ot-ink-mute);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.spend-drilldown__table tr:last-child td {
+  border-bottom: 0;
+}
+
+.spend-drilldown__row--err {
+  background: color-mix(in srgb, var(--ot-danger, #b94545) 6%, transparent);
+}
+
+.spend-drilldown__ok-dot {
+  color: var(--ot-ok, #4f7a4d);
+}
+
+.spend-drilldown__err-dot {
+  color: var(--ot-danger, #b94545);
+}
+
+@media (max-width: 600px) {
+  .spend-drilldown {
+    padding: 12px;
+    margin-top: 12px;
+  }
+  .spend-drilldown__table {
+    font-size: 11px;
+  }
+  .spend-drilldown__table th,
+  .spend-drilldown__table td {
+    padding: 5px 6px;
+  }
+}
+
+.spend-legend__spark {
+  display: block;
+  height: 18px;
+  /* Sparkline is the last meaningful column before cost/share, so let
+     it sit flush-right of the tool name. */
+}
+
+@media (max-width: 720px) {
+  /* On narrow viewports the sparkline starts to crowd the row. Drop
+     it to its own line under the tool name. The chevron stays on
+     the first row so the click affordance is always visible. */
+  .spend-legend__row {
+    grid-template-columns: 12px 1fr auto auto 12px;
+    grid-template-rows: auto auto;
+    row-gap: 4px;
+  }
+  .spend-legend__spark {
+    grid-column: 2 / -1;
+    width: 100%;
+    max-width: 220px;
+  }
+}
+
+.spend-legend__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.spend-legend__tool {
+  color: var(--ot-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.spend-legend__cost {
+  color: var(--ot-ink-soft);
+}
+
+.spend-legend__share {
+  color: var(--ot-ink-mute);
+  font-size: 11px;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Spend-cap-hit banner — appears in the Spending tab when the WS emits
+   a `tool-blocked` frame. Auto-dismisses after 8s; user can drop early
+   via ×. */
+.settings__blocked {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(194, 57, 46, 0.08);
+  border: 1px solid rgba(194, 57, 46, 0.32);
+  border-radius: var(--ot-radius-md);
+  margin-bottom: 14px;
+  animation: settings-blocked-in 200ms var(--ot-ease, ease-out);
+}
+
+/* Cap-approaching warning — softer than blocked but more pointed
+   than a passive label. Two severity steps: `warn` (85–94%) uses
+   the amber palette to read as "you should know"; `severe` (95–99%)
+   tips toward red so it reads as "act now". Same shape as
+   .settings__blocked so the two banners feel like one family. */
+.settings__cap-warn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--ot-radius-md);
+  margin-top: 12px;
+  animation: settings-blocked-in 200ms var(--ot-ease, ease-out);
+}
+
+.settings__cap-warn--warn {
+  background: rgba(232, 168, 0, 0.1);
+  border: 1px solid rgba(232, 168, 0, 0.42);
+}
+
+.settings__cap-warn--severe {
+  background: rgba(232, 113, 56, 0.1);
+  border: 1px solid rgba(232, 113, 56, 0.5);
+}
+
+.settings__cap-warn-glyph {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex: 0 0 auto;
+}
+
+.settings__cap-warn--warn .settings__cap-warn-glyph {
+  background: rgba(232, 168, 0, 0.18);
+  color: #7a5a00;
+}
+
+.settings__cap-warn--severe .settings__cap-warn-glyph {
+  background: rgba(232, 113, 56, 0.2);
+  color: #8a3024;
+}
+
+.settings__cap-warn-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings__cap-warn-body strong {
+  font-family: var(--ot-font-display);
+  font-size: 13.5px;
+  color: var(--ot-ink);
+}
+
+.settings__cap-warn-body p {
+  margin: 2px 0 0;
+  color: var(--ot-ink-soft);
+}
+
+.settings__cap-warn-dismiss {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  font-size: 14px;
+  line-height: 1;
+  border: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    background var(--ot-dur-quick) var(--ot-ease);
+}
+
+.settings__cap-warn-dismiss:hover,
+.settings__cap-warn-dismiss:focus-visible {
+  color: var(--ot-ink);
+  background: var(--ot-bg-soft);
+  outline: none;
+}
+
+@media (max-width: 600px) {
+  .settings__cap-warn {
+    flex-wrap: wrap;
+  }
+  .settings__cap-warn-body {
+    flex-basis: calc(100% - 60px);
+  }
+}
+
+@keyframes settings-blocked-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.settings__blocked-glyph {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(194, 57, 46, 0.18);
+  color: var(--ot-bad, #c2392e);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.settings__blocked strong {
+  font-family: var(--ot-font-display);
+  font-size: 14px;
+  color: var(--ot-ink);
+}
+
+.settings__blocked p {
+  margin: 2px 0 0;
+}
+
+.settings__blocked-dismiss {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ot-ink-mute);
+  font-size: 14px;
+  line-height: 1;
+  border: 0;
+  cursor: pointer;
+}
+
+.settings__blocked-dismiss:hover {
+  background: rgba(194, 57, 46, 0.16);
+  color: var(--ot-bad, #c2392e);
+}
+
+/* Click-to-expand invocation rows. The hover state hints they're
+   interactive; the active row gets an accent left border + soft bg. */
+.invocations__row {
+  cursor: pointer;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.invocations__row:hover {
+  background: var(--ot-bg-soft);
+}
+
+.invocations__row--open {
+  background: var(--ot-bg-card);
+  box-shadow: inset 3px 0 0 var(--ot-accent);
+}
+
+.invocations__detail-row {
+  background: var(--ot-bg-soft);
+}
+
+.invocations__detail {
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--ot-rule);
+  animation: invocations-detail-in 200ms var(--ot-ease, ease-out);
+}
+
+@keyframes invocations-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.invocations__detail-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.invocations__detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .invocations__detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.invocations__detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.invocations__detail-text {
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ot-ink);
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-sm);
+  padding: 8px 10px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.invocations__detail-tools {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.invocations__detail-tools li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+}
+
+.invocations__detail-tools code {
+  background: var(--ot-bg);
+  padding: 2px 8px;
+  border-radius: var(--ot-radius-xs);
+  border: 1px solid var(--ot-rule);
+}
+
+.invocations__detail-scores {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.invocations__detail-score {
+  display: grid;
+  grid-template-columns: 110px 1fr 48px;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+}
+
+.invocations__detail-score-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ot-ink-mute);
+}
+
+.invocations__detail-score-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ot-bg);
+  border: 1px solid var(--ot-rule);
+  overflow: hidden;
+}
+
+.invocations__detail-score-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--ot-accent), var(--ot-accent-deep));
+  border-radius: 999px;
+}
+
+.invocations__detail-score-num {
+  color: var(--ot-ink);
+  text-align: right;
+}
+
+.invocations__detail-foot {
+  border-top: 1px dashed var(--ot-rule);
+  padding-top: 8px;
+}
+
+.invocations__detail-foot code {
+  background: var(--ot-bg);
+  padding: 1px 5px;
+  border-radius: var(--ot-radius-xs);
+}
+
+/* ----- Audit log tab ----- */
+.audit__filters {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin: 12px 0 0;
+}
+
+.audit__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.audit__filter--search {
+  flex: 1;
+  min-width: 220px;
+}
+
+/* System-scope toggle — sits in the filter cluster as a labeled
+   switch. ON (default) ORs in __system__-tagged rows so danger trail
+   surfaces across agent wipes. OFF restricts to the current agent. */
+.audit__filter--toggle {
+  align-self: stretch;
+}
+
+.audit__system-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 6px;
+  background: var(--ot-surface-2);
+  border: 1px solid var(--ot-border);
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--ot-text-muted);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.audit__system-toggle:hover {
+  border-color: var(--ot-border-strong);
+  color: var(--ot-text);
+}
+
+.audit__system-toggle:focus-visible {
+  outline: 2px solid var(--ot-accent);
+  outline-offset: 2px;
+}
+
+.audit__system-toggle-track {
+  display: inline-flex;
+  align-items: center;
+  width: 26px;
+  height: 14px;
+  padding: 1px;
+  background: var(--ot-surface-3, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--ot-border);
+  border-radius: 999px;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.audit__system-toggle-knob {
+  width: 10px;
+  height: 10px;
+  background: var(--ot-text-muted);
+  border-radius: 50%;
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.audit__system-toggle--on {
+  background: color-mix(in srgb, var(--ot-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--ot-accent) 50%, var(--ot-border));
+  color: var(--ot-text);
+}
+
+.audit__system-toggle--on .audit__system-toggle-track {
+  background: color-mix(in srgb, var(--ot-accent) 36%, transparent);
+  border-color: color-mix(in srgb, var(--ot-accent) 70%, var(--ot-border));
+}
+
+.audit__system-toggle--on .audit__system-toggle-knob {
+  transform: translateX(12px);
+  background: var(--ot-accent);
+}
+
+.audit__system-toggle-label {
+  white-space: nowrap;
+}
+
+/* Active-filters status bar — appears above the audit list when any
+   non-default filter (kind / dates / search) is in effect. Each active
+   filter renders as a clickable chip; click clears that one piece. The
+   trailing "Clear all" button resets every dimension. Lets the user
+   see at a glance why the visible list might be short. */
+.audit__active-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid rgba(232, 93, 74, 0.32);
+  background: rgba(232, 93, 74, 0.05);
+  border-radius: 10px;
+}
+
+.audit__active-filters-label {
+  color: var(--ot-accent);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.audit__active-filters-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.audit__active-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--ot-radius-pill);
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink);
+  cursor: pointer;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__active-filter-chip:hover {
+  border-color: var(--ot-accent);
+  background: rgba(232, 93, 74, 0.06);
+}
+
+.audit__active-filter-chip > span {
+  color: var(--ot-ink-mute);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.audit__active-filter-chip:hover > span {
+  color: #8a1c14;
+}
+
+.audit__active-filters-clear {
+  border: 0;
+  background: transparent;
+  color: var(--ot-accent);
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: var(--ot-radius-pill);
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__active-filters-clear:hover {
+  background: rgba(232, 93, 74, 0.12);
+}
+
+.audit__list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 24-bucket hourly density strip — drawn as a row of mini vertical
+   bars above the entry list. Each bar height encodes the count of
+   audit entries that fell in that hour relative to the peak. Hover
+   surfaces the absolute hour + count via the parent title attr. */
+.audit__density {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 32px;
+  margin: 12px 0 4px;
+  padding: 4px 2px;
+  background: var(--ot-bg-soft);
+  border: 1px solid var(--ot-rule-soft);
+  border-radius: 8px;
+}
+
+.audit__density-bar {
+  flex: 1;
+  background: var(--ot-accent);
+  border-radius: 2px;
+  min-height: 4px;
+  opacity: 0.85;
+  cursor: help;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__density-bar:hover {
+  opacity: 1;
+}
+
+.audit__density-bar--empty {
+  background: var(--ot-rule);
+  opacity: 0.35;
+  cursor: default;
+}
+
+.audit__sentinel {
+  margin-top: 12px;
+  padding: 14px;
+  text-align: center;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ot-ink-mute);
+  border: 1px dashed var(--ot-rule);
+  border-radius: 10px;
+}
+
+/* Day-bucket group header — sits between rows when the day changes
+   ("Today" / "Yesterday" / "May 15"). Sticky to the top of .settings__main
+   so when the user scrolls a long audit list they always know which day
+   they're in. The pane-header sits at top:0 z:5, so we land at top:64 z:4
+   to stack under it cleanly. */
+.audit__group-head {
+  position: sticky;
+  top: 64px;
+  z-index: 4;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  margin: 8px 0 -2px;
+  background: var(--ot-bg);
+  border-radius: 8px;
+  border: 1px solid transparent;
+  border-bottom-color: var(--ot-rule);
+  pointer-events: none;
+}
+
+/* "📌 Pinned" pseudo-bucket header — slightly warmer-tinted so the
+   pinned section reads as its own visual zone. */
+.audit__group-head--pinned {
+  background: rgba(232, 168, 0, 0.05);
+  border-bottom-color: rgba(232, 168, 0, 0.4);
+}
+
+.audit__group-head--pinned .audit__group-label {
+  color: #7a5a00;
+}
+
+/* Pinned-row affordance — a 📍 pin glyph in the row head. Active
+   state uses the filled 📌. Hover brightens. The pin lives inside
+   the entry-head button so it gets keyboard focus naturally; we
+   stop event propagation on click so toggling pin doesn't also
+   expand the row. */
+.audit__entry-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  padding: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  opacity: 0.45;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__entry-pin:hover {
+  opacity: 1;
+  background: rgba(232, 168, 0, 0.12);
+}
+
+.audit__entry-pin--on {
+  opacity: 1;
+  background: rgba(232, 168, 0, 0.18);
+}
+
+.audit__entry--pinned {
+  border-left: 2px solid #b8860b;
+}
+
+/* Note indicator in the collapsed row head — a small ✎ between the
+   relative-time and the pin glyph. Title-hover reveals the full note
+   so the user can read it without expanding the row. */
+.audit__entry-note-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  color: #7a5a00;
+  font-size: 12px;
+  cursor: help;
+  opacity: 0.85;
+}
+
+/* User-typed annotation block — surfaces inside expanded rows above
+   the JSON payload tree. Warm-yellow sticky-note styling so the
+   user's own writing reads as distinct from the system-generated
+   audit content. */
+.audit__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 0;
+  background: rgba(232, 168, 0, 0.08);
+  border-top: 1px solid rgba(232, 168, 0, 0.3);
+}
+
+.audit__note--editing {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.audit__note-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  color: #7a5a00;
+  flex: 0 0 22px;
+}
+
+.audit__note-text {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ot-ink);
+  white-space: pre-wrap;
+}
+
+.audit__note-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.audit__note-input {
+  width: 100%;
+  font-family: var(--ot-font-ui);
+  font-size: 13px;
+  background: var(--ot-bg-card);
+}
+
+.audit__note-btn {
+  background: transparent;
+  border: 0;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.audit__note-btn:hover {
+  background: var(--ot-bg-card);
+  color: var(--ot-ink);
+}
+
+.audit__note-btn--clear:hover {
+  color: #8a1c14;
+}
+
+/* "Add note" affordance when no annotation exists yet — small
+   text-button slot above the payload tree. */
+.audit__note-add {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-top: 1px dashed var(--ot-rule);
+  padding: 6px 14px;
+  text-align: left;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+}
+
+.audit__note-add:hover {
+  background: rgba(232, 168, 0, 0.04);
+  color: #7a5a00;
+}
+
+.audit__group-label {
+  font-family: var(--ot-font-display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ot-ink-soft);
+}
+
+.audit__group-count {
+  color: var(--ot-ink-mute);
+}
+
+@media (max-width: 800px) {
+  /* On mobile the pane-header is static (covered above), so the group
+     headers can stick straight to the top without the offset. */
+  .audit__group-head {
+    top: 0;
+  }
+}
+
+.audit__bulk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 4px 10px;
+  flex-wrap: wrap;
+}
+
+.audit__bulk-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.audit__bulk-btn {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-soft);
+  padding: 4px 10px;
+  border-radius: var(--ot-radius-pill);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__bulk-btn:hover:not(:disabled) {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+.audit__bulk-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Pinned-only export variant — wears the accent tint at rest so the
+   "I curated this subset" action stands apart from the generic
+   exports. Same hover transition as siblings. */
+.audit__bulk-btn--accent {
+  color: var(--ot-accent);
+  border-color: color-mix(in srgb, var(--ot-accent) 50%, var(--ot-rule));
+  background: color-mix(in srgb, var(--ot-accent) 8%, transparent);
+}
+
+.audit__bulk-btn--accent:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ot-accent) 18%, transparent);
+  border-color: var(--ot-accent);
+}
+
+.audit__entry {
+  border: 1px solid var(--ot-rule);
+  border-radius: 10px;
+  background: var(--ot-bg-soft);
+  padding: 0;
+  overflow: hidden;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__entry--open {
+  border-color: var(--ot-accent);
+  background: var(--ot-bg-card);
+}
+
+/* Deep-link flash — applied for ~1.6s when the user lands on a row via
+   `?tab=audit&id=...` so they can spot which entry is the target. */
+.audit__entry--flash {
+  animation: audit-flash 1.6s var(--ot-ease, ease-out);
+}
+
+/* "Filtered by N kinds" summary chip — surfaces only when the
+   user has ≥2 kinds selected. Sits above the kind toolbar so
+   it reads as a status-of-the-filter rather than a navigation
+   control. */
+.audit__kind-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  background: color-mix(in srgb, var(--ot-accent) 5%, var(--ot-bg-soft));
+  border: 1px solid color-mix(in srgb, var(--ot-accent) 22%, var(--ot-rule));
+  border-radius: var(--ot-radius-md);
+  font-size: 12px;
+  color: var(--ot-ink);
+  animation: settings-blocked-in 180ms var(--ot-ease, ease-out);
+  flex-wrap: wrap;
+}
+
+.audit__kind-summary-glyph {
+  font-family: var(--ot-font-mono);
+  color: var(--ot-accent);
+}
+
+.audit__kind-summary code {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--ot-ink);
+}
+
+.audit__kind-summary-clear {
+  margin-left: auto;
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--ot-font-mono);
+  text-decoration: underline;
+  padding: 0 4px;
+}
+
+.audit__kind-summary-clear:hover,
+.audit__kind-summary-clear:focus-visible {
+  color: var(--ot-accent);
+  outline: none;
+}
+
+/* 14-day audit histogram — sits above the kind toolbar. Each bar
+   is a click-to-filter pill that scopes the date range to that day.
+   Bar height normalizes to the max of the visible window so quiet
+   days still register. Active day (date filter pinned to a single
+   day) gets an accent fill so the user knows the current scope. */
+.audit__histogram {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 56px;
+  margin: 4px 0 12px;
+  padding: 4px 0;
+  /* No background — we want the bars to live in the section's flow
+     without a heavy chrome that competes with the kind toolbar
+     beneath them. */
+}
+
+.audit__histogram-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--ot-rule-soft, var(--ot-rule));
+  cursor: pointer;
+  padding: 0;
+  min-width: 12px;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__histogram-bar:hover:not(:disabled),
+.audit__histogram-bar:focus-visible {
+  outline: none;
+  border-bottom-color: var(--ot-accent);
+}
+
+.audit__histogram-bar-fill {
+  width: 100%;
+  background: color-mix(in srgb, var(--ot-accent) 35%, var(--ot-rule));
+  border-radius: 2px 2px 0 0;
+  transition: background var(--ot-dur-quick) var(--ot-ease),
+    height var(--ot-dur-quick) var(--ot-ease);
+  min-height: 2px;
+}
+
+.audit__histogram-bar:hover .audit__histogram-bar-fill,
+.audit__histogram-bar:focus-visible .audit__histogram-bar-fill {
+  background: var(--ot-accent);
+}
+
+.audit__histogram-bar--active .audit__histogram-bar-fill {
+  background: var(--ot-accent);
+  box-shadow: 0 0 0 1px var(--ot-accent);
+}
+
+.audit__histogram-bar--active {
+  border-bottom-color: var(--ot-accent);
+  border-bottom-width: 2px;
+}
+
+.audit__histogram-bar--empty .audit__histogram-bar-fill {
+  background: var(--ot-rule);
+  opacity: 0.5;
+}
+
+.audit__histogram-bar-count {
+  font-family: var(--ot-font-mono);
+  font-size: 9px;
+  color: var(--ot-ink-mute);
+  /* Hide the count for zero-bars so the chart isn't noisy on quiet
+     days; the bar height (or absence) already tells the story. */
+  visibility: visible;
+}
+
+.audit__histogram-bar--empty .audit__histogram-bar-count {
+  visibility: hidden;
+}
+
+/* Weekday glyph — single letter below the count so the week's
+   rhythm reads at a glance (M T W T F S S pattern). */
+.audit__histogram-bar-day {
+  font-family: var(--ot-font-mono);
+  font-size: 9px;
+  color: var(--ot-ink-mute);
+  letter-spacing: 0.04em;
+  margin-top: 1px;
+}
+
+/* Weekend tint — softer fill so the work-week pattern stands out. */
+.audit__histogram-bar--weekend .audit__histogram-bar-fill {
+  background: color-mix(in srgb, var(--ot-ink-mute) 30%, var(--ot-rule));
+}
+
+.audit__histogram-bar--weekend:hover .audit__histogram-bar-fill,
+.audit__histogram-bar--weekend:focus-visible .audit__histogram-bar-fill {
+  background: color-mix(in srgb, var(--ot-ink) 22%, var(--ot-rule));
+}
+
+.audit__histogram-bar--weekend .audit__histogram-bar-day {
+  color: var(--ot-ink-soft);
+  font-style: italic;
+}
+
+/* Today emphasis — small accent dot under the weekday glyph so the
+   user can find "today" in the strip without counting bars. The
+   bar fill itself stays the standard accent; only the under-label
+   shifts. Active filter still wins visually. */
+.audit__histogram-bar--today .audit__histogram-bar-day {
+  color: var(--ot-accent);
+  font-weight: 700;
+  position: relative;
+}
+
+.audit__histogram-bar--today .audit__histogram-bar-day::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--ot-accent);
+  transform: translateX(-50%);
+}
+
+@media (max-width: 600px) {
+  /* Phone: histograms still fit but the counts get squeezed. Shrink
+     to 7 days here would require refetching; instead just hide the
+     per-bar labels so the bars themselves stay tappable. */
+  .audit__histogram {
+    height: 56px;
+  }
+  .audit__histogram-bar-count {
+    display: none;
+  }
+  /* Keep the weekday glyph on mobile — it's the chart's primary
+     orientation cue once the per-day counts are hidden. */
+  .audit__histogram-bar-day {
+    font-size: 9px;
+  }
+}
+
+/* Payload view-mode toggle — two-button radio group in the audit
+   bulk toolbar. Active button picks up an accent ring + tint so
+   the user can tell at a glance which view is in play. */
+.audit__bulk-view {
+  display: inline-flex;
+  gap: 2px;
+  border-radius: 999px;
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  padding: 1px;
+}
+
+.audit__bulk-view .audit__bulk-btn--active {
+  background: color-mix(in srgb, var(--ot-accent) 14%, var(--ot-bg-card));
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+/* Compare-for-diff toggle button on each audit row — surfaces in
+   the expanded row's action cluster. Pair affordance reads as a
+   subtle pill at rest, picks up a stronger accent fill once
+   marked so the user can spot which rows are in the pair. */
+.audit__entry-compare-toggle {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  transition: background var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__entry-compare-toggle:hover,
+.audit__entry-compare-toggle:focus-visible {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+  outline: none;
+}
+
+.audit__entry-compare-toggle--on {
+  background: color-mix(in srgb, var(--ot-accent) 14%, var(--ot-bg-card));
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+}
+
+/* Floating compare bar above the audit list — surfaces when the
+   user has marked ≥1 row for compare. Compare button only renders
+   when both pair slots are filled. */
+.audit__compare-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  background: color-mix(in srgb, var(--ot-accent) 5%, var(--ot-bg-soft));
+  border: 1px solid color-mix(in srgb, var(--ot-accent) 22%, var(--ot-rule));
+  border-radius: var(--ot-radius-md);
+  flex-wrap: wrap;
+  animation: settings-blocked-in 180ms var(--ot-ease, ease-out);
+}
+
+.audit__compare-chips {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Compare chip wrapper — pairs a "jump to row" label button with
+   a separate × remove button so the two gestures don't collide.
+   The whole pair shares a single pill outline for visual unity. */
+.audit__compare-chip-wrap {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  overflow: hidden;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__compare-chip-wrap:hover,
+.audit__compare-chip-wrap:focus-within {
+  border-color: var(--ot-accent);
+}
+
+.audit__compare-chip {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 2px 9px;
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__compare-chip:hover,
+.audit__compare-chip:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--ot-accent) 8%, transparent);
+}
+
+.audit__compare-chip--label {
+  border-right: 1px solid var(--ot-rule);
+  padding-right: 8px;
+}
+
+.audit__compare-chip--remove {
+  color: var(--ot-ink-mute);
+  padding: 0 8px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.audit__compare-chip--remove:hover,
+.audit__compare-chip--remove:focus-visible {
+  color: var(--ot-danger, #b94545);
+  background: rgba(194, 57, 46, 0.08);
+}
+
+.audit__compare-open {
+  margin-left: auto;
+}
+
+.audit__compare-clear {
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0 4px;
+}
+
+.audit__compare-clear:hover,
+.audit__compare-clear:focus-visible {
+  color: var(--ot-accent);
+  outline: none;
+}
+
+/* Side-by-side compare modal — backdrop + centered inner panel
+   with two-column payload pres. The diff treatment is coarse
+   (line-membership against the other side's set); fine enough to
+   spot what changed in a typical audit payload without dragging
+   in a real diff library. */
+.audit__compare-modal {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--ot-ink) 50%, transparent);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4vh 4vw;
+  animation: cf-validate-in 180ms var(--ot-ease, ease-out);
+}
+
+.audit__compare-modal-inner {
+  background: var(--ot-bg-card);
+  border-radius: var(--ot-radius-lg);
+  border: 1px solid var(--ot-rule);
+  box-shadow: var(--ot-shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.24));
+  max-width: 1200px;
+  width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.audit__compare-modal-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ot-rule);
+}
+
+.audit__compare-modal-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+/* Keyboard-shortcut hint chips in the compare modal header —
+   surface the arrow-key navigation so the user discovers it
+   without having to spelunk the codebase. Hidden on phones since
+   touch users won't benefit. */
+.audit__compare-modal-keys {
+  color: var(--ot-ink-mute);
+}
+
+.audit__compare-modal-keys kbd {
+  display: inline-block;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  margin: 0 1px;
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border: 1px solid var(--ot-rule);
+  border-radius: 4px;
+  color: var(--ot-ink);
+  line-height: 1.2;
+}
+
+@media (max-width: 720px) {
+  .audit__compare-modal-keys {
+    display: none;
+  }
+}
+
+/* Pair-export button — bundles both payloads into a single
+   envelope JSON. Sits before the × close so it's the right-most
+   non-destructive action in the header. */
+.audit__compare-modal-export {
+  margin-left: auto;
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__compare-modal-export:hover,
+.audit__compare-modal-export:focus-visible {
+  border-color: var(--ot-accent);
+  color: var(--ot-accent);
+  outline: none;
+}
+
+.audit__compare-modal-close {
+  background: transparent;
+  border: 0;
+  font-size: 18px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.audit__compare-modal-close:hover,
+.audit__compare-modal-close:focus-visible {
+  background: var(--ot-bg-soft);
+  color: var(--ot-ink);
+  outline: none;
+}
+
+/* Divergence hint — sits between the modal header and the columns.
+   Three tones: ok (≤25% divergent, ✓ green), warn (≤50%, ◐ amber),
+   high (>50%, ⚠ red). Helps the user calibrate "is this a normal
+   diff or wholly different events?" before they read the columns. */
+.audit__compare-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--ot-rule);
+}
+
+.audit__compare-hint-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.audit__compare-hint--ok {
+  background: color-mix(in srgb, #2e8b57 8%, transparent);
+  color: #1f5c3a;
+}
+
+.audit__compare-hint--ok .audit__compare-hint-glyph {
+  background: rgba(46, 139, 87, 0.18);
+}
+
+.audit__compare-hint--warn {
+  background: rgba(232, 168, 0, 0.1);
+  color: #7a5a00;
+}
+
+.audit__compare-hint--warn .audit__compare-hint-glyph {
+  background: rgba(232, 168, 0, 0.22);
+}
+
+.audit__compare-hint--high {
+  background: rgba(194, 57, 46, 0.08);
+  color: #8a3024;
+}
+
+.audit__compare-hint--high .audit__compare-hint-glyph {
+  background: rgba(194, 57, 46, 0.18);
+}
+
+.audit__compare-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.audit__compare-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px dashed var(--ot-rule);
+}
+
+.audit__compare-col:first-child {
+  border-left: 0;
+}
+
+.audit__compare-col-head {
+  padding: 8px 12px;
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border-bottom: 1px solid var(--ot-rule);
+  color: var(--ot-ink-mute);
+}
+
+.audit__compare-col-body {
+  margin: 0;
+  padding: 8px 12px;
+  font-family: var(--ot-font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  overflow: auto;
+  flex: 1;
+  white-space: pre;
+  color: var(--ot-ink);
+}
+
+.audit__compare-line {
+  display: inline;
+}
+
+.audit__compare-line--add {
+  background: rgba(46, 139, 87, 0.14);
+}
+
+.audit__compare-line--del {
+  background: rgba(194, 57, 46, 0.12);
+}
+
+@media (max-width: 720px) {
+  .audit__compare-cols {
+    grid-template-columns: 1fr;
+  }
+  .audit__compare-col {
+    border-left: 0;
+    border-top: 1px dashed var(--ot-rule);
+  }
+  .audit__compare-col:first-child {
+    border-top: 0;
+  }
+}
+
+/* Tree-mode payload wrapper — relative-positioned so the copy
+   button can anchor to the top-right without breaking the tree's
+   layout. The copy button is hover-revealed so it doesn't compete
+   with the expand/collapse glyphs at rest. */
+.audit__payload-wrap {
+  position: relative;
+}
+
+.audit__payload-copy {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__payload-wrap:hover .audit__payload-copy,
+.audit__payload-copy:focus-visible {
+  opacity: 1;
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+/* Raw-JSON payload — pre block with a header carrying line/char
+   stats + a copy button. The body uses the diff monospace font
+   for consistency with the rest of the audit payloads + caps
+   max-height so a 10kb tool_call doesn't push the next row
+   off-screen. */
+.audit__payload-raw {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0;
+  background: var(--ot-bg-sunken, var(--ot-bg-soft));
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+}
+
+.audit__payload-raw-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px dashed var(--ot-rule-soft, var(--ot-rule));
+}
+
+.audit__payload-raw-copy {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  border-radius: 999px;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__payload-raw-copy:hover,
+.audit__payload-raw-copy:focus-visible {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+  outline: none;
+}
+
+.audit__payload-raw-body {
+  margin: 0;
+  padding: 8px 10px;
+  font-family: var(--ot-font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ot-ink);
+  max-height: 380px;
+  overflow: auto;
+  white-space: pre;
+}
+
+/* Keyboard focus stripe — when the user navigates the list via j/k,
+   the active row gets a left-edge accent rail + a soft background
+   shift so it's obvious where they are. Combines cleanly with the
+   pinned + open + danger modifiers since it only changes the left
+   border + a subtle bg tint. */
+.audit__entry--kbd-focus {
+  background: color-mix(in srgb, var(--ot-accent) 6%, transparent);
+  border-left: 3px solid var(--ot-accent);
+  /* Compensate for the new 3px left border so the row doesn't
+     shift right when focus lands on it. */
+  padding-left: 0;
+}
+
+.audit__entry--kbd-focus .audit__entry-head {
+  /* Tighten the head's left padding to match — without this the
+     summary text re-aligns slightly when the row gets focused,
+     which reads as jitter. */
+  padding-left: 11px;
+}
+
+/* Keyboard-shortcut hint chips in the audit toolbar — small <kbd>
+   pills that telegraph "press j or k to navigate" without taking
+   up much space. Hidden on narrow viewports since touch users
+   wouldn't benefit from them and they'd crowd the bulk row. */
+.audit__bulk-hint {
+  color: var(--ot-ink-mute);
+}
+
+.audit__bulk-hint kbd {
+  display: inline-block;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  margin: 0 1px;
+  background: var(--ot-bg-soft, var(--ot-bg-card));
+  border: 1px solid var(--ot-rule);
+  border-radius: 4px;
+  color: var(--ot-ink);
+  line-height: 1.2;
+}
+
+@media (max-width: 600px) {
+  .audit__bulk-hint {
+    display: none;
+  }
+}
+
+@keyframes audit-flash {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(232, 93, 74, 0);
+  }
+  20% {
+    box-shadow: 0 0 0 4px rgba(232, 93, 74, 0.28);
+  }
+}
+
+.audit__entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px 10px;
+  border-top: 1px dashed var(--ot-rule-soft);
+}
+
+.audit__entry-link {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-soft);
+  padding: 4px 10px;
+  border-radius: var(--ot-radius-pill);
+  cursor: pointer;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__entry-link:hover {
+  color: var(--ot-accent);
+  border-color: var(--ot-accent);
+}
+
+.audit__entry-id {
+  margin-left: auto;
+}
+
+/* Button variant of the row-id chip — clicking copies the full id
+   to the clipboard. Inherits the .ot-micro typography but acts like
+   a subtle pill: hover surfaces the underlying ⧉ glyph in the accent
+   tint so the click affordance is obvious. */
+.audit__entry-id--button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  transition: border-color var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__entry-id--button:hover,
+.audit__entry-id--button:focus-visible {
+  border-color: var(--ot-rule);
+  color: var(--ot-ink);
+}
+
+.audit__entry-id-copy {
+  font-size: 12px;
+  color: var(--ot-ink-mute);
+  opacity: 0;
+  transition: opacity var(--ot-dur-quick) var(--ot-ease),
+    color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__entry-id--button:hover .audit__entry-id-copy,
+.audit__entry-id--button:focus-visible .audit__entry-id-copy {
+  opacity: 1;
+  color: var(--ot-accent);
+}
+
+.audit__entry-jump {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink-soft);
+  padding: 4px 10px;
+  border-radius: var(--ot-radius-pill);
+  text-decoration: none;
+  transition: color var(--ot-dur-quick) var(--ot-ease),
+    border-color var(--ot-dur-quick) var(--ot-ease),
+    background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__entry-jump:hover {
+  color: var(--ot-accent-deep);
+  border-color: var(--ot-accent);
+  background: var(--ot-accent-soft);
+}
+
+.audit__entry-id code {
+  background: var(--ot-bg);
+  padding: 1px 5px;
+  border-radius: var(--ot-radius-xs);
+}
+
+.audit__entry-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+/* Button-flavored header for click-to-expand. Resets browser default
+   button chrome while staying tactile (cursor + hover background). */
+.audit__entry-head--button {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__entry-head--button:hover {
+  background: var(--ot-bg-card);
+}
+
+.audit__entry--open .audit__entry-head--button:hover {
+  background: var(--ot-bg-soft);
+}
+
+.audit__entry-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--ot-font-mono);
+  font-size: 12px;
+  color: var(--ot-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audit__entry-time {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.audit__entry-chevron {
+  flex: 0 0 auto;
+  color: var(--ot-ink-mute);
+  font-size: 11px;
+  width: 14px;
+  text-align: center;
+  transition: color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.audit__entry--open .audit__entry-chevron {
+  color: var(--ot-accent);
+}
+
+@media (max-width: 600px) {
+  .audit__entry-time {
+    display: none;
+  }
+}
+
+.audit__kind {
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.audit__kind--spend,
+.audit__kind--tool_call {
+  background: rgba(79, 122, 77, 0.12);
+  color: var(--ot-good, #4f7a4d);
+}
+
+.audit__kind--approval,
+.audit__kind--skill_save {
+  background: rgba(232, 93, 74, 0.12);
+  color: var(--ot-accent);
+}
+
+.audit__kind--sync,
+.audit__kind--pr_back,
+.audit__kind--provision {
+  background: rgba(75, 110, 175, 0.12);
+  color: #4b6eaf;
+}
+
+/* `danger` audit kind — written by reset-memories, delete-agent,
+   bulk-restore. Reads in the same red family as the Danger Zone
+   itself so the user's eye lands on these rows when scanning. */
+.audit__kind--danger {
+  background: rgba(232, 93, 74, 0.14);
+  color: #8a1c14;
+}
+
+/* `__system__` source pill on cross-agent audit rows (danger /
+   bulk-restore / agent-delete entries that aren't scoped to one
+   agent_id). Cool muted blue distinguishes them from the warm-red
+   `danger` kind pill that sits to their left. */
+.audit__entry-system-pill {
+  background: rgba(75, 110, 175, 0.12);
+  color: #4b6eaf;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Whole-row treatment for system entries — a subtle blue tint so they
+   visually float as "from outside this agent's scope". */
+.audit__entry--system {
+  background: rgba(75, 110, 175, 0.03);
+}
+
+.audit__payload {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink);
+  background: var(--ot-bg);
+  padding: 10px 14px;
+  margin: 0;
+  border-top: 1px solid var(--ot-rule);
+  overflow-x: auto;
+  word-break: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+  animation: audit-expand 180ms var(--ot-ease, ease-out);
+}
+
+/* JSON tree-view for audit payloads. Each row is monospace; container
+   rows are clickable buttons with a chevron + truncated preview when
+   collapsed. Used inside `.audit__payload` but generic enough to drop
+   anywhere a payload needs drilling. */
+.json-tree {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.json-tree__row,
+.json-tree__toggle {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--ot-ink);
+}
+
+.json-tree__toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 1px 0;
+  transition: background-color var(--ot-dur-quick) var(--ot-ease);
+}
+
+.json-tree__toggle:hover {
+  background: rgba(232, 93, 74, 0.04);
+}
+
+.json-tree__chevron {
+  display: inline-block;
+  width: 12px;
+  color: var(--ot-ink-mute);
+}
+
+.json-tree__key {
+  color: var(--ot-accent);
+}
+
+.json-tree__str {
+  color: #1f5c3a;
+  word-break: break-word;
+}
+
+.json-tree__num {
+  color: #4b6eaf;
+}
+
+.json-tree__bool {
+  color: #b87b0a;
+}
+
+.json-tree__null {
+  color: var(--ot-ink-mute);
+  font-style: italic;
+}
+
+.json-tree__bracket {
+  color: var(--ot-ink-soft);
+}
+
+.json-tree__preview {
+  color: var(--ot-ink-mute);
+  font-style: italic;
+  margin-left: 4px;
+}
+
+@keyframes audit-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .settings__access-list li:last-child {
@@ -280,4 +4953,102 @@
 
 .settings__danger-row p {
   margin: 0;
+}
+
+/* Type-to-confirm modal for destructive Danger Zone actions. The
+   commit button stays disabled until the user types the exact phrase
+   the modal shows, so an accidental Enter/click can't trigger the
+   action. Same scrim treatment as the artifact-preview modal. */
+.danger-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.danger-modal__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 18, 14, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 0;
+  cursor: pointer;
+}
+
+.danger-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(480px, calc(100% - 32px));
+  background: var(--ot-bg-card);
+  border: 1px solid rgba(232, 93, 74, 0.32);
+  border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: 0 24px 60px rgba(20, 18, 14, 0.32);
+  animation: danger-modal-in 180ms var(--ot-ease, ease-out);
+}
+
+@keyframes danger-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.danger-modal__panel h3 {
+  margin: 0 0 6px;
+  font-family: var(--ot-font-display);
+  font-weight: 500;
+  font-size: 18px;
+  color: #8a1c14;
+}
+
+.danger-modal__panel p {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ot-ink);
+}
+
+.danger-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.danger-modal__field code {
+  font-family: var(--ot-font-mono);
+  background: var(--ot-bg-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink);
+}
+
+.danger-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.danger-modal__commit {
+  background: #c2392e;
+  color: white;
+}
+
+.danger-modal__commit:disabled {
+  background: var(--ot-bg-sunken);
+  color: var(--ot-ink-mute);
+  cursor: not-allowed;
+}
+
+.danger-modal__commit:not(:disabled):hover {
+  background: #a82c23;
 }
