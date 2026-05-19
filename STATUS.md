@@ -4755,6 +4755,641 @@ verified end-to-end. Updated each loop iteration.
   on the diff being already cached — no
   extra fetch.
 
+### Audit kind-summary expand popover
+- ✓ `apps/platform/src/web/screens/Settings.tsx`
+  — the "Filtered by N kinds" status chip
+  (only renders once ≥2 kinds are active)
+  now wraps a real `<button>` toggle that
+  expands into an inline per-kind
+  breakdown. Each row carries the kind
+  label, a percentage-of-active bar, an
+  exact count (locale-formatted), a `%`
+  reading, and a one-click `✕` to drop
+  that kind from the filter without
+  collapsing the popover. Footer chimes
+  in with the summed total so the user
+  knows what the visible window adds up
+  to. State auto-collapses if the filter
+  set drops back below two kinds — no
+  orphaned popover floating without a
+  chip to anchor it. The toggle button is
+  fully keyboard-reachable
+  (`aria-expanded` + `aria-controls`) and
+  the caret flips ▸/▾ to match. Source of
+  truth is the same `kindCounts` map
+  already feeding the per-chip badges, so
+  the popover numbers can never disagree
+  with what the user sees when toggling
+  individual chips.
+- ✓ `apps/platform/src/web/screens/Settings.css`
+  — companion styles for the expand
+  button (no native chrome, focus-visible
+  outline), caret glyph (accent on
+  hover/expanded), popover surface
+  (`var(--ot-bg-card)` + soft border with
+  140ms fade-in), per-row grid
+  (`110px / 80-2fr / auto / auto`),
+  accent-fill bar with 220ms width
+  transition, danger-tinted hover on the
+  drop button, dashed-rule footer. Mobile
+  breakpoint at 720px reflows the row to
+  a 2-line stack (label + count + drop on
+  top, full-width bar below) so the
+  bar stays readable on narrow screens.
+
+### Library popover Cmd+Shift+C copies R2 key
+- ✓ `apps/platform/src/web/screens/Library.tsx`
+  — added a deeper variant alongside the
+  existing Cmd+C title-copy. Cmd/Ctrl+Shift+C
+  now grabs the artifact's R2 key while
+  the hover preview popover is open
+  (focus must be inside the popover or on
+  the source tile; an active text
+  selection still defers to the browser's
+  native copy). Stubs — which don't have
+  a real R2 object yet — get an
+  explanatory toast instead of silently
+  failing. Toast confirmation truncates
+  long keys to the trailing 36 chars with
+  a leading ellipsis so the user can
+  recognize what landed without the
+  toast turning into a wall of text. The
+  popover's footer hint line picks up
+  `⌘ ⇧ C key` between the existing title
+  and `esc` markers so the shortcut is
+  discoverable, not folklore.
+
+### Sync PR Preview loading spinner
+- ✓ `apps/platform/src/web/screens/SyncPanel.tsx`
+  — the per-PR `Preview ▾` pill now
+  surfaces a spinning glyph + `Loading…`
+  text while the GitHub diff fetch is in
+  flight. We only paint the spinner on
+  the very first fetch (cached re-toggles
+  stay instant), so the indicator is an
+  honest signal that something is
+  actually round-tripping — not a
+  flicker on every collapse. `aria-busy`
+  + `disabled` on the button block
+  duplicate-click queueing, and the title
+  attribute swaps to "Fetching the diff
+  from GitHub…" so screen readers and
+  hover tooltips agree.
+- ✓ `apps/platform/src/web/screens/SyncPanel.css`
+  — companion `.sync-pr__preview--loading`
+  + `.sync-pr__preview-spinner` styles.
+  Loading pill warms to a 6%-accent fill
+  with a 50%-accent border so it reads
+  as "busy on this row" without a layout
+  shift; cursor flips to `progress`.
+  Spinner is a 10×10 ring with a
+  30%-accent rest border and a solid
+  accent top, rotating at 700ms linear
+  infinite. `prefers-reduced-motion`
+  slows it to 1800ms so motion-sensitive
+  users still get a signal without the
+  pulse. Margin nudges the spinner left
+  of the label so the pill's overall
+  width stays roughly stable across the
+  loading → loaded transition.
+
+### Esc collapses kind-summary popover
+- ✓ `apps/platform/src/web/screens/Settings.tsx`
+  — added an Esc-listener bound only
+  while the popover is open. Honors the
+  same "don't interfere with typing
+  surfaces" rule used everywhere else on
+  this screen: if the user is in an
+  `<input>` / `<textarea>` / `<select>` /
+  contentEditable when Esc fires, the
+  handler bails so Esc still clears that
+  field. Title hint on the expand-toggle
+  now reads "(Esc)" so the shortcut is
+  documented without a separate help
+  popover. Pairs naturally with the
+  click-to-toggle behaviour from tick 43
+  — keyboard users get a parity
+  collapse path that doesn't require a
+  trip back to the chip.
+
+### Library tile Cmd+Shift+Click copies R2 key
+- ✓ `apps/platform/src/web/screens/Library.tsx`
+  — Cmd/Ctrl+Shift+Click on any
+  Library tile now copies its R2 key
+  directly, parity with the
+  Cmd+Shift+C shortcut that already
+  worked from the hover popover. The
+  chord intercepts at the very top of
+  the tile click handler so it doesn't
+  fight selectMode (no accidental
+  range-toggle) or the open/setViewing
+  branch (no surprise preview pane).
+  Stub rows still fall through to the
+  "no R2 key yet" toast. Truncates long
+  keys in the toast to trailing 36 chars
+  with a leading ellipsis so the
+  confirmation stays scannable. Lets
+  power users grab keys for wrangler
+  scripts / debugging / sharing without
+  having to hover into the popover
+  first.
+
+### Sync PR stale badge
+- ✓ `apps/platform/src/worker/routes/sync.ts`
+  — extended the open-PRs fetch to
+  capture `base.sha` from GitHub's list
+  endpoint (already in the payload, so
+  zero extra round-trips). Per-PR
+  `staleBehind` boolean compares full
+  base.sha against the upstream HEAD —
+  truthy when main has moved forward
+  since the PR was last synced. Undefined
+  when we can't determine (missing
+  base.sha) so the UI can render
+  "unknown" rather than a wrong negative.
+  `SyncStatus` interface gains the new
+  field; the client-side mirror picks it
+  up via the same name. Cache TTL is
+  unchanged (60s in-memory + 5min KV);
+  stale signal refreshes naturally with
+  the rest of the panel.
+- ✓ `apps/platform/src/web/screens/SyncPanel.tsx`
+  — renders a `↺ stale` pill beside the
+  open-state pill on any PR with
+  `staleBehind`. Tooltip explains the
+  "needs a rebase before merging
+  cleanly" rationale so users know what
+  the badge is asking them to do. Sits
+  next to (not replacing) the state pill
+  so the row reads as a single phrase:
+  "open, stale."
+- ✓ `apps/platform/src/web/screens/SyncPanel.css`
+  — companion `.sync-pr__stale` styles.
+  Warning amber (`#8a5c1a` on a
+  12%-amber fill, 40%-amber border) —
+  not danger red, since the PR is
+  mergeable in principle, just behind.
+  4-second box-shadow pulse catches the
+  eye without nagging; honors
+  `prefers-reduced-motion`. ↺ glyph
+  reads as "needs re-alignment" without
+  prescribing rebase vs merge-from-main
+  (the user's call). Tabular monospace
+  matches the existing state pill's
+  letterspacing so the two pills hang
+  together as a single visual unit.
+
+### Library tile chord discoverability
+- ✓ `apps/platform/src/web/screens/Library.tsx`
+  — added a context-aware `title`
+  attribute on every Library tile. The
+  hint reads
+  "`<row title> · ⌘/Ctrl+Shift+Click
+  copies R2 key`" on real artifacts so
+  the chord we wired in tick 44 is
+  actually discoverable from the grid
+  (until now only the hover-popover
+  hint mentioned it). Stubs fall back
+  to just the row title (no key
+  available). Select-mode swaps the
+  hint to
+  "`Shift+click to range-select`"
+  since Shift is overloaded for
+  Finder-style range selection in
+  that mode — telling the user about
+  the wrong chord would be worse than
+  saying nothing. Tooltip-only, no
+  CSS or layout change, so it can
+  never make the grid feel busier.
+
+### Bulk-merge skips stale PRs
+- ✓ `apps/platform/src/web/screens/SyncPanel.tsx`
+  — the bulk-merge action bar now
+  detects PRs flagged `staleBehind`
+  inside the selection and filters
+  them out of the merge POST burst.
+  Counter chip switches from
+  "`5 selected for bulk merge`" to
+  "`5 selected · 2 stale will be
+  skipped`" the moment any stale PR
+  is in the set, so the user knows
+  what to expect before clicking the
+  button. The button label tracks the
+  mergeable subset
+  (e.g. "`Squash 3 ↩`" not "`Squash
+  5 ↩`") so the count matches reality.
+  On click: if at least one PR is
+  mergeable, we surface an info-toast
+  listing the skipped numbers
+  (capped at 5 + "+N more" overflow)
+  and proceed with the filtered list.
+  If everything is stale, we bail
+  loudly with an err-toast and don't
+  fire an empty request that would
+  silently no-op. Button is
+  `disabled` when the mergeable
+  count is zero, with the same
+  reasoning surfaced in its `title`.
+
+### Kind-summary rows accept Del/Backspace
+- ✓ `apps/platform/src/web/screens/Settings.tsx`
+  — the per-row ✕ drop button on the
+  audit kind-summary popover now
+  treats Delete and Backspace as
+  click-equivalent shortcuts. Tab
+  through the rows, hit Del →
+  current row drops; focus advances
+  to the next row's drop button so
+  repeated Del presses keep walking
+  the list. Falls back to the
+  previous sibling when you drop
+  the last row, so focus never
+  ends up orphaned on a detached
+  node. Refocus is deferred via
+  `requestAnimationFrame` so React's
+  rerender has settled before the
+  query runs. Title attribute on
+  the button picks up
+  "(Del/Backspace)" so the shortcut
+  is documented in-UI. Enter/Space
+  are unchanged — the browser already
+  treats them as button activations,
+  so we don't need to handle them
+  ourselves.
+
+### SyncPanel m-key merges focused PR
+- ✓ `apps/platform/src/web/screens/SyncPanel.tsx`
+  — pressing `m` while a PR row is
+  keyboard-focused now fires the
+  inline merge, parity with j/k
+  (navigate), Enter (open on GitHub),
+  and the existing `r` mark-ready
+  chord. The shortcut re-derives the
+  PR's state from current `status`
+  (not a stale closure on the row
+  that was focused N renders ago)
+  and gates merge through five
+  cause-specific bailout toasts:
+  "no longer in list", "is closed",
+  "is a draft", "has reviews
+  pending", and "is stale". Stale
+  PRs route to a dedicated message
+  ("rebase before merging") so the
+  user knows what to do next.
+  `handleMergePr` owns its own
+  confirm() prompt, so we don't
+  double-confirm via the chord. The
+  effect's deps grew to include
+  `mergingPr` so the in-flight gate
+  reads the current value instead of
+  a stale closure — without that, two
+  quick `m` presses could fire a
+  duplicate merge.
+
+### Library popover ext+size chip
+- ✓ `apps/platform/src/web/screens/Library.tsx`
+  — the hover-preview footer now
+  carries a compact
+  `<code>` chip between the Copy-key
+  button and the R2-key chip,
+  surfacing the file extension + a
+  human-readable size (e.g.
+  ".png · 124.3 KB"). Extension is
+  parsed from the R2 key's trailing
+  `\.([A-Za-z0-9]{1,8})$` segment;
+  falls back to the row's `type`
+  label when there's no recognizable
+  extension. Stubs (size === 0)
+  render just the extension, with a
+  "(stub — not yet on R2)" tooltip
+  so the user knows why the size is
+  missing. Reuses the existing
+  `formatBytes` helper so the size
+  formatting matches the canvas
+  meta-row everywhere else in the
+  app.
+- ✓ `apps/platform/src/web/screens/Library.css`
+  — companion `.library__hover-
+  preview-meta` styles. Solid border
+  (vs the R2 key's dashed border) so
+  the eye reads it as a distinct
+  facet of the same metadata strip.
+  `flex: 0 0 auto` keeps the chip
+  fixed-width while the wrappable key
+  chip absorbs any extra row width.
+  Tabular-num so two-digit + decimal
+  sizes line up cleanly.
+
+### Audit jump-to-cluster count badge
+- ✓ `apps/platform/src/web/screens/Settings.tsx`
+  — added a useMemo over `entries`
+  that pre-tallies cluster sizes by
+  destination (thread:<id>,
+  tool:<name>, kind:sync,
+  kind:skill_save). Each jump link
+  now reads its size in O(1) from
+  this map instead of walking
+  entries per render → cuts the
+  per-row jumps lambda from O(N²) to
+  O(N) total. When a cluster has ≥2
+  rows, the link grows a quiet
+  count badge ("→ open in chat 5")
+  so the user can see how many
+  siblings will land at the
+  destination before clicking. Title
+  attribute also surfaces the count
+  ("5 audit rows share it") for
+  screen-reader users. Single-row
+  clusters render the link as-is —
+  no badge, no clutter.
+- ✓ `apps/platform/src/web/screens/Settings.css`
+  — companion `.audit__entry-jump-
+  count` styles. Pill-shaped, sized
+  to the link's letter height so it
+  reads as a quiet superscript, not
+  a competing UI element. Accent-
+  tinted (16%-fill on a 30%-border)
+  with a hover-state lift to 26%-
+  fill so the chip tracks the
+  link's hover. Tabular-num so
+  multi-digit counts align cleanly
+  when a single row carries two
+  destinations.
+
+### SyncPanel ? help overlay
+- ✓ `apps/platform/src/web/screens/SyncPanel.tsx`
+  — `?` (Shift+/) anywhere on the Sync
+  panel now opens a modal-style
+  overlay listing every chord
+  shortcut (j/k nav, Enter open, m
+  merge, r mark-ready, ? toggle, esc
+  close). Special-cased before the
+  input/dialog gates so the help is
+  reachable even when the user is
+  confused about why other shortcuts
+  aren't firing. Esc dismisses,
+  click on the backdrop dismisses,
+  click on the card preserves
+  selection/scroll. `role="dialog"`
+  + `aria-modal` + an explicit
+  Close ✕ button so the overlay is
+  screen-reader-correct. The PRs-
+  head hint strip picks up an inline
+  "`?` more" launcher that's
+  click-equivalent — discoverable
+  without having to know the chord
+  exists. `showShortcutsHelp` is in
+  the keydown effect's deps so the
+  toggle action is a single
+  listener, not a separate effect.
+- ✓ `apps/platform/src/web/screens/SyncPanel.css`
+  — companion overlay styles.
+  Backdrop is a 22%-ink scrim so the
+  PR list dims to "background." Card
+  is centered with a 460px max-
+  width, soft shadow, and a
+  staggered 160ms fade-in + 180ms
+  pop animation (skipped under
+  `prefers-reduced-motion`).
+  `<kbd>` glyphs share the existing
+  body-font monospace + 1px rule so
+  the overlay reads as native to
+  the rest of the app, not a
+  bolted-on modal. Dashed top + bottom
+  rules on the dl frame the shortcut
+  list as a discrete reference card.
+  Sub-480px breakpoint collapses the
+  two-column grid so the dt/dd pairs
+  read top-to-bottom on mobile.
+
+### Library context menu Copy ext+size
+- ✓ `apps/platform/src/web/screens/Library.tsx`
+  — the tile right-click context
+  menu gains a "Copy ext+size" entry
+  between Copy R2 key and Duplicate.
+  Reuses the same ext-parsing logic
+  the hover popover chip uses, so
+  the menu entry copies the
+  identical string the user already
+  saw on hover ("`.png · 124.3 KB`"
+  in the regular case, just the ext
+  on stubs). Trailing chip on the
+  menu row shows the exact string
+  that'll land on the clipboard —
+  no need to click and then double-
+  check. Toast confirms with the
+  copied value quoted in full so
+  the user has a fast sanity check.
+- ✓ `apps/platform/src/web/screens/Library.css`
+  — added `.library__ctxmenu-
+  shortcut` styles for the trailing
+  preview chip. Margin-left:auto
+  pushes it flush with the menu's
+  trailing edge, monospace +
+  tabular-num lines sizes up
+  across sibling entries, muted ink
+  color so the chip reads as
+  metadata (not a competing
+  affordance).
+
+### Kind-summary row label click filters
+- ✓ `apps/platform/src/web/screens/Settings.tsx`
+  — the per-kind row's label span
+  is now a real `<button>`: a single
+  click drills the audit filter
+  down to just that kind, dropping
+  every sibling kind from the
+  active set. Faster than tab-then-
+  ✕ through every sibling, and
+  matches the per-chip toolbar's
+  "click a single chip → filter to
+  just it" pattern. Tooltip
+  surfaces the destination row
+  count + how many siblings will be
+  dropped ("Drill down to 1,247
+  spend rows — drops the other 3
+  kinds from the filter"). Popover
+  auto-collapses via the existing
+  size-1-collapse effect — no new
+  cleanup path.
+- ✓ `apps/platform/src/web/screens/Settings.css`
+  — `.audit__kind-summary-row-
+  label--button` variant strips the
+  native button chrome and adds an
+  8%-accent hover/focus tint with a
+  -6px negative margin so the
+  clickable region extends past the
+  text's visual edge (Fitts's law).
+  Color flips to accent on hover so
+  the user knows it's interactive
+  before they commit the click.
+
+### Bulk-merge chord + help overlay row
+- ✓ `apps/platform/src/web/screens/SyncPanel.tsx`
+  — added a `space` chord that
+  toggles the focused PR in/out of
+  the bulk-merge selection. Same
+  ready-state gating as the `m`
+  chord — drafts, pending-review,
+  and stale PRs surface their
+  cause-specific bailout toast
+  instead of accumulating into a
+  selection the bulk action would
+  then drop. The `?` help overlay
+  gains a dedicated row explaining
+  the space chord + the equivalent
+  click on the row's ☐ checkbox, so
+  users discovering the panel learn
+  the bulk-merge flow without
+  having to find the action bar
+  (which only pops when ≥2 are
+  selected — until you know about
+  it, the affordance is invisible).
+  Combined with the existing
+  click-on-checkbox path this gives
+  three discoverable ways to build
+  a bulk selection: ☐ click, space
+  chord, or read the help and pick.
+
+### Tile thumbnail file-extension badge
+- ✓ `apps/platform/src/web/screens/Library.tsx`
+  — non-image tiles now carry a
+  small uppercase ext badge in the
+  thumbnail's bottom-right corner
+  (`JSON`, `PDF`, `CSV`, `MD`, ...).
+  Surfaced from the R2 key's
+  trailing `\.([A-Za-z0-9]{1,8})$`
+  segment so the badge is precise
+  — the type-glyph alone tells you
+  "this is code-ish" but not which
+  flavor. Image tiles render the
+  actual image (no need for a
+  badge), and stubs skip the badge
+  entirely (no R2 object yet, so
+  any ext would be a lie).
+- ✓ `apps/platform/src/web/screens/Library.css`
+  — companion `.library__tile-ext`
+  styles. Absolute-positioned bottom-
+  right with 6px insets so it
+  doesn't visually fight the
+  starred-corner glyph (which lives
+  top-right). Monospace + uppercase
+  + 0.06em letterspacing so it
+  reads as a "tag" not a word.
+  Backdrop-blur(2px) + 84%-card
+  background so the badge stays
+  readable over a busy glyph;
+  pointer-events:none so it doesn't
+  intercept the tile's click
+  surface. `max-width: calc(100% -
+  12px)` + ellipsis so a
+  hypothetical 8-char extension
+  doesn't overflow the tile.
+
+### Kind-summary drill-down scrolls feed
+- ✓ `apps/platform/src/web/screens/Settings.tsx`
+  — clicking a kind-summary row
+  label now also scrolls the audit
+  list back to the top after the
+  filter changes. Without this,
+  drilling from the bottom of a
+  long popover left the freshly-
+  filtered results out of view —
+  the user would have to scroll
+  back up to see what they just
+  asked for. Uses
+  `requestAnimationFrame` to defer
+  the scroll until the popover's
+  collapse animation has started,
+  so the audit list is in its post-
+  collapse position when we
+  measure. `behavior: 'smooth'` so
+  the page transition reads as
+  intentional, not a jolt. Tooltip
+  on the label picks up
+  "(scrolls feed to top)" so the
+  side effect is documented in-UI.
+
+### SyncPanel c-key copies PR URL
+- ✓ `apps/platform/src/web/screens/SyncPanel.tsx`
+  — pressing `c` on a focused PR
+  row now copies the PR's GitHub
+  URL to the clipboard, parity
+  with the existing Shift+click
+  mouse chord on the title.
+  Reaches into the rendered DOM
+  for the anchor's href instead of
+  re-deriving from status, so a
+  stale focusedPrNumber across a
+  status refetch can't copy the
+  wrong PR's URL. Toast confirms
+  with the PR number ("Copied PR
+  #1234 URL"). The `?` help
+  overlay gains a row documenting
+  the chord + its mouse-equivalent.
+
+### Library context menu keyboard nav
+- ✓ `apps/platform/src/web/screens/Library.tsx`
+  — the right-click context menu
+  now auto-focuses its first item
+  on open (via rAF so React has
+  rendered the menu DOM before
+  the focus call), and binds
+  Arrow Up/Down for forward/back
+  cycling with wraparound,
+  Home/End to jump to the
+  extremes. Enter/Space activate
+  the focused item via native
+  button behavior — no extra
+  handling needed. Esc still
+  closes the menu (this was the
+  originally-announced item, but
+  the path already existed; we
+  picked up the higher-value
+  keyboard-nav upgrade instead).
+  Combined with the existing Esc
+  exit and outside-click dismiss,
+  the menu is now fully usable
+  from the keyboard.
+
+### Kind-summary total row clears filter
+- ✓ `apps/platform/src/web/screens/Settings.tsx`
+  — the popover's "Total: N rows"
+  footer is now a real `<button>`:
+  a single click clears the kind
+  filter entirely, parity with the
+  `clear` link in the chip header
+  but closer to the user's eye
+  after they've finished reading
+  the per-kind breakdown. Tooltip
+  picks up the destination row
+  count for context ("return to N
+  rows across every kind"). Inline
+  hint "· click to clear ↺"
+  appears on the row body so the
+  affordance is discoverable
+  without a hover. The popover's
+  size-1-collapse effect handles
+  the dismiss naturally (filter
+  drops to 0 kinds → chip vanishes
+  → popover collapses).
+- ✓ `apps/platform/src/web/screens/Settings.css`
+  — companion `.audit__kind-
+  summary-foot-clear` styles
+  matching the per-row-label
+  button pattern. Negative
+  margin/padding pair extends the
+  clickable region past the
+  text's visual edge (Fitts's
+  law); 8%-accent hover/focus
+  tint with strong + hint color
+  flips so the whole row reads as
+  active. Hint chip
+  (`.audit__kind-summary-foot-
+  hint`) lifts from 70% to 100%
+  opacity on hover so the user
+  knows interaction is committed.
+
 ### Continuous deployment
 - ✓ `.github/workflows/agent-deploy.yml` — every push to `main` in the
   user's fork: install → typecheck → build:web → apply D1 migrations → 

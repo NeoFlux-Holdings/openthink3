@@ -54,6 +54,15 @@ interface SyncStatus {
     state: string;
     draft?: boolean;
     requestedReviewers?: number;
+    /**
+     * True when this PR's base.sha differs from the current upstream
+     * HEAD — i.e. main has moved forward since this PR was last
+     * synced and the branch likely needs a rebase before it can
+     * be cleanly merged. We compute this server-side from the SHAs
+     * we already pull for the status payload, so it costs zero
+     * additional GitHub round-trips.
+     */
+    staleBehind?: boolean;
   }>;
   source: 'github' | 'stub' | 'cached';
 }
@@ -126,6 +135,11 @@ sync.get('/status', async (c) => {
     }>;
 
     // 3. Open PRs (so the user knows what's already in flight).
+    // We pull `base.sha` so we can flag PRs whose base hasn't
+    // caught up to main's current HEAD — those are the ones a user
+    // would have to rebase before merging cleanly. GitHub's list
+    // endpoint already returns this, so no extra round-trip
+    // required.
     const prsRes = await githubFetch(`/repos/${repo}/pulls?state=open&per_page=5`, { token });
     const prs = (await prsRes.json()) as Array<{
       number: number;
@@ -134,6 +148,7 @@ sync.get('/status', async (c) => {
       state: string;
       draft?: boolean;
       requested_reviewers?: unknown[];
+      base?: { sha?: string };
     }>;
 
     const behind =
@@ -159,16 +174,29 @@ sync.get('/status', async (c) => {
         message: c.commit.message.split('\n')[0] ?? '',
         ts: new Date(c.commit.author.date).getTime(),
       })),
-      recentPRs: (Array.isArray(prs) ? prs : []).map((p) => ({
-        number: p.number,
-        title: p.title,
-        url: p.html_url,
-        state: p.state,
-        draft: p.draft ?? false,
-        requestedReviewers: Array.isArray(p.requested_reviewers)
-          ? p.requested_reviewers.length
-          : 0,
-      })),
+      recentPRs: (Array.isArray(prs) ? prs : []).map((p) => {
+        // staleBehind: PR's base.sha differs from current upstream
+        // HEAD. We compare full SHAs (not the truncated 7-char form
+        // we expose elsewhere) to avoid prefix collisions. Missing
+        // base.sha → can't compute, fall through to undefined so the
+        // client can render "unknown" instead of a wrong negative.
+        const baseSha = p.base?.sha;
+        const staleBehind =
+          typeof baseSha === 'string' && baseSha.length >= 7
+            ? baseSha !== head.sha
+            : undefined;
+        return {
+          number: p.number,
+          title: p.title,
+          url: p.html_url,
+          state: p.state,
+          draft: p.draft ?? false,
+          requestedReviewers: Array.isArray(p.requested_reviewers)
+            ? p.requested_reviewers.length
+            : 0,
+          staleBehind,
+        };
+      }),
       source: 'github',
       cachedAt: Date.now(),
     };

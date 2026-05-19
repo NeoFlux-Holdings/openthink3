@@ -373,6 +373,37 @@
   position: relative;
 }
 
+/* File-extension badge in the bottom-right of the thumb — surfaces
+   the actual extension (.json, .pdf, .csv, ...) for non-image
+   artifacts so a user grid-scanning by ext doesn't have to read the
+   row title or hover. Positioned absolutely so it overlays the
+   type-glyph; the glyph still anchors the visual identity, the badge
+   carries the precision. Monospace + uppercase so a short label
+   reads as a "tag" rather than a word, with a backdrop-blur so the
+   badge stays readable over a busy glyph. */
+.library__tile-ext {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  font-family: var(--ot-font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--ot-ink);
+  background: color-mix(in srgb, var(--ot-bg-card) 84%, transparent);
+  border: 1px solid var(--ot-rule);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  pointer-events: none;
+  max-width: calc(100% - 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Real-image variant of the thumb — used for image-typed artifacts.
    `loading="lazy"` defers the network fetch until the tile is near
    the viewport so a 200-row grid doesn't fire 200 requests up front.
@@ -1108,6 +1139,26 @@
   min-width: 0;
 }
 
+/* Compact ext+size chip — sits between the Copy-key button and
+   the wrappable R2-key chip. Solid border (vs the key's dashed
+   border) so the eye reads it as a distinct facet of the same
+   metadata strip. flex: 0 keeps the chip a fixed width while the
+   key chip absorbs any extra room. */
+.library__hover-preview-meta {
+  display: inline-block;
+  font-family: var(--ot-font-mono);
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: var(--ot-radius-xs, 4px);
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  color: var(--ot-ink);
+  white-space: nowrap;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
 /* Copy-key button — focusable target for Tab-from-tile keyboard
    navigation into the popover. Same pill shape as the other
    compact controls in the codebase. */
@@ -1291,6 +1342,21 @@
 
 .library__ctxmenu-item--danger:hover {
   background: rgba(232, 93, 74, 0.14);
+}
+
+/* Trailing preview chip on the "Copy ext+size" entry — shows the
+   exact string that'll land on the clipboard. Pushes right via
+   margin-left:auto so the entry's label sits on the left and the
+   chip sits flush with the menu's trailing edge. Monospace +
+   tabular-num so the size segment lines up with sibling chips. */
+.library__ctxmenu-shortcut {
+  margin-left: auto;
+  padding-left: 12px;
+  font-family: var(--ot-font-mono);
+  font-size: 10.5px;
+  color: var(--ot-ink-mute);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
 .library__ctxmenu-glyph {

@@ -23,6 +23,14 @@ export interface SyncStatus {
     openedAt: number;
     draft?: boolean;
     requestedReviewers?: number;
+    /**
+     * True when the PR's base SHA has drifted from main's current
+     * HEAD — surfaces a "stale" badge so the user knows the branch
+     * will likely need a rebase before merging. Undefined when we
+     * couldn't determine (e.g. base.sha missing from GitHub list
+     * response).
+     */
+    staleBehind?: boolean;
   }>;
 }
 
@@ -420,6 +428,11 @@ export function SyncPanel() {
   // could trigger merge, but that's a more dangerous shortcut so we
   // leave it to the inline button for now.
   const [focusedPrNumber, setFocusedPrNumber] = useState<number | null>(null);
+  // Whether the keyboard-shortcuts help overlay is open. `?`
+  // (Shift+/) toggles it, Esc dismisses. Closed by default so we
+  // don't claim screen real estate; persisted via no storage —
+  // it's a transient reference card, not a setting.
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -427,6 +440,23 @@ export function SyncPanel() {
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
       if (target?.isContentEditable) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // `?` (Shift+/) toggles the shortcuts help overlay from
+      // anywhere on the panel. We special-case this BEFORE the
+      // dialog/input gates because a help overlay is the kind of
+      // thing the user reaches for when they're confused —
+      // making it conditional on having no dialog up would be
+      // unhelpful. Esc dismisses, both from inside the overlay
+      // and from outside.
+      if (e.key === '?' && !showShortcutsHelp) {
+        e.preventDefault();
+        setShowShortcutsHelp(true);
+        return;
+      }
+      if (e.key === 'Escape' && showShortcutsHelp) {
+        e.preventDefault();
+        setShowShortcutsHelp(false);
+        return;
+      }
       const dialog = document.querySelector('[role="dialog"]');
       if (dialog && dialog.contains(target as Node)) return;
       // Bail when the PR list isn't actually present in the DOM (e.g.
@@ -460,8 +490,26 @@ export function SyncPanel() {
       if (filtered.length === 0) return;
       const ordered = filtered.map((p) => p.number);
       const key = e.key;
-      if (!['j', 'k', 'J', 'K', 'Enter'].includes(key)) return;
+      if (!['j', 'k', 'J', 'K', 'Enter', 'm', 'M', 'c', 'C', ' ', 'Spacebar'].includes(key)) return;
       if (key === 'Enter' && !focusedPrNumber) return;
+      // `m` only makes sense when a PR is actually focused. Suppress
+      // before we preventDefault so unfocused presses don't swallow
+      // typing into the search box (the outer guards already exclude
+      // input focus, but defense in depth).
+      if ((key === 'm' || key === 'M') && !focusedPrNumber) return;
+      // `c` (copy URL) — same focus-required gate. Lets keyboard
+      // users grab the PR's GitHub URL without a mouse trip to the
+      // Shift+click chord. Suppressed when no PR is focused so we
+      // don't claim the keystroke from text that the user is
+      // selecting on the page.
+      if ((key === 'c' || key === 'C') && !focusedPrNumber) return;
+      // Space toggles bulk-merge selection on the focused PR — only
+      // valid when a PR is focused AND that PR is in the
+      // canMerge-eligible cohort. Drafts / pending-review rows can't
+      // be bulk-merged anyway, so a space-toggle there would
+      // accumulate selections the bulk action would then drop. The
+      // checkbox button already enforces the same gate visually.
+      if ((key === ' ' || key === 'Spacebar') && !focusedPrNumber) return;
       e.preventDefault();
       const lowerKey = key.toLowerCase();
       if (lowerKey === 'j') {
@@ -498,11 +546,140 @@ export function SyncPanel() {
         if (anchor instanceof HTMLAnchorElement) {
           window.open(anchor.href, '_blank', 'noopener,noreferrer');
         }
+      } else if (
+        (lowerKey === 'm') &&
+        focusedPrNumber !== null
+      ) {
+        // `m` on a focused PR fires the inline merge — parity
+        // with j/k (nav), Enter (open on GitHub), and the
+        // existing `r` mark-ready chord. We re-derive the PR's
+        // ready/stale state from current status (rather than
+        // trusting the row that was focused N renders ago) so a
+        // background refresh that just merged/blocked the PR
+        // doesn't make us fire against the wrong row. Each
+        // bailout surfaces a per-cause toast so the user knows
+        // why nothing happened.
+        const focusedPr = status?.recentPRs.find(
+          (p) => p.number === focusedPrNumber,
+        );
+        if (!focusedPr) {
+          showToast(
+            `PR #${focusedPrNumber} is no longer in the list`,
+            'err',
+          );
+        } else if (focusedPr.state !== 'open') {
+          showToast(
+            `PR #${focusedPrNumber} is ${focusedPr.state}, can't merge`,
+            'err',
+          );
+        } else if (focusedPr.draft) {
+          showToast(
+            `PR #${focusedPrNumber} is a draft — press \`r\` to mark ready first`,
+            'info',
+          );
+        } else if ((focusedPr.requestedReviewers ?? 0) > 0) {
+          showToast(
+            `PR #${focusedPrNumber} has reviews pending — resolve on GitHub first`,
+            'info',
+          );
+        } else if (focusedPr.staleBehind) {
+          showToast(
+            `PR #${focusedPrNumber} is stale — rebase before merging`,
+            'info',
+          );
+        } else if (mergingPr !== null) {
+          showToast(
+            `Another merge is already in flight (PR #${mergingPr})`,
+            'info',
+          );
+        } else {
+          // All gates clear — fire the merge. handleMergePr
+          // owns its own confirm() prompt so we don't double-
+          // confirm here; the keyboard chord is just the
+          // trigger.
+          void handleMergePr(focusedPrNumber);
+        }
+      } else if (
+        (lowerKey === 'c') &&
+        focusedPrNumber !== null
+      ) {
+        // `c` copies the focused PR's GitHub URL to the clipboard
+        // — parity with the Shift+click chord on the row title
+        // that already does this via mouse. Reach into the
+        // rendered DOM rather than re-deriving from status so a
+        // stale focusedPrNumber across a refetch doesn't copy
+        // the wrong PR's URL.
+        const anchor = document
+          .querySelector(`[data-pr-number="${focusedPrNumber}"]`)
+          ?.querySelector('a');
+        if (anchor instanceof HTMLAnchorElement && anchor.href) {
+          void navigator.clipboard
+            .writeText(anchor.href)
+            .then(() =>
+              showToast(`Copied PR #${focusedPrNumber} URL`, 'ok'),
+            )
+            .catch(() => showToast('Copy failed', 'err'));
+        } else {
+          showToast(
+            `PR #${focusedPrNumber} URL not found`,
+            'err',
+          );
+        }
+      } else if (
+        (key === ' ' || key === 'Spacebar') &&
+        focusedPrNumber !== null
+      ) {
+        // Space-toggle adds/removes the focused PR from the
+        // bulk-merge selection. We re-derive ready-state from
+        // current status so a row that's flipped to draft /
+        // pending-review under us doesn't end up in the
+        // selection. Drafts get a hint toast pointing at the
+        // checkbox (which gates ready-state in render) so the
+        // user knows what's blocking.
+        const focusedPr = status?.recentPRs.find(
+          (p) => p.number === focusedPrNumber,
+        );
+        if (!focusedPr) {
+          showToast(
+            `PR #${focusedPrNumber} is no longer in the list`,
+            'err',
+          );
+        } else if (focusedPr.state !== 'open') {
+          showToast(
+            `PR #${focusedPrNumber} is ${focusedPr.state}, can't bulk-merge`,
+            'err',
+          );
+        } else if (focusedPr.draft) {
+          showToast(
+            `PR #${focusedPrNumber} is a draft — press \`r\` to mark ready first`,
+            'info',
+          );
+        } else if ((focusedPr.requestedReviewers ?? 0) > 0) {
+          showToast(
+            `PR #${focusedPrNumber} has reviews pending — resolve on GitHub first`,
+            'info',
+          );
+        } else {
+          togglePrSelection(focusedPrNumber);
+        }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [status, prFilter, prSearch, focusedPrNumber, focusedCommitSha]);
+    // mergingPr is in the deps so the `m`-shortcut gate sees the
+    // current merge-in-flight state instead of a stale closure
+    // value — without it, two quick `m` presses could fire a
+    // duplicate merge. showShortcutsHelp lets the same listener
+    // toggle the overlay open/closed without a separate effect.
+  }, [
+    status,
+    prFilter,
+    prSearch,
+    focusedPrNumber,
+    focusedCommitSha,
+    mergingPr,
+    showShortcutsHelp,
+  ]);
   // Drop the focus highlight when the focused PR is no longer
   // visible (filter changed, search narrowed it out, status
   // refresh).
@@ -922,9 +1099,18 @@ export function SyncPanel() {
             Pull requests this agent has opened upstream
             <span
               className="sync-panel__commits-hint"
-              title="Keyboard: j next · k previous · Enter open on GitHub"
+              title="Keyboard: j next · k previous · Enter open on GitHub · m merge · r mark ready · ? full list"
             >
-              {' '}· <kbd>j</kbd><kbd>k</kbd> nav · <kbd>↵</kbd> open
+              {' '}· <kbd>j</kbd><kbd>k</kbd> nav · <kbd>↵</kbd> open ·{' '}
+              <button
+                type="button"
+                className="sync-panel__shortcuts-help-toggle"
+                onClick={() => setShowShortcutsHelp(true)}
+                title="Show all keyboard shortcuts (?)"
+                aria-label="Show all keyboard shortcuts"
+              >
+                <kbd>?</kbd> more
+              </button>
             </span>
           </span>
           {status.recentPRs.length > 0 && (
@@ -1094,6 +1280,22 @@ export function SyncPanel() {
                   ),
                 );
                 if (stillReady.length < 2) return null;
+                // staleBehind PRs would fail the merge with a
+                // not-mergeable error on the GitHub side. We filter
+                // them out before firing the parallel POST burst
+                // and surface the skipped numbers in a toast so the
+                // user knows which ones to rebase first. The
+                // user's selection set is left intact so they can
+                // still see what was picked — only the merge
+                // request itself sees the filtered list.
+                const staleNumbers = stillReady.filter((n) =>
+                  sorted.some(
+                    (p) => p.number === n && p.staleBehind === true,
+                  ),
+                );
+                const mergeable = stillReady.filter(
+                  (n) => !staleNumbers.includes(n),
+                );
                 const progress = bulkMergeProgress;
                 const pct =
                   progress && progress.total > 0
@@ -1106,6 +1308,8 @@ export function SyncPanel() {
                         ? `Merging ${progress.done}/${progress.total}${
                             progress.current ? ` · #${progress.current}` : ''
                           }${progress.failures > 0 ? ` · ${progress.failures} failed` : ''}`
+                        : staleNumbers.length > 0
+                        ? `${stillReady.length} selected · ${staleNumbers.length} stale will be skipped`
                         : `${stillReady.length} selected for bulk merge`}
                     </span>
                     {progress && (
@@ -1134,12 +1338,55 @@ export function SyncPanel() {
                     <button
                       type="button"
                       className="ot-btn sync-panel__prs-bulk-merge"
-                      onClick={() => void bulkMergeSelected(stillReady)}
-                      disabled={bulkMerging || mergingPr !== null}
+                      onClick={() => {
+                        // If everything in the selection is stale,
+                        // there's nothing to merge — bail loudly
+                        // instead of firing an empty request that
+                        // would silently no-op.
+                        if (mergeable.length === 0) {
+                          showToast(
+                            `All ${stillReady.length} selected PRs are stale — rebase #${staleNumbers
+                              .map((n) => n)
+                              .slice(0, 5)
+                              .join(', #')}${
+                              staleNumbers.length > 5
+                                ? ` (+${staleNumbers.length - 5} more)`
+                                : ''
+                            } before bulk-merging`,
+                            'err',
+                          );
+                          return;
+                        }
+                        if (staleNumbers.length > 0) {
+                          showToast(
+                            `Skipping ${staleNumbers.length} stale PR${
+                              staleNumbers.length === 1 ? '' : 's'
+                            } — rebase #${staleNumbers
+                              .slice(0, 5)
+                              .join(', #')}${
+                              staleNumbers.length > 5
+                                ? ` (+${staleNumbers.length - 5} more)`
+                                : ''
+                            } first`,
+                            'info',
+                          );
+                        }
+                        void bulkMergeSelected(mergeable);
+                      }}
+                      disabled={
+                        bulkMerging ||
+                        mergingPr !== null ||
+                        mergeable.length === 0
+                      }
+                      title={
+                        staleNumbers.length > 0
+                          ? `Bulk merge ${mergeable.length} (${staleNumbers.length} stale will be skipped)`
+                          : `Bulk merge ${mergeable.length} selected PRs`
+                      }
                     >
                       {bulkMerging
-                        ? `Merging ${stillReady.length}…`
-                        : `${mergeVerb(mergeMethod)} ${stillReady.length} ↩`}
+                        ? `Merging ${mergeable.length}…`
+                        : `${mergeVerb(mergeMethod)} ${mergeable.length} ↩`}
                     </button>
                   </div>
                 );
@@ -1292,6 +1539,22 @@ export function SyncPanel() {
                   <span className={`ot-pill sync-pr__state sync-pr__state--${pr.state}`}>
                     {pr.state}
                   </span>
+                  {/* Stale badge — surfaces only for open PRs whose
+                      base.sha has drifted from main's current HEAD.
+                      Tells the user at a glance which PRs will
+                      likely need a rebase before they can be
+                      merged cleanly (without forcing the user to
+                      click into GitHub to find out). Mute/warn
+                      tones rather than danger; this is "heads up,"
+                      not "broken." */}
+                  {pr.state === 'open' && pr.staleBehind && (
+                    <span
+                      className="ot-pill sync-pr__stale"
+                      title="This PR's base has drifted from main since it was last synced — it'll likely need a rebase before merging cleanly."
+                    >
+                      ↺ stale
+                    </span>
+                  )}
                   {/* Inline diff preview toggle — only on open PRs
                       (merged/closed PRs would show a stale diff
                       that's not actionable). Fetches the diff on
@@ -1318,20 +1581,43 @@ export function SyncPanel() {
                       }
                       stats = { added, removed, files: files.length };
                     }
+                    // First-fetch flag: the Preview pill should
+                    // show a spinner while the GitHub round-trip is
+                    // in flight. We only consider it "loading" when
+                    // we've never cached a result before — re-toggles
+                    // are instant (cached), so a spinner there would
+                    // be misleading. Combining `loadingPrs` with
+                    // "no cache yet" gives an honest signal.
+                    const isLoading =
+                      loadingPrs.has(pr.number) && cached === undefined;
                     return (
                       <button
                         type="button"
-                        className="sync-pr__preview"
+                        className={`sync-pr__preview${isLoading ? ' sync-pr__preview--loading' : ''}`}
                         onClick={() => togglePrDiff(pr.number)}
                         aria-expanded={expandedPrs.has(pr.number)}
+                        aria-busy={isLoading}
+                        disabled={isLoading}
                         title={
-                          expandedPrs.has(pr.number)
+                          isLoading
+                            ? 'Fetching the diff from GitHub…'
+                            : expandedPrs.has(pr.number)
                             ? `Hide PR diff preview${stats ? ` · ${stats.files} file${stats.files === 1 ? '' : 's'} · +${stats.added} −${stats.removed}` : ''}`
                             : 'Show inline diff preview of this PR'
                         }
                       >
-                        {expandedPrs.has(pr.number) ? 'Hide diff ▴' : 'Preview ▾'}
-                        {stats && (
+                        {isLoading && (
+                          <span
+                            className="sync-pr__preview-spinner"
+                            aria-hidden
+                          />
+                        )}
+                        {isLoading
+                          ? 'Loading…'
+                          : expandedPrs.has(pr.number)
+                          ? 'Hide diff ▴'
+                          : 'Preview ▾'}
+                        {stats && !isLoading && (
                           <span className="sync-pr__preview-stats" aria-hidden>
                             <span className="sync-pr__preview-stats-files">
                               {stats.files}f
@@ -1403,6 +1689,114 @@ export function SyncPanel() {
           );
         })()}
       </div>
+      {showShortcutsHelp && (
+        <div
+          className="sync-panel__shortcuts-help"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sync panel keyboard shortcuts"
+          onClick={(e) => {
+            // Click on the backdrop dismisses; click on the card
+            // itself is left for selection / scroll.
+            if (e.target === e.currentTarget) {
+              setShowShortcutsHelp(false);
+            }
+          }}
+        >
+          <div
+            className="sync-panel__shortcuts-help-card"
+            role="document"
+          >
+            <header className="sync-panel__shortcuts-help-head">
+              <h3 className="sync-panel__shortcuts-help-title">
+                Keyboard shortcuts
+              </h3>
+              <button
+                type="button"
+                className="sync-panel__shortcuts-help-close"
+                onClick={() => setShowShortcutsHelp(false)}
+                title="Close (Esc)"
+                aria-label="Close shortcuts help"
+              >
+                ✕
+              </button>
+            </header>
+            <dl className="sync-panel__shortcuts-help-list">
+              <div className="sync-panel__shortcuts-help-row">
+                <dt>
+                  <kbd>j</kbd>
+                  <span className="sync-panel__shortcuts-help-sep">/</span>
+                  <kbd>k</kbd>
+                </dt>
+                <dd>Navigate the PR list down / up (wraps at edges)</dd>
+              </div>
+              <div className="sync-panel__shortcuts-help-row">
+                <dt>
+                  <kbd>↵</kbd>
+                </dt>
+                <dd>Open the focused PR on GitHub</dd>
+              </div>
+              <div className="sync-panel__shortcuts-help-row">
+                <dt>
+                  <kbd>m</kbd>
+                </dt>
+                <dd>
+                  Merge the focused PR
+                  <span className="sync-panel__shortcuts-help-note">
+                    (gated on ready state — draft / pending-review / stale
+                    PRs surface a cause-specific toast)
+                  </span>
+                </dd>
+              </div>
+              <div className="sync-panel__shortcuts-help-row">
+                <dt>
+                  <kbd>r</kbd>
+                </dt>
+                <dd>Mark the focused draft PR as ready for review</dd>
+              </div>
+              <div className="sync-panel__shortcuts-help-row">
+                <dt>
+                  <kbd>c</kbd>
+                </dt>
+                <dd>
+                  Copy the focused PR's URL to the clipboard
+                  <span className="sync-panel__shortcuts-help-note">
+                    (Shift+click on the row title does the same thing)
+                  </span>
+                </dd>
+              </div>
+              <div className="sync-panel__shortcuts-help-row">
+                <dt>
+                  <kbd>space</kbd>
+                </dt>
+                <dd>
+                  Toggle the focused PR in/out of the bulk-merge selection
+                  <span className="sync-panel__shortcuts-help-note">
+                    (clicking the ☐ checkbox in the row does the same thing;
+                    ≥2 selected pops the bulk action bar)
+                  </span>
+                </dd>
+              </div>
+              <div className="sync-panel__shortcuts-help-row">
+                <dt>
+                  <kbd>?</kbd>
+                </dt>
+                <dd>Toggle this overlay</dd>
+              </div>
+              <div className="sync-panel__shortcuts-help-row">
+                <dt>
+                  <kbd>esc</kbd>
+                </dt>
+                <dd>Close this overlay</dd>
+              </div>
+            </dl>
+            <footer className="sync-panel__shortcuts-help-foot ot-micro">
+              Shortcuts work when the Sync panel is mounted and your
+              focus isn't in a text field.
+            </footer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

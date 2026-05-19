@@ -513,6 +513,51 @@ export function Library({ agentName, onOpen }: Props) {
           .catch(() => showToast('Copy failed', 'err'));
         return;
       }
+      // Cmd/Ctrl+Shift+C — deeper variant of the title-copy
+      // shortcut. Same scoping rules (must be inside the popover
+      // or on the source tile, no active text selection) but
+      // grabs the R2 key instead. The key is the canonical
+      // pointer for any worker call, scripting against the
+      // artifact, or piping into wrangler — surfacing it on a
+      // keystroke avoids the menu trip. Stubs don't have a real
+      // R2 object yet, so we fall back to a toast that explains
+      // why nothing landed on the clipboard.
+      if (
+        e.key.toLowerCase() === 'c' &&
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        !e.altKey
+      ) {
+        const sel = window.getSelection();
+        const hasSelection = sel && sel.toString().trim().length > 0;
+        if (hasSelection) return;
+        const popover = document.querySelector('.library__hover-preview');
+        const focusedTile = (target as HTMLElement | null)?.closest(
+          '.library__tile',
+        );
+        const focusedId = focusedTile?.getAttribute('data-artifact-id');
+        const inPopover =
+          popover && target && popover.contains(target);
+        const onSourceTile = focusedId === hoverPreview.row.id;
+        if (!inPopover && !onSourceTile) return;
+        e.preventDefault();
+        const row = hoverPreview.row;
+        if (row.id.startsWith('stub-')) {
+          showToast('Stub row has no R2 key yet', 'err');
+          return;
+        }
+        const r2Key = row.key;
+        void navigator.clipboard
+          .writeText(r2Key)
+          .then(() =>
+            showToast(
+              `Copied key "${r2Key.length > 36 ? `…${r2Key.slice(-36)}` : r2Key}"`,
+              'ok',
+            ),
+          )
+          .catch(() => showToast('Copy failed', 'err'));
+        return;
+      }
       // Tab from the focused tile (the popover's anchor) → land on
       // the popover's first focusable child. Without this the
       // natural Tab order would walk to the next tile, skipping
@@ -577,13 +622,64 @@ export function Library({ agentName, onOpen }: Props) {
       setContextMenu(null);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setContextMenu(null);
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setContextMenu(null);
+        return;
+      }
+      // Arrow-key navigation inside the context menu — once
+      // focus is in the menu (auto-focused on open, see below),
+      // Up/Down walks items, Home/End jump to first/last, and
+      // Enter/Space activate the focused item. The browser
+      // already handles Enter/Space as button clicks, so we
+      // only need to wire arrow keys here.
+      const menuEl = document.querySelector('.library__ctxmenu');
+      if (!menuEl) return;
+      const items = Array.from(
+        menuEl.querySelectorAll<HTMLElement>('.library__ctxmenu-item'),
+      );
+      if (items.length === 0) return;
+      const active = document.activeElement as HTMLElement | null;
+      const idx = active ? items.indexOf(active) : -1;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        // Cycle forward — wraps from last → first so the user
+        // can sweep the menu in one direction without lifting
+        // their finger.
+        items[(idx + 1 + items.length) % items.length]?.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        // Cycle backward — same wrap behavior. Starts from the
+        // last item when nothing is focused yet, which is the
+        // natural "I'm typing my way up from the bottom"
+        // expectation.
+        const start = idx < 0 ? 0 : idx;
+        items[(start - 1 + items.length) % items.length]?.focus();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        items[0]?.focus();
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        items[items.length - 1]?.focus();
+      }
     };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
+    // Auto-focus the first menu item on the next paint frame so
+    // the user can immediately Tab / arrow-walk without a
+    // separate click. rAF defers past the open transition so the
+    // focus call lands after React has rendered the menu DOM.
+    let frame = 0;
+    frame = window.requestAnimationFrame(() => {
+      const first = document.querySelector<HTMLElement>(
+        '.library__ctxmenu .library__ctxmenu-item',
+      );
+      first?.focus();
+    });
     return () => {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
+      if (frame) window.cancelAnimationFrame(frame);
     };
   }, [contextMenu]);
 
@@ -1660,11 +1756,23 @@ export function Library({ agentName, onOpen }: Props) {
                 /* keep optimistic; next refresh will reconcile */
               }
             };
+            // Title attribute surfaces the row name plus the
+            // grid-only chord we wired in tick 44 — without an
+            // in-UI hint, the Cmd+Shift+Click R2-key copy was
+            // discoverable only from the popover footer. We
+            // suppress the chord hint on stubs (no key) and in
+            // select-mode (Shift modifies range-select instead).
+            const tileTitle = isStub
+              ? a.title
+              : selectMode
+                ? `${a.title} · Shift+click to range-select`
+                : `${a.title} · ⌘/Ctrl+Shift+Click copies R2 key`;
             return (
               <div
                 key={a.id}
                 data-artifact-id={a.id}
                 draggable={!isStub}
+                title={tileTitle}
                 onDragStart={(e) => {
                   if (isStub) {
                     e.preventDefault();
@@ -1741,6 +1849,40 @@ export function Library({ agentName, onOpen }: Props) {
                 }}
                 className={`library__tile${isSelected ? ' library__tile--selected' : ''}${selectMode ? ' library__tile--selectable' : ''}${a.starred ? ' library__tile--starred' : ''}`}
                 onClick={(e) => {
+                  // Cmd/Ctrl+Shift+Click on a tile copies its R2
+                  // key directly — parity with the popover-only
+                  // Cmd+Shift+C shortcut, but reachable without
+                  // having to hover-into the preview first. Power
+                  // users who want to grab keys from the grid
+                  // (wrangler scripts, debugging, sharing pointers)
+                  // can chord directly on the tile. Stubs don't
+                  // have a key yet, so we surface a toast instead
+                  // of silently failing. We bail before selectMode
+                  // and the open/setViewing branches so the chord
+                  // doesn't accidentally toggle selection or pop
+                  // the preview pane.
+                  if (
+                    e.shiftKey &&
+                    (e.metaKey || e.ctrlKey) &&
+                    !e.altKey
+                  ) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (isStub) {
+                      showToast('Stub row has no R2 key yet', 'err');
+                      return;
+                    }
+                    void navigator.clipboard
+                      .writeText(a.key)
+                      .then(() =>
+                        showToast(
+                          `Copied key "${a.key.length > 36 ? `…${a.key.slice(-36)}` : a.key}"`,
+                          'ok',
+                        ),
+                      )
+                      .catch(() => showToast('Copy failed', 'err'));
+                    return;
+                  }
                   if (selectMode) {
                     if (isStub) return;
                     if (e.shiftKey) {
@@ -2228,9 +2370,9 @@ export function Library({ agentName, onOpen }: Props) {
             })()}
             <div
               className="library__hover-preview-hint ot-micro"
-              title="Cmd/Ctrl+Enter opens this artifact in the preview pane · Cmd+C copies the title · Esc closes"
+              title="Cmd/Ctrl+Enter opens this artifact in the preview pane · Cmd+C copies the title · Cmd+Shift+C copies the R2 key · Esc closes"
             >
-              <kbd>⌘</kbd><kbd>↵</kbd> open · <kbd>⌘</kbd><kbd>C</kbd> title · <kbd>esc</kbd> close
+              <kbd>⌘</kbd><kbd>↵</kbd> open · <kbd>⌘</kbd><kbd>C</kbd> title · <kbd>⌘</kbd><kbd>⇧</kbd><kbd>C</kbd> key · <kbd>esc</kbd> close
             </div>
             <div className="library__hover-preview-actions">
               {/* Copy-key button — interactive surface inside the
@@ -2254,6 +2396,37 @@ export function Library({ agentName, onOpen }: Props) {
               >
                 ⧉ Copy key
               </button>
+              {/* Compact ext+size chip — surfaces the two facts
+                  a power user reaches for first (filetype +
+                  weight) without making them parse the R2 key.
+                  Extension is the trailing `.xyz` segment of
+                  the key when present, else falls back to the
+                  generic type label so we never render a bare
+                  size chip with no leading marker. Stubs have
+                  no real R2 object yet (size === 0), so we
+                  render just the ext in that case. */}
+              {(() => {
+                const m = /\.([A-Za-z0-9]{1,8})$/.exec(a.key);
+                const ext = m
+                  ? `.${m[1]!.toLowerCase()}`
+                  : a.type
+                    ? a.type.toLowerCase()
+                    : 'file';
+                const sizeLabel = a.size > 0 ? formatBytes(a.size) : null;
+                const label = sizeLabel ? `${ext} · ${sizeLabel}` : ext;
+                return (
+                  <code
+                    className="library__hover-preview-meta"
+                    title={
+                      sizeLabel
+                        ? `Type ${ext} · weighs ${sizeLabel} on R2`
+                        : `Type ${ext} (stub — not yet on R2)`
+                    }
+                  >
+                    {label}
+                  </code>
+                );
+              })()}
               <code
                 className="library__hover-preview-key"
                 title={a.key}
@@ -2328,6 +2501,31 @@ export function Library({ agentName, onOpen }: Props) {
           try {
             await navigator.clipboard.writeText(a.key);
             showToast('R2 key copied', 'ok');
+          } catch {
+            showToast('Copy failed', 'err');
+          }
+        };
+        // Compute the same ext+size string the hover popover chip
+        // renders, so the "Copy ext+size" menu entry matches what
+        // the user just saw. Falls back to `a.type` when the R2
+        // key has no recognizable extension, and elides the size
+        // segment entirely on stubs (size === 0). Result is a
+        // copy-paste-friendly token like ".png · 124.3 KB" the
+        // user can drop into a note / ticket / commit message.
+        const extSizeLabel = (() => {
+          const m = /\.([A-Za-z0-9]{1,8})$/.exec(a.key);
+          const ext = m
+            ? `.${m[1]!.toLowerCase()}`
+            : a.type
+              ? a.type.toLowerCase()
+              : 'file';
+          return a.size > 0 ? `${ext} · ${formatBytes(a.size)}` : ext;
+        })();
+        const handleCopyExtSize = async () => {
+          close();
+          try {
+            await navigator.clipboard.writeText(extSizeLabel);
+            showToast(`Copied "${extSizeLabel}"`, 'ok');
           } catch {
             showToast('Copy failed', 'err');
           }
@@ -2518,6 +2716,18 @@ export function Library({ agentName, onOpen }: Props) {
               type="button"
               className="library__ctxmenu-item"
               role="menuitem"
+              onClick={() => void handleCopyExtSize()}
+              title={`Copy "${extSizeLabel}" — same string the hover preview chip shows`}
+            >
+              <span className="library__ctxmenu-glyph">⎘ƒ</span> Copy ext+size
+              <span className="library__ctxmenu-shortcut">
+                {extSizeLabel}
+              </span>
+            </button>
+            <button
+              type="button"
+              className="library__ctxmenu-item"
+              role="menuitem"
               onClick={() => void handleDuplicate()}
               title="Clone this artifact as a fresh draft (bytes + tags copied, star + version reset)"
             >
@@ -2553,6 +2763,16 @@ function LibraryTileThumb({
 }) {
   const [failed, setFailed] = useState(false);
   const isImage = artifact.type === 'image' && !isStub && !failed;
+  // Pull the file extension off the R2 key — e.g. `thread/abc/x.json`
+  // → `json`. We bound at 1–8 chars so we don't surface long
+  // garbage when the key is a UUID-only path. Falls back to null
+  // when no recognizable extension exists (the type-glyph alone
+  // is still informative). Stubs render no badge — they don't
+  // have a real R2 object yet, so an extension would be
+  // misleading.
+  const extMatch =
+    !isStub && !isImage ? /\.([A-Za-z0-9]{1,8})$/.exec(artifact.key) : null;
+  const ext = extMatch ? extMatch[1]!.toLowerCase() : null;
   return (
     <div className="library__tile-thumb">
       {isImage ? (
@@ -2567,6 +2787,15 @@ function LibraryTileThumb({
       ) : (
         <span className="library__tile-glyph" aria-hidden>
           {GLYPHS[artifact.type] ?? '◇'}
+        </span>
+      )}
+      {ext && (
+        <span
+          className="library__tile-ext"
+          aria-hidden
+          title={`.${ext}`}
+        >
+          {ext}
         </span>
       )}
     </div>

@@ -3939,6 +3939,241 @@
   outline: none;
 }
 
+/* Click-to-expand button wrapping the chip body. We slot a real
+   <button> in so the entire summary row is keyboard-reachable and
+   screen-reader-announced as expandable. Stripped of its native
+   button chrome so it still reads as a status pill. */
+.audit__kind-summary-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.audit__kind-summary-toggle:focus-visible {
+  outline: 1px dashed var(--ot-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.audit__kind-summary-caret {
+  font-family: var(--ot-font-mono);
+  color: var(--ot-ink-mute);
+  font-size: 11px;
+  margin-left: 2px;
+  transition: color 120ms var(--ot-ease, ease-out);
+}
+
+.audit__kind-summary-toggle:hover .audit__kind-summary-caret,
+.audit__kind-summary--expanded .audit__kind-summary-caret {
+  color: var(--ot-accent);
+}
+
+/* Per-kind breakdown popover — drops below the chip when expanded.
+   Honors the existing chip's gutter / accent rhythm so it reads as a
+   continuation rather than a floating overlay. Width takes the full
+   row so users can scan many kinds at once. */
+.audit__kind-summary--expanded {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.audit__kind-summary-popover {
+  width: 100%;
+  background: var(--ot-bg-card);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-md);
+  padding: 8px 10px;
+  animation: settings-blocked-in 140ms var(--ot-ease, ease-out);
+}
+
+.audit__kind-summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.audit__kind-summary-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(80px, 2fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.audit__kind-summary-row-label {
+  font-family: var(--ot-font-mono);
+  color: var(--ot-ink);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
+/* The label is now a real <button> (single-click drills the
+   filter down to just that kind). Strip native chrome and add a
+   hover-tint so the user knows it's interactive without making
+   the row read as a button-heavy strip. */
+.audit__kind-summary-row-label--button {
+  background: transparent;
+  border: 0;
+  padding: 2px 6px;
+  margin-left: -6px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-family: var(--ot-font-mono);
+  border-radius: 4px;
+  transition: background-color 120ms var(--ot-ease, ease-out),
+    color 120ms var(--ot-ease, ease-out);
+}
+
+.audit__kind-summary-row-label--button:hover,
+.audit__kind-summary-row-label--button:focus-visible {
+  color: var(--ot-accent);
+  background: color-mix(in srgb, var(--ot-accent) 8%, transparent);
+  outline: none;
+}
+
+.audit__kind-summary-row-bar {
+  position: relative;
+  height: 6px;
+  background: color-mix(in srgb, var(--ot-accent) 10%, var(--ot-bg-soft));
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.audit__kind-summary-row-fill {
+  display: block;
+  height: 100%;
+  background: var(--ot-accent);
+  transition: width 220ms var(--ot-ease, ease-out);
+}
+
+.audit__kind-summary-row-count {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  color: var(--ot-ink);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.audit__kind-summary-row-pct {
+  color: var(--ot-ink-mute);
+  font-size: 10px;
+}
+
+.audit__kind-summary-row-drop {
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--ot-font-mono);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.audit__kind-summary-row-drop:hover,
+.audit__kind-summary-row-drop:focus-visible {
+  color: var(--ot-danger, #d33);
+  background: color-mix(in srgb, var(--ot-danger, #d33) 8%, transparent);
+  outline: none;
+}
+
+.audit__kind-summary-foot {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--ot-rule);
+  font-size: 11px;
+  font-family: var(--ot-font-mono);
+  color: var(--ot-ink-mute);
+}
+
+.audit__kind-summary-foot strong {
+  color: var(--ot-ink);
+  font-weight: 600;
+}
+
+/* The foot is now a real <button> (single-click clears the kind
+   filter entirely). Strip native chrome and add the same hover
+   pattern as the per-row label so the row reads as part of the
+   same interactive system. */
+.audit__kind-summary-foot-clear {
+  background: transparent;
+  border: 0;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  border-radius: 4px;
+  width: 100%;
+  transition: background-color 120ms var(--ot-ease, ease-out),
+    color 120ms var(--ot-ease, ease-out);
+}
+
+.audit__kind-summary-foot-clear:hover,
+.audit__kind-summary-foot-clear:focus-visible {
+  color: var(--ot-accent);
+  background: color-mix(in srgb, var(--ot-accent) 8%, transparent);
+  outline: none;
+}
+
+.audit__kind-summary-foot-clear:hover strong,
+.audit__kind-summary-foot-clear:focus-visible strong {
+  color: var(--ot-accent);
+}
+
+.audit__kind-summary-foot-hint {
+  color: var(--ot-ink-mute);
+  opacity: 0.7;
+  transition: opacity 120ms var(--ot-ease, ease-out);
+}
+
+.audit__kind-summary-foot-clear:hover .audit__kind-summary-foot-hint,
+.audit__kind-summary-foot-clear:focus-visible
+  .audit__kind-summary-foot-hint {
+  opacity: 1;
+  color: var(--ot-accent);
+}
+
+@media (max-width: 720px) {
+  .audit__kind-summary-row {
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      'label count drop'
+      'bar bar bar';
+    row-gap: 4px;
+  }
+  .audit__kind-summary-row-label {
+    grid-area: label;
+  }
+  .audit__kind-summary-row-count {
+    grid-area: count;
+  }
+  .audit__kind-summary-row-drop {
+    grid-area: drop;
+  }
+  .audit__kind-summary-row-bar {
+    grid-area: bar;
+  }
+}
+
 /* 14-day audit histogram — sits above the kind toolbar. Each bar
    is a click-to-filter pill that scopes the date range to that day.
    Bar height normalizes to the max of the visible window so quiet
@@ -4692,6 +4927,33 @@
   color: var(--ot-accent-deep);
   border-color: var(--ot-accent);
   background: var(--ot-accent-soft);
+}
+
+/* Cluster-size count badge attached to a jump link — surfaces only
+   when the destination has ≥2 siblings (the count includes the
+   source row). Sized to match the pill's letter height so it reads
+   as a quiet superscript, not a competing UI element. Tabular-num
+   so multi-digit counts line up cleanly under one another when
+   a row carries two destinations. */
+.audit__entry-jump-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  background: color-mix(in srgb, var(--ot-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ot-accent) 30%, transparent);
+  color: var(--ot-accent-deep, var(--ot-accent));
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 14px;
+  vertical-align: 1px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.audit__entry-jump:hover .audit__entry-jump-count {
+  background: color-mix(in srgb, var(--ot-accent) 26%, transparent);
+  border-color: var(--ot-accent);
 }
 
 .audit__entry-id code {

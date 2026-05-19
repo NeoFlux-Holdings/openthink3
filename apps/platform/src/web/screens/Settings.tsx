@@ -5843,6 +5843,46 @@ function downloadAuditJsonl(agentName: string, entries: AuditEntry[]): void {
 function Audit({ agentName }: { agentName: string }) {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  // Pre-tally cluster sizes for the per-row jump-to-related links.
+  // Walking entries N times per render (once per row's jumps lambda)
+  // would be O(N²); a single memoized scan is O(N) and lets each row
+  // read its size in O(1). Keyed by destination type:
+  //   thread:<id>  → audit rows sharing the same threadId
+  //   tool:<name>  → audit rows sharing the same tool field
+  //   kind:sync    → all sync-kind rows
+  //   kind:skill_save → all skill_save-kind rows
+  // Counts include the source row itself, so the badge reads
+  // "you + N siblings on the destination."
+  const clusterCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    const bump = (key: string) => {
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    };
+    for (const e of entries) {
+      const p =
+        e.payload && typeof e.payload === 'object'
+          ? (e.payload as Record<string, unknown>)
+          : null;
+      const threadId =
+        typeof p?.threadId === 'string'
+          ? p.threadId
+          : typeof p?.thread_id === 'string'
+            ? p.thread_id
+            : null;
+      if (threadId) bump(`thread:${threadId}`);
+      if (
+        (e.kind === 'spend' || e.kind === 'tool_call') &&
+        typeof p?.tool === 'string' &&
+        p.tool.length > 0 &&
+        p.tool.length < 200
+      ) {
+        bump(`tool:${p.tool}`);
+      }
+      if (e.kind === 'sync') bump('kind:sync');
+      if (e.kind === 'skill_save') bump('kind:skill_save');
+    }
+    return counts;
+  }, [entries]);
   // Audit kind filter is multi-select: empty Set = "all kinds". Each
   // chip click toggles its kind into the set. `params.kind` on the
   // wire is comma-separated for >1 kinds, single value for one.
@@ -6178,6 +6218,12 @@ function Audit({ agentName }: { agentName: string }) {
   // exist in the last week" before clicking through. Re-fetched
   // whenever the non-kind base filter changes.
   const [kindCounts, setKindCounts] = useState<Record<string, number>>({});
+  // Whether the multi-kind summary chip is expanded into a popover
+  // showing exact per-active-kind counts. Closed by default; toggled
+  // by clicking the chip body. Auto-closes when the kind filter set
+  // collapses below the 2-kind threshold (so we don't leave a stale
+  // popover floating without an anchor).
+  const [kindSummaryExpanded, setKindSummaryExpanded] = useState(false);
   const countsUrl = useMemo(() => {
     const params = new URLSearchParams();
     if (fromDate) {
@@ -6210,6 +6256,45 @@ function Audit({ agentName }: { agentName: string }) {
       cancelled = true;
     };
   }, [countsUrl]);
+
+  // The multi-kind summary chip only renders when ≥2 kinds are
+  // active. When the user clears or single-kinds the filter the
+  // chip vanishes, so its popover must collapse to avoid a stale
+  // hover-style overlay sitting in front of unrelated content.
+  useEffect(() => {
+    if (filterKinds.size <= 1 && kindSummaryExpanded) {
+      setKindSummaryExpanded(false);
+    }
+  }, [filterKinds, kindSummaryExpanded]);
+
+  // Esc collapses the expanded kind-summary popover — parity with
+  // every other "expanded inline panel" on this screen, and the
+  // shortcut users reflexively reach for to dismiss overlays. We
+  // only attach the listener while the popover is open so we don't
+  // race other Esc-sensitive surfaces (modals, command palette).
+  // The handler bails if the user is typing in a real input — Esc
+  // there should clear the field, not collapse the popover behind
+  // them.
+  useEffect(() => {
+    if (!kindSummaryExpanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (
+        tag === 'input' ||
+        tag === 'textarea' ||
+        tag === 'select' ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      e.preventDefault();
+      setKindSummaryExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [kindSummaryExpanded]);
 
   // Day histogram for the last 14 days — surfaces a small chart
   // above the kind toolbar so users can spot quiet/loud days at a
@@ -6843,15 +6928,45 @@ function Audit({ agentName }: { agentName: string }) {
         // Click clears the kind filter entirely; the chip's title
         // attribute lists which kinds are currently active.
         const activeKinds = [...filterKinds].sort();
+        // Per-active-kind exact counts. We already have `kindCounts`
+        // (date+search+system-include filtered, kind filter explicitly
+        // excluded) so the popover numbers match what the user sees
+        // when toggling each chip on/off — same source of truth as
+        // the per-chip tally badges.
+        const summaryTotal = activeKinds.reduce(
+          (s, k) => s + (kindCounts[k] ?? 0),
+          0,
+        );
         return (
-          <div className="audit__kind-summary" role="status">
-            <span className="audit__kind-summary-glyph" aria-hidden>
-              ⌕
-            </span>
-            <span>
-              Filtered by {activeKinds.length} kinds:{' '}
-              <code>{activeKinds.join(', ').replace(/_/g, ' ')}</code>
-            </span>
+          <div
+            className={`audit__kind-summary${
+              kindSummaryExpanded ? ' audit__kind-summary--expanded' : ''
+            }`}
+            role="status"
+          >
+            <button
+              type="button"
+              className="audit__kind-summary-toggle"
+              onClick={() => setKindSummaryExpanded((v) => !v)}
+              aria-expanded={kindSummaryExpanded}
+              aria-controls="audit-kind-summary-popover"
+              title={
+                kindSummaryExpanded
+                  ? 'Hide the per-kind breakdown (Esc)'
+                  : 'Show exact entry counts per active kind'
+              }
+            >
+              <span className="audit__kind-summary-glyph" aria-hidden>
+                ⌕
+              </span>
+              <span>
+                Filtered by {activeKinds.length} kinds:{' '}
+                <code>{activeKinds.join(', ').replace(/_/g, ' ')}</code>
+              </span>
+              <span className="audit__kind-summary-caret" aria-hidden>
+                {kindSummaryExpanded ? '▾' : '▸'}
+              </span>
+            </button>
             <button
               type="button"
               className="audit__kind-summary-clear"
@@ -6860,6 +6975,169 @@ function Audit({ agentName }: { agentName: string }) {
             >
               clear
             </button>
+            {kindSummaryExpanded && (
+              <div
+                id="audit-kind-summary-popover"
+                className="audit__kind-summary-popover"
+                role="region"
+                aria-label="Per-kind entry counts"
+              >
+                <ul className="audit__kind-summary-list">
+                  {activeKinds.map((k) => {
+                    const count = kindCounts[k] ?? 0;
+                    const pct =
+                      summaryTotal > 0
+                        ? Math.round((count / summaryTotal) * 100)
+                        : 0;
+                    return (
+                      <li key={k} className="audit__kind-summary-row">
+                        <button
+                          type="button"
+                          className="audit__kind-summary-row-label audit__kind-summary-row-label--button"
+                          onClick={() => {
+                            // Single-click drills the filter down
+                            // to just this kind — collapses any
+                            // sibling kinds. The popover's auto-
+                            // close effect handles the dismiss
+                            // (filter drops to 1 kind → effect
+                            // collapses the chip). Total click
+                            // budget: one. Faster than tab-then-✕
+                            // through every sibling, and matches
+                            // how the per-chip toolbar above
+                            // already behaves on a single-chip
+                            // click.
+                            setFilterKinds(new Set([k]));
+                            // Scroll the audit list to the top so
+                            // the user can immediately see the
+                            // freshly-drilled-down results. Without
+                            // this, a click near the bottom of a
+                            // long popover leaves the list out of
+                            // view (entries refresh, but the user
+                            // would have to scroll to see them).
+                            // rAF defers the scroll until after the
+                            // popover collapse animation has
+                            // started, so the destination element
+                            // is already in its post-collapse
+                            // position when we measure.
+                            requestAnimationFrame(() => {
+                              const list = document.querySelector(
+                                '.audit__list',
+                              );
+                              if (list instanceof HTMLElement) {
+                                list.scrollIntoView({
+                                  block: 'start',
+                                  behavior: 'smooth',
+                                });
+                              }
+                            });
+                          }}
+                          title={`Drill down to ${count.toLocaleString()} "${k.replace(/_/g, ' ')}" row${count === 1 ? '' : 's'} — drops the other ${activeKinds.length - 1} kind${activeKinds.length - 1 === 1 ? '' : 's'} from the filter (scrolls feed to top)`}
+                        >
+                          {k.replace(/_/g, ' ')}
+                        </button>
+                        <span className="audit__kind-summary-row-bar" aria-hidden>
+                          <span
+                            className="audit__kind-summary-row-fill"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </span>
+                        <span className="audit__kind-summary-row-count">
+                          {count.toLocaleString()}
+                          <span className="audit__kind-summary-row-pct">
+                            {summaryTotal > 0 ? `${pct}%` : '—'}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          className="audit__kind-summary-row-drop"
+                          onClick={() =>
+                            setFilterKinds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(k);
+                              return next;
+                            })
+                          }
+                          onKeyDown={(e) => {
+                            // Delete/Backspace on the focused drop
+                            // button: same action as ✕ click. Lets
+                            // users tab through the row list and
+                            // prune kinds without ever touching the
+                            // mouse. Enter/Space are already
+                            // handled natively by the browser as
+                            // click activations, so we leave those
+                            // alone. After dropping, refocus the
+                            // next sibling row's drop button so
+                            // repeated Delete presses keep walking
+                            // — falls back to the parent list if
+                            // we just dropped the last row.
+                            if (e.key !== 'Delete' && e.key !== 'Backspace') {
+                              return;
+                            }
+                            e.preventDefault();
+                            const li = (e.currentTarget as HTMLElement).closest(
+                              'li',
+                            );
+                            const nextLi = li?.nextElementSibling as
+                              | HTMLElement
+                              | null;
+                            const prevLi = li?.previousElementSibling as
+                              | HTMLElement
+                              | null;
+                            setFilterKinds((prev) => {
+                              const next = new Set(prev);
+                              next.delete(k);
+                              return next;
+                            });
+                            // Defer focus to next tick so React's
+                            // rerender has settled and the target
+                            // row is still in the DOM (it would be
+                            // if we picked a sibling; the current
+                            // row is gone).
+                            requestAnimationFrame(() => {
+                              const target = (nextLi ?? prevLi)?.querySelector<HTMLElement>(
+                                '.audit__kind-summary-row-drop',
+                              );
+                              target?.focus();
+                            });
+                          }}
+                          title={`Remove "${k.replace(/_/g, ' ')}" from the filter (Del/Backspace)`}
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="audit__kind-summary-foot">
+                  <button
+                    type="button"
+                    className="audit__kind-summary-foot-clear"
+                    onClick={() => {
+                      // One-click clear-all from inside the
+                      // popover. Parity with the "clear" link in
+                      // the chip header above but closer to the
+                      // user's eye after they've finished
+                      // reading the breakdown. The popover's
+                      // size-1-collapse effect handles the
+                      // dismiss (filter drops to 0 kinds → chip
+                      // vanishes → popover collapses). Total
+                      // click budget: one.
+                      setFilterKinds(new Set());
+                    }}
+                    title={`Clear the kind filter — return to ${summaryTotal.toLocaleString()}+ rows across every kind`}
+                  >
+                    Total: <strong>{summaryTotal.toLocaleString()}</strong> row
+                    {summaryTotal === 1 ? '' : 's'} in the current window
+                    <span
+                      className="audit__kind-summary-foot-hint"
+                      aria-hidden
+                    >
+                      {' '}· click to clear ↺
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
@@ -7631,14 +7909,27 @@ function Audit({ agentName }: { agentName: string }) {
                             ? p.thread_id
                             : null;
                       if (threadId) {
+                        const n = clusterCounts.get(`thread:${threadId}`) ?? 1;
                         jumps.push(
                           <a
                             key="thread"
                             className="audit__entry-jump"
                             href={`#/shell?thread=${encodeURIComponent(threadId)}`}
-                            title="Open this thread in chat"
+                            title={
+                              n > 1
+                                ? `Open this thread in chat — ${n} audit rows share it`
+                                : 'Open this thread in chat'
+                            }
                           >
                             → open in chat
+                            {n > 1 && (
+                              <span
+                                className="audit__entry-jump-count"
+                                aria-hidden
+                              >
+                                {n}
+                              </span>
+                            )}
                           </a>,
                         );
                       }
@@ -7652,14 +7943,27 @@ function Audit({ agentName }: { agentName: string }) {
                           ? p.tool
                           : null;
                       if (tool && tool.length > 0 && tool.length < 200) {
+                        const n = clusterCounts.get(`tool:${tool}`) ?? 1;
                         jumps.push(
                           <a
                             key="tool"
                             className="audit__entry-jump"
                             href={`#/settings?tab=spending&tool=${encodeURIComponent(tool)}`}
-                            title={`Open the spending drilldown for ${tool}`}
+                            title={
+                              n > 1
+                                ? `Open the spending drilldown for ${tool} — ${n} audit rows reference it`
+                                : `Open the spending drilldown for ${tool}`
+                            }
                           >
                             → spend by tool
+                            {n > 1 && (
+                              <span
+                                className="audit__entry-jump-count"
+                                aria-hidden
+                              >
+                                {n}
+                              </span>
+                            )}
                           </a>,
                         );
                       }
@@ -7691,14 +7995,27 @@ function Audit({ agentName }: { agentName: string }) {
                       //    landing on the sync panel is the right
                       //    next step for "investigate this sync row".
                       if (e.kind === 'sync') {
+                        const n = clusterCounts.get('kind:sync') ?? 1;
                         jumps.push(
                           <a
                             key="sync"
                             className="audit__entry-jump"
                             href="#/settings?tab=sync"
-                            title="Open the sync panel"
+                            title={
+                              n > 1
+                                ? `Open the sync panel — ${n} sync rows in the current window`
+                                : 'Open the sync panel'
+                            }
                           >
                             → open sync
+                            {n > 1 && (
+                              <span
+                                className="audit__entry-jump-count"
+                                aria-hidden
+                              >
+                                {n}
+                              </span>
+                            )}
                           </a>,
                         );
                       }
@@ -7708,14 +8025,27 @@ function Audit({ agentName }: { agentName: string }) {
                       //    is just to the tab; future-proof for
                       //    when it does.
                       if (e.kind === 'skill_save') {
+                        const n = clusterCounts.get('kind:skill_save') ?? 1;
                         jumps.push(
                           <a
                             key="skill"
                             className="audit__entry-jump"
                             href="#/skills"
-                            title="Open the Skills screen"
+                            title={
+                              n > 1
+                                ? `Open the Skills screen — ${n} skill_save rows in the current window`
+                                : 'Open the Skills screen'
+                            }
                           >
                             → open skills
+                            {n > 1 && (
+                              <span
+                                className="audit__entry-jump-count"
+                                aria-hidden
+                              >
+                                {n}
+                              </span>
+                            )}
                           </a>,
                         );
                       }

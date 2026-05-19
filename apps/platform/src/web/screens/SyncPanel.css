@@ -916,6 +916,190 @@
   }
 }
 
+/* Keyboard-shortcuts help overlay — surfaces when the user presses
+   `?` anywhere on the Sync panel. Modal-style backdrop so it reads
+   as a reference card the user can dismiss with Esc / click-out.
+   Card is centered with a hard max-width so it stays scannable on
+   wide monitors. Dialog role + aria-modal so screen readers route
+   focus correctly. */
+.sync-panel__shortcuts-help {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--ot-ink) 22%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: sync-panel-help-fade 160ms var(--ot-ease, ease-out);
+}
+
+@keyframes sync-panel-help-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sync-panel__shortcuts-help-card {
+  background: var(--ot-bg-card);
+  color: var(--ot-ink);
+  border: 1px solid var(--ot-rule);
+  border-radius: var(--ot-radius-lg, 12px);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
+  max-width: 460px;
+  width: 100%;
+  padding: 18px 22px 16px;
+  animation: sync-panel-help-pop 180ms var(--ot-ease, ease-out);
+}
+
+@keyframes sync-panel-help-pop {
+  from {
+    transform: translateY(8px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-panel__shortcuts-help,
+  .sync-panel__shortcuts-help-card {
+    animation-duration: 0ms;
+  }
+}
+
+.sync-panel__shortcuts-help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.sync-panel__shortcuts-help-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.sync-panel__shortcuts-help-close {
+  background: transparent;
+  border: 0;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  font-size: 14px;
+  font-family: var(--ot-font-mono);
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.sync-panel__shortcuts-help-close:hover,
+.sync-panel__shortcuts-help-close:focus-visible {
+  color: var(--ot-accent);
+  background: color-mix(in srgb, var(--ot-accent) 8%, transparent);
+  outline: none;
+}
+
+.sync-panel__shortcuts-help-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px dashed var(--ot-rule);
+  border-bottom: 1px dashed var(--ot-rule);
+}
+
+.sync-panel__shortcuts-help-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.sync-panel__shortcuts-help-row dt {
+  margin: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--ot-font-mono);
+  color: var(--ot-ink);
+}
+
+.sync-panel__shortcuts-help-row dt kbd {
+  font-family: var(--ot-font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  background: var(--ot-bg-soft, var(--ot-bg));
+  border: 1px solid var(--ot-rule);
+  border-radius: 4px;
+  color: var(--ot-ink);
+}
+
+.sync-panel__shortcuts-help-row dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ot-ink-soft, var(--ot-ink));
+  line-height: 1.4;
+}
+
+.sync-panel__shortcuts-help-sep {
+  color: var(--ot-ink-mute);
+  font-size: 11px;
+}
+
+.sync-panel__shortcuts-help-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--ot-ink-mute);
+  font-style: italic;
+}
+
+.sync-panel__shortcuts-help-foot {
+  margin-top: 10px;
+  color: var(--ot-ink-mute);
+}
+
+/* Inline "? more" launcher that lives in the PRs-head hint strip.
+   Reads as a continuation of the surrounding hint text, not a
+   button — so we strip all native chrome and only style the <kbd>
+   glyph + label. Hover lifts the label to the accent tone so the
+   user knows it's interactive. */
+.sync-panel__shortcuts-help-toggle {
+  background: transparent;
+  border: 0;
+  padding: 0 2px;
+  margin: 0;
+  font: inherit;
+  color: var(--ot-ink-mute);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  border-radius: 3px;
+}
+
+.sync-panel__shortcuts-help-toggle:hover,
+.sync-panel__shortcuts-help-toggle:focus-visible {
+  color: var(--ot-accent);
+  outline: none;
+}
+
+@media (max-width: 480px) {
+  .sync-panel__shortcuts-help-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
 .sync-panel__prs-head {
   display: flex;
   align-items: center;
@@ -1149,6 +1333,45 @@
   background: var(--ot-bg-soft);
   color: var(--ot-ink-mute);
   border: 1px dashed var(--ot-rule);
+}
+
+/* "Stale" badge on open PRs — surfaces when the PR's base.sha has
+   drifted from main's current HEAD. Warning amber (not danger red);
+   the PR is mergeable in principle, just behind. The ↺ glyph reads
+   as "needs to be re-aligned" without spelling out "rebase" (since
+   users may resolve via merge-from-main instead). Sits beside the
+   state pill so the row's status reads as a single phrase: "open,
+   stale." */
+.sync-pr__stale {
+  background: rgba(204, 138, 35, 0.12);
+  color: #8a5c1a;
+  border: 1px solid rgba(204, 138, 35, 0.4);
+  font-family: var(--ot-font-mono);
+  font-size: 10.5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  /* Subtle pulse so the warning catches the eye without nagging.
+     Skipped under prefers-reduced-motion. */
+  animation: sync-pr-stale-pulse 4s ease-in-out infinite;
+}
+
+@keyframes sync-pr-stale-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(204, 138, 35, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(204, 138, 35, 0.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-pr__stale {
+    animation: none;
+  }
 }
 
 .sync-panel__prs ul {
@@ -1454,6 +1677,46 @@
   border-color: var(--ot-accent);
   color: var(--ot-accent);
   outline: none;
+}
+
+/* While the PR diff fetch is in flight: render a small spinning
+   glyph inside the Preview pill and dim the surface to read as
+   "busy, please wait." The button is also `aria-busy` and disabled
+   so a second click can't queue a duplicate request. We keep the
+   border on the accent tone so the row's visual rhythm matches the
+   active state — the user knows the pill is the right target. */
+.sync-pr__preview--loading {
+  color: var(--ot-accent);
+  border-color: color-mix(in srgb, var(--ot-accent) 50%, var(--ot-rule));
+  background: color-mix(in srgb, var(--ot-accent) 6%, transparent);
+  cursor: progress;
+}
+
+.sync-pr__preview-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  border: 1.5px solid color-mix(in srgb, var(--ot-accent) 30%, transparent);
+  border-top-color: var(--ot-accent);
+  border-radius: 50%;
+  animation: sync-pr-preview-spin 700ms linear infinite;
+}
+
+@keyframes sync-pr-preview-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-pr__preview-spinner {
+    animation-duration: 1800ms;
+  }
 }
 
 /* +/− line counts inline in the Preview pill — surface once the
