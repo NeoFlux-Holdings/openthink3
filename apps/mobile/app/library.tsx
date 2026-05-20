@@ -1,7 +1,7 @@
 /* Library — 2-column grid of artifact tiles. Tap → opens in your browser
  * (the web shell renders artifacts much better than we can on a phone).
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -12,6 +12,7 @@ import { Skeleton } from '../src/components/Skeleton';
 import { TabBar, TAB_BAR_HEIGHT } from '../src/components/TabBar';
 import { getLibrary } from '../src/lib/api';
 import { useSession } from '../src/lib/session-store';
+import { tabReTapped } from '../src/lib/events';
 import { useTheme } from '../src/theme/ThemeContext';
 import { fontSize, radius, space, type as fontFamily } from '../src/theme/tokens';
 
@@ -53,6 +54,15 @@ export default function Library() {
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [online, setOnline] = useState(true);
+  const scrollRef = useRef<ScrollView | null>(null);
+
+  useEffect(() => {
+    return tabReTapped.on((key) => {
+      if (key === 'library') {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }
+    });
+  }, []);
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -77,6 +87,7 @@ export default function Library() {
     <Screen>
       <OfflineBanner online={online} onRetry={() => void load()} />
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{
           paddingHorizontal: space.s5,
           paddingTop: space.s8,

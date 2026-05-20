@@ -1,5 +1,5 @@
 /* Threads list — search + filter chips + grouped lists. */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import { SkeletonRow } from '../src/components/Skeleton';
 import { TabBar, TAB_BAR_HEIGHT } from '../src/components/TabBar';
 import { getThreads, type ThreadSummary } from '../src/lib/api';
 import { useSession } from '../src/lib/session-store';
+import { tabReTapped } from '../src/lib/events';
 import { useTheme } from '../src/theme/ThemeContext';
 import { fontSize, radius, space, type as fontFamily } from '../src/theme/tokens';
 
@@ -42,6 +43,16 @@ export default function Threads() {
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [online, setOnline] = useState(true);
+  const scrollRef = useRef<ScrollView | null>(null);
+
+  // Scroll-to-top when the Threads tab is re-tapped.
+  useEffect(() => {
+    return tabReTapped.on((key) => {
+      if (key === 'threads') {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }
+    });
+  }, []);
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -78,10 +89,23 @@ export default function Threads() {
     return { live, today, week, older };
   }, [threads, query]);
 
+  // Build the flat children list + indexes of section headers so we can
+  // pass `stickyHeaderIndices` to ScrollView. iOS pins these headers as the
+  // user scrolls past them.
+  const sections = useMemo(() => {
+    const groups: { label: string; count: number; rows: ThreadSummary[] }[] = [];
+    if (grouped.live.length) groups.push({ label: 'Live', count: grouped.live.length, rows: grouped.live });
+    if (grouped.today.length) groups.push({ label: 'Today', count: grouped.today.length, rows: grouped.today });
+    if (grouped.week.length) groups.push({ label: 'Earlier this week', count: grouped.week.length, rows: grouped.week });
+    if (grouped.older.length) groups.push({ label: 'Older', count: grouped.older.length, rows: grouped.older });
+    return groups;
+  }, [grouped]);
+
   return (
     <Screen>
       <OfflineBanner online={online} onRetry={() => void load()} />
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ paddingHorizontal: space.s5, paddingTop: space.s8, paddingBottom: TAB_BAR_HEIGHT + space.s5, gap: space.s4 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => {
           setRefreshing(true);
@@ -129,41 +153,16 @@ export default function Threads() {
           </View>
         )}
 
-        {loaded && grouped.live.length > 0 && (
-          <View>
-            <SectionLabel count={grouped.live.length}>Live</SectionLabel>
-            {grouped.live.map((t) => (
+        {loaded && sections.map((s) => (
+          <View key={s.label}>
+            <View style={{ backgroundColor: colors.bg, paddingVertical: 4 }}>
+              <SectionLabel count={s.count}>{s.label}</SectionLabel>
+            </View>
+            {s.rows.map((t) => (
               <Row key={t.id} thread={t} onPress={() => router.push(`/threads/${t.id}`)} />
             ))}
           </View>
-        )}
-
-        {grouped.today.length > 0 && (
-          <View>
-            <SectionLabel count={grouped.today.length}>Today</SectionLabel>
-            {grouped.today.map((t) => (
-              <Row key={t.id} thread={t} onPress={() => router.push(`/threads/${t.id}`)} />
-            ))}
-          </View>
-        )}
-
-        {grouped.week.length > 0 && (
-          <View>
-            <SectionLabel count={grouped.week.length}>Earlier this week</SectionLabel>
-            {grouped.week.map((t) => (
-              <Row key={t.id} thread={t} onPress={() => router.push(`/threads/${t.id}`)} />
-            ))}
-          </View>
-        )}
-
-        {grouped.older.length > 0 && (
-          <View>
-            <SectionLabel count={grouped.older.length}>Older</SectionLabel>
-            {grouped.older.map((t) => (
-              <Row key={t.id} thread={t} onPress={() => router.push(`/threads/${t.id}`)} />
-            ))}
-          </View>
-        )}
+        ))}
 
         {threads.length === 0 && (
           <View style={{ paddingVertical: space.s10, alignItems: 'center', gap: space.s3 }}>

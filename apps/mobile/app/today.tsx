@@ -3,7 +3,7 @@
  * Greeting · live activity card · approvals stack · spend bar · recent threads.
  * The five elements stack vertically with the bottom tab bar pinned below.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ import { SkeletonRow } from '../src/components/Skeleton';
 import { TabBar, TAB_BAR_HEIGHT } from '../src/components/TabBar';
 import { getToday, type Approval, type TodayState } from '../src/lib/api';
 import { useSession } from '../src/lib/session-store';
+import { tabReTapped } from '../src/lib/events';
 import { registerForPush } from '../src/lib/notifications';
 import { useTheme } from '../src/theme/ThemeContext';
 import { fontSize, radius, space, type as fontFamily } from '../src/theme/tokens';
@@ -67,6 +68,17 @@ export default function Today() {
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [online, setOnline] = useState(true);
+  const scrollRef = useRef<ScrollView | null>(null);
+
+  // Scroll-to-top when the user re-taps the Today tab. Standard iOS pattern;
+  // we mirror it on Android too. Event emits from TabBar.tsx.
+  useEffect(() => {
+    return tabReTapped.on((key) => {
+      if (key === 'today') {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }
+    });
+  }, []);
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -99,6 +111,7 @@ export default function Today() {
     <Screen>
       <OfflineBanner online={online} onRetry={() => void load()} />
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ paddingHorizontal: space.s5, paddingTop: space.s8, paddingBottom: TAB_BAR_HEIGHT + space.s5, gap: space.s5 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
       >

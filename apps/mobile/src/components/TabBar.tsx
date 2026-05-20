@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme/ThemeContext';
 import { fontSize, radius, space, type } from '../theme/tokens';
+import { tabReTapped } from '../lib/events';
+import { selection as hapticSelection, tap as hapticTap } from '../lib/haptics';
 
 export type TabKey = 'today' | 'threads' | 'library' | 'you';
 
@@ -49,8 +51,24 @@ export function TabBar({ active, onNavigate, onCompose }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const effectiveActive = active ?? deriveActive(pathname);
-  const navigate = onNavigate ?? ((href: string) => router.push(href as never));
-  const compose = onCompose ?? (() => router.push('/sheets/new-task' as never));
+  // When the user taps the slot for the tab they're already on, fire a
+  // re-tap event so the visible screen can scroll itself to top. Otherwise
+  // navigate normally with a soft selection haptic.
+  const handleTab = (key: TabKey, href: string) => {
+    if (key === effectiveActive) {
+      hapticSelection();
+      tabReTapped.emit(key);
+      return;
+    }
+    hapticSelection();
+    if (onNavigate) onNavigate(href);
+    else router.push(href as never);
+  };
+  const compose = () => {
+    hapticTap();
+    if (onCompose) onCompose();
+    else router.push('/sheets/new-task' as never);
+  };
 
   return (
     <View
@@ -74,7 +92,7 @@ export function TabBar({ active, onNavigate, onCompose }: Props) {
             active={t.key === effectiveActive}
             label={t.label}
             icon={t.icon}
-            onPress={() => navigate(t.href)}
+            onPress={() => handleTab(t.key, t.href)}
           />
         ))}
 
@@ -86,7 +104,7 @@ export function TabBar({ active, onNavigate, onCompose }: Props) {
             active={t.key === effectiveActive}
             label={t.label}
             icon={t.icon}
-            onPress={() => navigate(t.href)}
+            onPress={() => handleTab(t.key, t.href)}
           />
         ))}
       </View>

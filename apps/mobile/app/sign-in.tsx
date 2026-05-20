@@ -21,9 +21,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import * as Device from 'expo-device';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+
+import { tap as hapticTap, confirm as hapticConfirm } from '../src/lib/haptics';
 
 import {
   Body,
@@ -91,6 +94,7 @@ export default function SignIn() {
     }
     setError(null);
     setWorking(true);
+    hapticTap();
     try {
       // Hit the agent's magic-link endpoint — opens the web app to a
       // device-confirmation page that issues a code the user can paste back.
@@ -101,6 +105,22 @@ export default function SignIn() {
       setError(err instanceof Error ? err.message : 'Could not open browser.');
     } finally {
       setWorking(false);
+    }
+  };
+
+  // When the user focuses the code input, check the clipboard for a 6-letter
+  // pairing code we issued from the web flow. If it looks like one, prefill —
+  // saves a paste step on iOS where the share-sheet doesn't always work.
+  const tryAutoPaste = async () => {
+    try {
+      const raw = await Clipboard.getStringAsync();
+      const candidate = raw.trim().toUpperCase();
+      if (/^[A-Z2-9]{6}$/.test(candidate) && !code) {
+        setCode(candidate);
+        hapticConfirm();
+      }
+    } catch {
+      /* clipboard locked or unavailable */
     }
   };
 
@@ -221,10 +241,13 @@ export default function SignIn() {
                         setCode(t.toUpperCase());
                         setError(null);
                       }}
+                      onFocus={() => void tryAutoPaste()}
                       placeholder="6-letter code"
                       placeholderTextColor={colors.soft}
                       autoCapitalize="characters"
                       autoCorrect={false}
+                      autoFocus
+                      maxLength={6}
                       style={{
                         fontFamily: type.mono,
                         fontSize: 18,

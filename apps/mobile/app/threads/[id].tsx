@@ -7,14 +7,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
+  Share,
   Text,
   TextInput,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
 
 import {
   Body,
@@ -26,6 +31,7 @@ import {
   Screen,
 } from '../../src/components/primitives';
 import { LiveDot } from '../../src/components/LiveDot';
+import { confirm as hapticConfirm, success as hapticSuccess, tap as hapticTap } from '../../src/lib/haptics';
 import { getConversation, sendMessage, type Conversation, type ConversationMessage } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session-store';
 import { useTheme } from '../../src/theme/ThemeContext';
@@ -68,6 +74,12 @@ export default function Conversation() {
   const [data, setData] = useState<Conversation>(FALLBACK);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  // Tracks whether the user has scrolled away from the bottom. When true and
+  // a new message arrives we show a "new message" pill instead of auto-
+  // scrolling — pulling the floor out from under a user mid-read is rude.
+  const [atBottom, setAtBottom] = useState(true);
+  const [hasNew, setHasNew] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
 
   const load = useCallback(async () => {
@@ -84,19 +96,61 @@ export default function Conversation() {
     void load();
   }, [load]);
 
-  // After the feed renders, scroll to the bottom so the user lands on the
-  // most recent message. Re-fires whenever messages arrive — including
-  // optimistic appends from `send()`.
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
+  // Build a digest of the feed that changes on text growth too — so streaming
+  // tokens trigger our auto-scroll, not just message-count flips.
+  const feedSignature = data.messages.map((m) => m.text.length).join(',');
+
   useEffect(() => {
-    const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+    if (!atBottom) {
+      setHasNew(true);
+      return;
+    }
+    const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
     return () => clearTimeout(t);
-  }, [data.messages.length]);
+  }, [feedSignature, atBottom]);
+
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    const distanceFromBottom =
+      contentSize.height - (layoutMeasurement.height + contentOffset.y);
+    const wasAtBottom = atBottom;
+    const isAtBottom = distanceFromBottom < 80;
+    if (wasAtBottom !== isAtBottom) setAtBottom(isAtBottom);
+    if (isAtBottom && hasNew) setHasNew(false);
+  };
+
+  const copyText = async (text: string) => {
+    hapticTap();
+    try {
+      await Clipboard.setStringAsync(text);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
+  const shareThread = async () => {
+    hapticTap();
+    try {
+      const url = session ? `${session.agentUrl}/#/shell?thread=${encodeURIComponent(data.id)}` : '';
+      await Share.share({ message: url ? `${data.title}\n${url}` : data.title, url });
+    } catch {
+      /* user canceled */
+    }
+  };
 
   const send = async () => {
     if (!session || !draft.trim()) return;
     const text = draft.trim();
+    hapticConfirm();
     setSending(true);
     setDraft('');
+    setAtBottom(true);
     // Optimistic append.
     setData((prev) => ({
       ...prev,
@@ -107,6 +161,7 @@ export default function Conversation() {
     }));
     try {
       await sendMessage(session, data.id, text);
+      hapticSuccess();
       await load();
     } catch {
       /* swallow — the user will see the local bubble */
@@ -144,8 +199,8 @@ export default function Conversation() {
             </View>
           )}
         </View>
-        <Pressable hitSlop={12}>
-          <Ionicons name="ellipsis-horizontal" size={22} color={colors.mute} />
+        <Pressable hitSlop={12} onPress={() => void shareThread()}>
+          <Ionicons name="share-outline" size={22} color={colors.mute} />
         </Pressable>
       </View>
 
@@ -158,7 +213,18 @@ export default function Conversation() {
           ref={scrollRef}
           contentContainerStyle={{ padding: space.s4, gap: space.s5 }}
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          onContentSizeChange={() => {
+            if (atBottom) scrollRef.current?.scrollToEnd({ animated: false });
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.brand}
+            />
+          }
         >
           {data.workingNotes && (
             <Card soft style={{ padding: space.s4, gap: space.s2, backgroundColor: colors.brandSoft, borderColor: 'transparent' }}>
@@ -175,7 +241,7 @@ export default function Conversation() {
           )}
 
           {data.messages.map((m) => (
-            <Message key={m.id} message={m} />
+            <Message key={m.id} message={m} onLongPress={() => void copyText(m.text)} />
           ))}
 
           {data.artifacts.length > 0 && (
@@ -236,6 +302,39 @@ export default function Conversation() {
             </View>
           )}
         </ScrollView>
+
+        {hasNew && !atBottom && (
+          <Pressable
+            onPress={() => {
+              hapticTap();
+              setAtBottom(true);
+              setHasNew(false);
+              scrollRef.current?.scrollToEnd({ animated: true });
+            }}
+            style={{
+              position: 'absolute',
+              alignSelf: 'center',
+              bottom: 92,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 999,
+              backgroundColor: colors.ink,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              shadowColor: '#000',
+              shadowOpacity: 0.18,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 6,
+            }}
+          >
+            <Ionicons name="arrow-down" size={14} color={colors.bg} />
+            <Text style={{ color: colors.bg, fontFamily: fontFamily.bodyMedium, fontSize: 12.5 }}>
+              New message
+            </Text>
+          </Pressable>
+        )}
 
         <View
           style={{
@@ -304,11 +403,15 @@ export default function Conversation() {
   );
 }
 
-function Message({ message }: { message: ConversationMessage }) {
+function Message({ message, onLongPress }: { message: ConversationMessage; onLongPress?: () => void }) {
   const { colors } = useTheme();
   if (message.role === 'user') {
     return (
-      <View style={{ alignSelf: 'flex-end', maxWidth: '85%' }}>
+      <Pressable
+        onLongPress={onLongPress}
+        delayLongPress={350}
+        style={{ alignSelf: 'flex-end', maxWidth: '85%' }}
+      >
         <View
           style={{
             backgroundColor: colors.brand2,
@@ -323,11 +426,15 @@ function Message({ message }: { message: ConversationMessage }) {
           </Text>
         </View>
         <Mono style={{ textAlign: 'right', marginTop: 2 }}>{message.time}</Mono>
-      </View>
+      </Pressable>
     );
   }
   return (
-    <View style={{ flexDirection: 'row', gap: space.s3 }}>
+    <Pressable
+      onLongPress={onLongPress}
+      delayLongPress={350}
+      style={{ flexDirection: 'row', gap: space.s3 }}
+    >
       <View
         style={{
           width: 26,
@@ -366,7 +473,7 @@ function Message({ message }: { message: ConversationMessage }) {
         )}
         <Body style={{ color: colors.ink2, lineHeight: 22 }}>{message.text}</Body>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

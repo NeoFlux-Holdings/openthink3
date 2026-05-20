@@ -400,13 +400,31 @@
    (these reach into Shell.css' grid without rewriting it)
    ============================================================ */
 @media (max-width: 900px) {
-  /* Collapse sidebar to icons by default at phone widths; the
-     drawer button in AppShell handles fully expanded view. */
+  /* Collapse sidebar to icons by default at phone widths. The user can
+     still get the full sidebar by tapping the collapse-toggle button —
+     same affordance that's there on desktop, just more important here. */
   .shell {
     grid-template-columns: 56px minmax(0, 1fr) 0 0;
   }
   .shell.shell--canvas-sized {
     grid-template-columns: 56px minmax(0, 1fr) 0 0;
+  }
+  /* If the user expanded the sidebar via the toggle, slide it over the
+     content like a drawer rather than reshuffling the grid (which would
+     be jarring on a phone). */
+  .shell:not(:has(.shell__sidebar--icons)) .shell__sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px;
+    z-index: 30;
+    box-shadow: var(--shadow-pop);
+  }
+  .shell:not(:has(.shell__sidebar--icons))::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: rgba(14, 15, 18, 0.42);
+    backdrop-filter: blur(2px);
+    z-index: 25;
   }
   /* Hide the resizer + canvas entirely; canvas mode is full-screen
      when toggled on a phone. */
@@ -414,23 +432,35 @@
   .shell__canvas { display: none; }
   .shell:has(.shell--canvas-full) .shell__canvas { display: flex; }
   .shell:has(.shell--canvas-full) .shell__feed { display: none; }
-  .shell__sidebar { padding: 8px 6px; }
-  .shell__brand-text,
-  .shell__search-input,
-  .shell__nav-label,
-  .shell__thread .nm,
-  .shell__identity-meta,
-  .shell__section,
-  .shell__section-row,
-  .shell__new > :not(.shell__new-plus),
-  .shell__new .kbd,
-  .shell__search-glyph {
+  .shell__sidebar--icons {
+    padding: 8px 6px;
+  }
+  .shell__sidebar--icons .shell__brand-text,
+  .shell__sidebar--icons .shell__search-input,
+  .shell__sidebar--icons .shell__nav-label,
+  .shell__sidebar--icons .shell__thread .nm,
+  .shell__sidebar--icons .shell__identity-meta,
+  .shell__sidebar--icons .shell__section,
+  .shell__sidebar--icons .shell__section-row,
+  .shell__sidebar--icons .shell__new > :not(.shell__new-plus),
+  .shell__sidebar--icons .shell__new .kbd,
+  .shell__sidebar--icons .shell__search-glyph {
     display: none;
   }
-  .shell__new { justify-content: center; padding: 8px; }
-  .shell__search { justify-content: center; padding: 8px; }
-  .shell__nav-item { justify-content: center; padding: 8px; }
-  .shell__thread-row { display: none; }
+  .shell__sidebar--icons .shell__new { justify-content: center; padding: 8px; }
+  .shell__sidebar--icons .shell__search { justify-content: center; padding: 8px; }
+  .shell__sidebar--icons .shell__nav-item { justify-content: center; padding: 8px; }
+  .shell__sidebar--icons .shell__thread-row { display: none; }
+
+  /* Make the collapse-toggle larger + clearly tappable on phone widths */
+  .shell__collapse-toggle {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-2);
+  }
 }
 
 /* Mobile composer: stack tools row vertically so the send button

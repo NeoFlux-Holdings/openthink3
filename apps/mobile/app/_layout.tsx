@@ -1,4 +1,5 @@
 /* Root layout — wires:
+ *   - GestureHandlerRootView (required for bottom-sheet gestures)
  *   - ThemeProvider (light/dark)
  *   - SessionProvider (the agent the user signed into)
  *   - QueryClient (TanStack Query)
@@ -15,6 +16,7 @@ import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
@@ -31,10 +33,6 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
 
-  // Try to load Geist fonts but never block startup on them — the font
-  // assets are user-supplied (license-restricted) so we ship the app
-  // without them by default and fall back to platform sans-serif. The
-  // require() call is wrapped so a missing asset doesn't crash bundling.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -55,15 +53,17 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <SessionProvider>
-            <ThemedShell />
-          </SessionProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <SessionProvider>
+              <ThemedShell />
+            </SessionProvider>
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -78,15 +78,33 @@ function ThemedShell() {
           contentStyle: { backgroundColor: colors.bg },
           animation: 'fade',
         }}
-      />
+      >
+        {/* Sheet routes use a transparent presentation so the BottomSheet
+            can draw its own backdrop without the navigator drawing one
+            underneath. iOS gets formSheet on iPad-sized screens; phone gets
+            the same vertical reveal. */}
+        <Stack.Screen
+          name="sheets/new-task"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+        <Stack.Screen
+          name="sheets/approval"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+      </Stack>
     </View>
   );
 }
 
 function loadOptionalFonts(): Record<string, number> {
-  // Each require() is wrapped because Metro evaluates them at bundle time —
-  // a missing file would otherwise break the build. We guard with try/catch
-  // inside an IIFE so missing assets degrade gracefully to system fonts.
   const map: Record<string, number> = {};
   const safeRequire = (name: string, loader: () => number) => {
     try {
