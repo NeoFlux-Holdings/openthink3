@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { Body, Chip, Eyebrow, H1, Mono, PillPicker, Screen } from '../src/components/primitives';
+import { OfflineBanner } from '../src/components/OfflineBanner';
+import { Skeleton } from '../src/components/Skeleton';
 import { TabBar, TAB_BAR_HEIGHT } from '../src/components/TabBar';
 import { getLibrary } from '../src/lib/api';
 import { useSession } from '../src/lib/session-store';
@@ -49,14 +51,19 @@ export default function Library() {
   const [filter, setFilter] = useState<Filter>('all');
   const [items, setItems] = useState<Item[]>(FALLBACK);
   const [refreshing, setRefreshing] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [online, setOnline] = useState(true);
 
   const load = useCallback(async () => {
     if (!session) return;
     try {
       const data = await getLibrary(session);
       setItems(data.items);
+      setOnline(true);
     } catch {
-      /* fallback */
+      setOnline(false);
+    } finally {
+      setLoaded(true);
     }
   }, [session]);
 
@@ -68,6 +75,7 @@ export default function Library() {
 
   return (
     <Screen>
+      <OfflineBanner online={online} onRetry={() => void load()} />
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: space.s5,
@@ -91,9 +99,13 @@ export default function Library() {
         <PillPicker options={FILTERS} value={filter} onChange={setFilter} />
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.s2 }}>
-          {filtered.map((item) => (
-            <Tile key={item.id} item={item} onPress={() => session && Linking.openURL(`${session.agentUrl}/#/library?artifact=${item.id}`)} />
-          ))}
+          {!loaded
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={`lt-${i}`} width="48%" height={170} borderRadius={radius.r4} />
+              ))
+            : filtered.map((item) => (
+                <Tile key={item.id} item={item} onPress={() => session && Linking.openURL(`${session.agentUrl}/#/library?artifact=${item.id}`)} />
+              ))}
         </View>
 
         {filtered.length === 0 && (

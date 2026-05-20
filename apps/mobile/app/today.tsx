@@ -9,6 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { Avatar, Body, Card, Chip, Dot, Eyebrow, H1, Mono, Screen } from '../src/components/primitives';
+import { LiveDot } from '../src/components/LiveDot';
+import { OfflineBanner } from '../src/components/OfflineBanner';
+import { SkeletonRow } from '../src/components/Skeleton';
 import { TabBar, TAB_BAR_HEIGHT } from '../src/components/TabBar';
 import { getToday, type Approval, type TodayState } from '../src/lib/api';
 import { useSession } from '../src/lib/session-store';
@@ -62,18 +65,22 @@ export default function Today() {
   const { colors } = useTheme();
   const [state, setState] = useState<TodayState>(FALLBACK);
   const [refreshing, setRefreshing] = useState(false);
-  const [, setLiveErr] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [online, setOnline] = useState(true);
 
   const load = useCallback(async () => {
     if (!session) return;
     try {
       const data = await getToday(session);
       setState(data);
-      setLiveErr(null);
-    } catch (err) {
+      setOnline(true);
+    } catch {
       // First-launch backend not yet wired — fall back to the design fixture
-      // so the screen still has something to render.
-      setLiveErr((err as Error).message);
+      // so the screen still has something to render. Surface the offline
+      // banner so the user knows we're showing cached data.
+      setOnline(false);
+    } finally {
+      setLoaded(true);
     }
   }, [session]);
 
@@ -90,6 +97,7 @@ export default function Today() {
 
   return (
     <Screen>
+      <OfflineBanner online={online} onRetry={() => void load()} />
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: space.s5, paddingTop: space.s8, paddingBottom: TAB_BAR_HEIGHT + space.s5, gap: space.s5 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
@@ -107,7 +115,11 @@ export default function Today() {
           </Pressable>
         </View>
 
-        {state.liveTask && <LiveTaskCard task={state.liveTask} onOpen={() => router.push(`/threads/${state.liveTask!.threadId}`)} />}
+        {!loaded ? (
+          <SkeletonRow lines={4} />
+        ) : state.liveTask ? (
+          <LiveTaskCard task={state.liveTask} onOpen={() => router.push(`/threads/${state.liveTask!.threadId}`)} />
+        ) : null}
 
         {state.approvals.length > 0 && (
           <View style={{ gap: space.s2 }}>
@@ -127,7 +139,9 @@ export default function Today() {
               <Text style={{ fontFamily: fontFamily.mono, color: colors.mute, fontSize: 11.5 }}>see all →</Text>
             </Pressable>
           </View>
-          {state.recentThreads.slice(0, 5).map((t) => (
+          {!loaded
+            ? Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={`s-${i}`} lines={2} />)
+            : state.recentThreads.slice(0, 5).map((t) => (
             <Pressable
               key={t.id}
               onPress={() => router.push(`/threads/${t.id}`)}
@@ -143,7 +157,7 @@ export default function Today() {
                 borderWidth: 1,
               }}
             >
-              <Dot kind={t.live ? 'coral' : 'idle'} size={7} />
+              {t.live ? <LiveDot kind="coral" size={7} /> : <Dot kind="idle" size={7} />}
               <Text style={{ flex: 1, fontFamily: fontFamily.bodyMedium, fontSize: fontSize.body, color: colors.ink }} numberOfLines={1}>
                 {t.title}
               </Text>
@@ -151,6 +165,14 @@ export default function Today() {
             </Pressable>
           ))}
         </View>
+        {loaded && state.recentThreads.length === 0 && (
+          <View style={{ alignItems: 'center', paddingVertical: space.s7, gap: space.s2 }}>
+            <Ionicons name="leaf-outline" size={28} color={colors.soft} />
+            <Body style={{ color: colors.mute, textAlign: 'center' }}>
+              No threads yet — tap the orange button to start one.
+            </Body>
+          </View>
+        )}
 
         <Pressable
           onPress={() => void signOut()}
@@ -171,7 +193,7 @@ function LiveTaskCard({ task, onOpen }: { task: NonNullable<TodayState['liveTask
     <Pressable onPress={onOpen}>
       <Card style={{ padding: space.s5, gap: space.s3 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.s2 }}>
-          <Dot kind="coral" size={8} />
+          <LiveDot kind="coral" size={8} />
           <Text style={{ fontFamily: fontFamily.bodyMedium, color: colors.coralInk, fontSize: 12 }}>Live</Text>
           <Text style={{ marginLeft: 'auto', fontFamily: fontFamily.mono, color: colors.mute, fontSize: 11 }}>
             {task.elapsed}

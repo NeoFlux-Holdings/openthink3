@@ -5,6 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { Body, Dot, Eyebrow, H1, Mono, PillPicker, Screen, SectionLabel } from '../src/components/primitives';
+import { LiveDot } from '../src/components/LiveDot';
+import { OfflineBanner } from '../src/components/OfflineBanner';
+import { SkeletonRow } from '../src/components/Skeleton';
 import { TabBar, TAB_BAR_HEIGHT } from '../src/components/TabBar';
 import { getThreads, type ThreadSummary } from '../src/lib/api';
 import { useSession } from '../src/lib/session-store';
@@ -37,14 +40,19 @@ export default function Threads() {
   const [query, setQuery] = useState('');
   const [threads, setThreads] = useState<ThreadSummary[]>(FALLBACK);
   const [refreshing, setRefreshing] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [online, setOnline] = useState(true);
 
   const load = useCallback(async () => {
     if (!session) return;
     try {
       const data = await getThreads(session, scope);
       setThreads(data.threads);
+      setOnline(true);
     } catch {
-      // backend missing — keep fallback fixture
+      setOnline(false);
+    } finally {
+      setLoaded(true);
     }
   }, [scope, session]);
 
@@ -72,6 +80,7 @@ export default function Threads() {
 
   return (
     <Screen>
+      <OfflineBanner online={online} onRetry={() => void load()} />
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: space.s5, paddingTop: space.s8, paddingBottom: TAB_BAR_HEIGHT + space.s5, gap: space.s4 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => {
@@ -112,7 +121,15 @@ export default function Threads() {
 
         <PillPicker options={SCOPES} value={scope} onChange={setScope} />
 
-        {grouped.live.length > 0 && (
+        {!loaded && (
+          <View style={{ gap: 8 }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonRow key={`tl-${i}`} lines={2} />
+            ))}
+          </View>
+        )}
+
+        {loaded && grouped.live.length > 0 && (
           <View>
             <SectionLabel count={grouped.live.length}>Live</SectionLabel>
             {grouped.live.map((t) => (
@@ -180,7 +197,7 @@ function Row({ thread, onPress }: { thread: ThreadSummary; onPress: () => void }
         borderRadius: radius.r3,
       })}
     >
-      <Dot kind={thread.live ? 'coral' : 'idle'} size={7} />
+      {thread.live ? <LiveDot kind="coral" size={7} /> : <Dot kind="idle" size={7} />}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={{ fontFamily: fontFamily.bodyMedium, fontSize: fontSize.body, color: colors.ink }} numberOfLines={1}>
           {thread.title}

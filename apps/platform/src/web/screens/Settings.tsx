@@ -3,6 +3,7 @@ import { buildZipBlob, readZipBlob } from '../utils/zip';
 import { SyncPanel } from './SyncPanel';
 import { ArtifactPreview } from '../shell/ArtifactPreview';
 import { showToast } from '../shell/Toast';
+import { ThemeToggle } from '../shell/ThemeToggle';
 import './Settings.css';
 
 interface Props {
@@ -491,7 +492,15 @@ function General({ agentName, email }: { agentName: string; email: string }) {
   };
 
   return (
-    <SettingsPane title="General" lede="Identity, language, time zone.">
+    <SettingsPane title="General" lede="Identity, time zone, appearance.">
+      <div className="settings__field">
+        <span className="ot-label">Appearance</span>
+        <p className="ot-micro" style={{ marginBottom: 8 }}>
+          Switch between light and dark. The choice persists across this device
+          and follows your system theme until you pick one.
+        </p>
+        <ThemeToggle size="md" />
+      </div>
       <Field label="Agent name" value={agentName} />
       <Field label="Owner email" value={email} />
       <Field label="Time zone" value={Intl.DateTimeFormat().resolvedOptions().timeZone} />

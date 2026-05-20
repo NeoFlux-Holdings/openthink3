@@ -2,7 +2,7 @@
  * stream + composer at the bottom. Tap an artifact card to push the
  * Browser session screen.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -25,6 +25,7 @@ import {
   Mono,
   Screen,
 } from '../../src/components/primitives';
+import { LiveDot } from '../../src/components/LiveDot';
 import { getConversation, sendMessage, type Conversation, type ConversationMessage } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session-store';
 import { useTheme } from '../../src/theme/ThemeContext';
@@ -67,6 +68,7 @@ export default function Conversation() {
   const [data, setData] = useState<Conversation>(FALLBACK);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const scrollRef = useRef<ScrollView | null>(null);
 
   const load = useCallback(async () => {
     if (!session || !id) return;
@@ -81,6 +83,14 @@ export default function Conversation() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // After the feed renders, scroll to the bottom so the user lands on the
+  // most recent message. Re-fires whenever messages arrive — including
+  // optimistic appends from `send()`.
+  useEffect(() => {
+    const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+    return () => clearTimeout(t);
+  }, [data.messages.length]);
 
   const send = async () => {
     if (!session || !draft.trim()) return;
@@ -129,7 +139,7 @@ export default function Conversation() {
           </Text>
           {data.live && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <Dot kind="coral" size={6} />
+              <LiveDot kind="coral" size={6} />
               <Mono style={{ color: colors.coralInk }}>thinking</Mono>
             </View>
           )}
@@ -139,10 +149,16 @@ export default function Conversation() {
         </Pressable>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 52 : 0}
+      >
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={{ padding: space.s4, gap: space.s5 }}
           keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
         >
           {data.workingNotes && (
             <Card soft style={{ padding: space.s4, gap: space.s2, backgroundColor: colors.brandSoft, borderColor: 'transparent' }}>

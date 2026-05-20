@@ -259,15 +259,11 @@ export default function SignIn() {
           <Card soft style={{ padding: space.s5, gap: space.s2 }}>
             <Eyebrow>Don&apos;t have one yet?</Eyebrow>
             <Body>
-              The agent platform deploys on Cloudflare in about 90 seconds. Set one up on a
-              desktop browser, then come back here to sign in.
+              The agent platform deploys on Cloudflare in about 90 seconds. Setup is easier on a
+              real keyboard — we&apos;ll walk you through it.
             </Body>
             <Pressable
-              onPress={() =>
-                Linking.openURL('https://openthink.run').catch(() =>
-                  Alert.alert('Could not open openthink.run'),
-                )
-              }
+              onPress={() => router.push('/onboarding')}
               style={{
                 marginTop: space.s2,
                 alignSelf: 'flex-start',
@@ -286,7 +282,7 @@ export default function SignIn() {
                   fontSize: 13,
                 }}
               >
-                Open openthink.run ↗
+                Show me how →
               </Text>
             </Pressable>
           </Card>

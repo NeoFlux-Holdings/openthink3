@@ -1,52 +1,71 @@
 /* Full-bleed browser session — the agent is driving a real browser tab.
  * Top chrome shows back/url/close. Bottom overlay shows the "Take over"
- * button and an animated agent-cursor on top of a Calendly mock.
+ * button and an animated agent-cursor (real SVG path with brand-orange
+ * drop shadow) on top of a Calendly mock.
+ *
+ * Cursor + halos run on Reanimated 4 shared values so the JS thread stays
+ * free for scrolling + composer typing.
  */
-import { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Chip, Dot, Mono, Screen } from '../../../src/components/primitives';
+import { AgentCursor } from '../../../src/components/AgentCursor';
+import { LiveDot } from '../../../src/components/LiveDot';
+import { Mono, Screen } from '../../../src/components/primitives';
 import { useTheme } from '../../../src/theme/ThemeContext';
 import { fontSize, radius, space, type as fontFamily } from '../../../src/theme/tokens';
 
-const CURSOR_PATH = [
-  { x: 60, y: 100, label: 'reading page' },
-  { x: 220, y: 160, label: 'click 11:00am slot' },
-  { x: 220, y: 220, label: 'confirm selection' },
-  { x: 220, y: 280, label: 'submit booking' },
+const PATH = [
+  { x: 60, y: 100, caption: 'reading page' },
+  { x: 220, y: 160, caption: 'click 11:00am slot' },
+  { x: 220, y: 220, caption: 'confirm selection' },
+  { x: 220, y: 280, caption: 'submit booking' },
 ];
 
 export default function BrowserSession() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const x = useRef(new Animated.Value(CURSOR_PATH[0]!.x)).current;
-  const y = useRef(new Animated.Value(CURSOR_PATH[0]!.y)).current;
-  const labelIdx = useRef(0);
-  const cursorLabel = useRef(CURSOR_PATH[0]!.label);
+
+  const x = useSharedValue(PATH[0]!.x);
+  const y = useSharedValue(PATH[0]!.y);
+
+  // Caption lives on the JS thread (it's plain text, not a transform), so we
+  // mirror its value into React state from the worklet via runOnJS.
+  const captionShared = useSharedValue('reading page');
+  const setCaption = (text: string) => {
+    captionShared.value = text;
+  };
 
   useEffect(() => {
-    let cancelled = false;
+    let i = 0;
     const tick = () => {
-      if (cancelled) return;
-      labelIdx.current = (labelIdx.current + 1) % CURSOR_PATH.length;
-      const target = CURSOR_PATH[labelIdx.current]!;
-      cursorLabel.current = target.label;
-      Animated.parallel([
-        Animated.timing(x, { toValue: target.x, duration: 700, useNativeDriver: false, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
-        Animated.timing(y, { toValue: target.y, duration: 700, useNativeDriver: false, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
-      ]).start();
-      setTimeout(tick, 2200);
+      i = (i + 1) % PATH.length;
+      const next = PATH[i]!;
+      x.value = withTiming(next.x, { duration: 700, easing: Easing.bezier(0.4, 0, 0.2, 1) });
+      y.value = withTiming(next.y, { duration: 700, easing: Easing.bezier(0.4, 0, 0.2, 1) });
+      runOnJS(setCaption)(next.caption);
     };
-    const t = setTimeout(tick, 2200);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [x, y]);
+    const handle = setInterval(tick, 2200);
+    return () => clearInterval(handle);
+  }, [x, y, captionShared]);
+
+  const cursorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }, { translateY: y.value }],
+  }));
 
   return (
     <Screen style={{ backgroundColor: colors.surface }}>
@@ -85,7 +104,7 @@ export default function BrowserSession() {
             calendly.com/derek-m
           </Text>
           <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Dot kind="coral" size={6} />
+            <LiveDot kind="coral" size={6} />
             <Text style={{ fontFamily: fontFamily.mono, color: colors.coralInk, fontSize: 10.5 }}>4.2 fps</Text>
           </View>
         </View>
@@ -133,47 +152,7 @@ export default function BrowserSession() {
           </View>
         </View>
 
-        <Animated.View
-          style={{
-            position: 'absolute',
-            left: x,
-            top: y,
-            pointerEvents: 'none',
-          }}
-        >
-          <View style={{ width: 14, height: 18, alignItems: 'flex-start', justifyContent: 'flex-start' }}>
-            <View
-              style={{
-                width: 0,
-                height: 0,
-                borderLeftWidth: 6,
-                borderRightWidth: 6,
-                borderBottomWidth: 12,
-                borderStyle: 'solid',
-                backgroundColor: 'transparent',
-                borderLeftColor: 'transparent',
-                borderRightColor: 'transparent',
-                borderBottomColor: 'white',
-                transform: [{ rotate: '45deg' }],
-              }}
-            />
-          </View>
-          <View
-            style={{
-              position: 'absolute',
-              top: 18,
-              left: 12,
-              backgroundColor: colors.ink,
-              paddingHorizontal: 7,
-              paddingVertical: 3,
-              borderRadius: 4,
-            }}
-          >
-            <Text style={{ color: colors.bg, fontFamily: fontFamily.mono, fontSize: 10.5 }}>
-              {cursorLabel.current}
-            </Text>
-          </View>
-        </Animated.View>
+        <AgentCursor style={cursorStyle} caption={PATH[0]!.caption} />
       </View>
 
       <View
@@ -198,7 +177,7 @@ export default function BrowserSession() {
             gap: 6,
           }}
         >
-          <Dot kind="coral" size={6} />
+          <LiveDot kind="coral" size={6} />
           <Text style={{ color: '#F2F3F6', fontFamily: fontFamily.mono, fontSize: 11 }}>
             agent driving · 0:43
           </Text>

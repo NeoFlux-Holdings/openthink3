@@ -4,9 +4,14 @@
  *
  * The FAB is the brand-orange capsule in the middle and opens the New Task
  * sheet rather than navigating to a tab.
+ *
+ * If no `active` prop is passed, we derive it from the current route via
+ * usePathname() — so screens can drop in `<TabBar />` and trust it lights
+ * up the right tab automatically.
  */
 import { Pressable, type StyleProp, Text, View, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { usePathname, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme/ThemeContext';
@@ -15,21 +20,37 @@ import { fontSize, radius, space, type } from '../theme/tokens';
 export type TabKey = 'today' | 'threads' | 'library' | 'you';
 
 const TABS: { key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap; href: string }[] = [
-  { key: 'today', label: 'Today', icon: 'sunny-outline', href: '/' },
+  { key: 'today', label: 'Today', icon: 'sunny-outline', href: '/today' },
   { key: 'threads', label: 'Threads', icon: 'chatbubble-ellipses-outline', href: '/threads' },
   { key: 'library', label: 'Library', icon: 'albums-outline', href: '/library' },
   { key: 'you', label: 'You', icon: 'person-circle-outline', href: '/you' },
 ];
 
 interface Props {
-  active: TabKey;
-  onNavigate: (href: string) => void;
-  onCompose: () => void;
+  /** Override the auto-detected active tab. Optional; usually omitted. */
+  active?: TabKey;
+  /** Optional override for tab nav. Defaults to expo-router. */
+  onNavigate?: (href: string) => void;
+  onCompose?: () => void;
+}
+
+function deriveActive(pathname: string | null): TabKey {
+  if (!pathname) return 'today';
+  if (pathname.startsWith('/threads')) return 'threads';
+  if (pathname.startsWith('/library')) return 'library';
+  if (pathname.startsWith('/you')) return 'you';
+  if (pathname.startsWith('/updates')) return 'you'; // Updates lives under You
+  return 'today';
 }
 
 export function TabBar({ active, onNavigate, onCompose }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const pathname = usePathname();
+  const effectiveActive = active ?? deriveActive(pathname);
+  const navigate = onNavigate ?? ((href: string) => router.push(href as never));
+  const compose = onCompose ?? (() => router.push('/sheets/new-task' as never));
 
   return (
     <View
@@ -50,22 +71,22 @@ export function TabBar({ active, onNavigate, onCompose }: Props) {
         {TABS.slice(0, 2).map((t) => (
           <TabSlot
             key={t.key}
-            active={t.key === active}
+            active={t.key === effectiveActive}
             label={t.label}
             icon={t.icon}
-            onPress={() => onNavigate(t.href)}
+            onPress={() => navigate(t.href)}
           />
         ))}
 
-        <Fab onPress={onCompose} />
+        <Fab onPress={compose} />
 
         {TABS.slice(2).map((t) => (
           <TabSlot
             key={t.key}
-            active={t.key === active}
+            active={t.key === effectiveActive}
             label={t.label}
             icon={t.icon}
-            onPress={() => onNavigate(t.href)}
+            onPress={() => navigate(t.href)}
           />
         ))}
       </View>
@@ -89,6 +110,8 @@ function TabSlot({
     <Pressable
       onPress={onPress}
       style={{ alignItems: 'center', justifyContent: 'center', minWidth: 56, paddingVertical: 4 }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
     >
       <Ionicons name={icon} size={22} color={active ? colors.ink : colors.mute} />
       <Text
@@ -130,6 +153,7 @@ function Fab({ onPress, style }: { onPress: () => void; style?: StyleProp<ViewSt
         style,
       ]}
       accessibilityLabel="New task"
+      accessibilityRole="button"
     >
       <Ionicons name="add" color="#FFFFFF" size={22} />
     </Pressable>
