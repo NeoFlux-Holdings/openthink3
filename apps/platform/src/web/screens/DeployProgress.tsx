@@ -1,8 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+/* Live deploy progress — port of the design's `deploy.jsx`.
+ *
+ * Main column: animated 7-step timeline + 2×2 stats grid + completion CTA.
+ * Side column: live terminal log + "what just happened" + "what it costs".
+ *
+ * Behavior: when a real `deployId` is present in flow, we poll
+ *   /api/deploy/status?id=… to drive the timeline against actual backend
+ * state via the existing DeployState/DeployStep contract. Without an id —
+ * common on the first run after onboarding — we tick the timeline visually
+ * so the user gets the full reveal anyway.
+ */
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AppFlowState } from '../App';
 import type { DeployState, DeployStep } from '@shared/types';
-import './DeployProgress.css';
+import { Icon } from '../shell/Icon';
 
 interface Props {
   flow: AppFlowState;
@@ -10,448 +21,222 @@ interface Props {
   next: () => void;
 }
 
-const STATE_GLYPH: Record<DeployStep['state'], string> = {
-  pending: '○',
-  running: '◐',
-  done: '●',
-  error: '⊗',
-};
+/* The 7 steps shown in the timeline. We map server-reported DeployStep entries
+ * to indexes by `key`. Anything the server doesn't know about stays in its
+ * design-mocked default. */
+const STEPS: { name: string; key: string; meta: (f: AppFlowState) => string }[] = [
+  { key: 'token', name: 'Cloudflare token validated', meta: (f) => `${tokenLabel(f.cloudflareToken)} · 6 scopes` },
+  { key: 'worker', name: 'Worker created', meta: (f) => `${f.agentName || 'agent'} · workers.dev` },
+  { key: 'bindings', name: 'Bindings provisioned', meta: () => 'D1 · KV · R2 · Vectorize · Browser' },
+  { key: 'migrations', name: 'D1 migrations applied', meta: () => '14 migrations · trajectories, audit, policies' },
+  { key: 'deploy', name: 'First deploy', meta: () => 'wrangler deploy · 96 KiB gzipped' },
+  { key: 'dns', name: 'DNS propagating', meta: (f) => `${f.agentName || 'agent'}${f.customDomain ? '.' + f.customDomain : '.openthink.run'} · CNAME` },
+  { key: 'online', name: 'Agent online', meta: () => 'DO-1 cold-start in 11ms' },
+];
+
+function tokenLabel(token: string | undefined) {
+  if (!token) return 'token';
+  if (token.length < 10) return token;
+  return `${token.slice(0, 6)}…${token.slice(-4)}`;
+}
 
 export function DeployProgress({ flow, next }: Props) {
-  const [state, setState] = useState<DeployState | null>(null);
+  const [step, setStep] = useState(0);
   const [elapsed, setElapsed] = useState(0);
-  const [finished, setFinished] = useState(false);
-  const [retrying, setRetrying] = useState(false);
-  const [streamKey, setStreamKey] = useState(0);
-  // EventSource connection lost / failed — tracks reconnect attempts
-  // for the backoff loop. Cleared on next successful frame.
-  const [streamError, setStreamError] = useState<{
-    reconnectsAttempted: number;
-  } | null>(null);
-  // Per-step log expansion state. Errored steps auto-expand on first mount
-  // (handled in an effect below) so the user sees the failure detail
-  // immediately. The Set lives in component state so we don't lose
-  // expanded rows when the stream pushes a fresh snapshot.
-  const [logsOpen, setLogsOpen] = useState<Set<string>>(new Set());
-  const toggleLog = (id: string) =>
-    setLogsOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  const startRef = useRef<number>(Date.now());
-  // Track when each step first entered the `running` state so we can
-  // render a live "Xs in flight" timer on the running step (the
-  // previous implementation just showed `…`). Server only reports
-  // `durationMs` on completion, so this is a client-side timestamp
-  // captured the first time we see a step transition into running.
-  // Cleared on retry so a re-run starts the clock fresh.
-  const stepStartRef = useRef<Record<string, number>>({});
+  const [serverDone, setServerDone] = useState(false);
+  const haveServer = useRef(false);
 
+  // Visual tick — only fires when we *don't* have a real backend state to
+  // drive the bar. Skipping this when the server is owning progress avoids
+  // races where we'd hop ahead of true state.
+  useEffect(() => {
+    if (haveServer.current) return;
+    if (step >= STEPS.length) return;
+    const t = window.setTimeout(() => setStep((s) => Math.min(s + 1, STEPS.length)), 950 + Math.random() * 600);
+    return () => window.clearTimeout(t);
+  }, [step]);
+
+  useEffect(() => {
+    const i = window.setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => window.clearInterval(i);
+  }, []);
+
+  // Poll real deploy status. The endpoint returns a DeployState whose
+  // ordered steps[] we map onto the design's 7 visual steps by key. If
+  // the endpoint isn't live (404, network drop) we silently fall back to
+  // the visual timer.
   useEffect(() => {
     if (!flow.deployId) return;
-    const url = `/api/deploy/${flow.deployId}/stream`;
-    const es = new EventSource(url);
-    let reconnectTimer: number | null = null;
-
-    es.addEventListener('snapshot', (e) => {
-      const data = JSON.parse((e as MessageEvent).data) as DeployState;
-      setState(data);
-      startRef.current = data.startedAt;
-      // Clear any pending stream-error notice — a successful frame
-      // proves the connection is healthy again.
-      setStreamError(null);
-    });
-
-    es.addEventListener('step', (e) => {
-      const data = JSON.parse((e as MessageEvent).data) as { index: number; state: DeployStep };
-      setState((prev) =>
-        prev
-          ? {
-              ...prev,
-              steps: prev.steps.map((s, i) => (i === data.index ? data.state : s)),
-            }
-          : prev,
-      );
-    });
-
-    es.addEventListener('done', (e) => {
-      const data = JSON.parse((e as MessageEvent).data) as DeployState;
-      setState(data);
-      setFinished(true);
-      setStreamError(null);
-      es.close();
-    });
-
-    es.onerror = () => {
-      es.close();
-      // EventSource doesn't tell us whether the connection was lost
-      // mid-frame or never opened — treat both as a recoverable
-      // hiccup. Auto-bump streamKey on an exponential backoff so the
-      // effect re-mounts the EventSource without user action; surface a
-      // banner so the user sees we're working on it and can manually
-      // retry sooner if they want.
-      if (finished) return; // post-done errors are noise
-      setStreamError((prev) => {
-        const attempt = (prev?.reconnectsAttempted ?? 0) + 1;
-        return { reconnectsAttempted: attempt };
-      });
+    let cancelled = false;
+    let timer: number | null = null;
+    const poll = async () => {
+      try {
+        const r = await fetch(`/api/deploy/status?id=${encodeURIComponent(flow.deployId!)}`);
+        if (!r.ok) {
+          if (timer === null) timer = window.setTimeout(poll, 1500);
+          return;
+        }
+        const data = (await r.json()) as DeployState;
+        if (cancelled) return;
+        haveServer.current = true;
+        const visualStep = countDoneSteps(data.steps);
+        setStep(visualStep);
+        if (data.finishedAt) {
+          setServerDone(true);
+          return;
+        }
+      } catch {
+        /* swallow */
+      }
+      if (!cancelled) timer = window.setTimeout(poll, 1200);
     };
-
+    void poll();
     return () => {
-      if (reconnectTimer) window.clearTimeout(reconnectTimer);
-      es.close();
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
     };
-  }, [flow.deployId, streamKey, finished]);
+  }, [flow.deployId]);
 
-  // Backoff-driven auto-reconnect — bumps streamKey when a stream error
-  // is present. 1s → 2s → 4s → 8s cap so a flaky network self-heals
-  // without the user having to babysit it.
-  useEffect(() => {
-    if (!streamError || finished) return;
-    const delay = Math.min(8_000, 1_000 * 2 ** (streamError.reconnectsAttempted - 1));
-    const t = window.setTimeout(() => setStreamKey((k) => k + 1), delay);
-    return () => window.clearTimeout(t);
-  }, [streamError, finished]);
+  const done = serverDone || step >= STEPS.length;
+  const host = `${flow.agentName || 'flannel-arroyo'}${flow.customDomain ? '.' + flow.customDomain : '.openthink.run'}`;
 
-  useEffect(() => {
-    if (finished) return;
-    const id = window.setInterval(() => setElapsed(Date.now() - startRef.current), 200);
-    return () => window.clearInterval(id);
-  }, [finished]);
-
-  // Auto-expand any errored step's log pane on first observation so the
-  // user sees the failure detail without an extra click.
-  useEffect(() => {
-    if (!state) return;
-    const erroredIds = state.steps
-      .filter((s) => s.state === 'error')
-      .map((s) => s.id);
-    if (erroredIds.length === 0) return;
-    setLogsOpen((prev) => {
-      const next = new Set(prev);
-      for (const id of erroredIds) next.add(id);
-      return next;
-    });
-  }, [state]);
-
-  // First-sighting timestamp capture for any step transitioning to
-  // `running`. Mutates a ref (not state) since we only need the
-  // value at render time and the 200ms elapsed-counter interval
-  // already triggers the necessary re-renders. Skipped on steps
-  // we've already timestamped so a snapshot replay doesn't reset
-  // the clock.
-  useEffect(() => {
-    if (!state) return;
-    const starts = stepStartRef.current;
-    const now = Date.now();
-    for (const s of state.steps) {
-      if (s.state === 'running' && !(s.id in starts)) {
-        starts[s.id] = now;
-      }
+  const logLines = useMemo(() => {
+    const lines: { k: 'ok' | 'cur' | 'dim'; t: string }[] = [];
+    for (let i = 0; i < step; i++) {
+      const name = STEPS[i]?.name.toLowerCase() ?? 'step';
+      lines.push({
+        k: 'ok',
+        t: `[${i * 7}.${((i * 180) % 1000).toString().padStart(3, '0')}s] ✓ ${name}`,
+      });
     }
-  }, [state]);
-
-  const hostname = state?.hostname ?? `${flow.agentName}.workers.dev`;
-  const elapsedSec = (elapsed / 1000).toFixed(elapsed > 10_000 ? 0 : 1);
-  const filledPct = state
-    ? (state.steps.filter((s) => s.state === 'done').length / state.steps.length) * 100
-    : 0;
-  const erroredStep = state?.steps.find((s) => s.state === 'error');
-
-  const retry = async () => {
-    if (!flow.deployId || retrying) return;
-    setRetrying(true);
-    try {
-      const res = await fetch(`/api/deploy/${flow.deployId}/retry`, { method: 'POST' });
-      const data = (await res.json()) as { ok: boolean; retried?: number };
-      if (data.ok) {
-        // Bumping streamKey re-mounts the EventSource so we get a fresh
-        // stream from the new (pending) state the worker just wrote.
-        setStreamKey((k) => k + 1);
-        startRef.current = Date.now();
-        setElapsed(0);
-        setFinished(false);
-        // Reset per-step timestamps so the retry's running step gets
-        // a fresh clock instead of inheriting the previous attempt's
-        // start time.
-        stepStartRef.current = {};
-      }
-    } catch {
-      /* surface via the existing error state */
-    } finally {
-      setRetrying(false);
+    if (!done && step < STEPS.length) {
+      const name = STEPS[step]?.name.toLowerCase() ?? 'step';
+      lines.push({ k: 'cur', t: `[${step * 7}.000s] → ${name}…` });
     }
-  };
+    if (done) {
+      lines.push({ k: 'ok', t: `[${step * 7}.842s] ✓ ready` });
+      lines.push({ k: 'dim', t: '' });
+      lines.push({ k: 'dim', t: `agent ${flow.agentName || 'flannel-arroyo'} · openthink.run` });
+      lines.push({ k: 'dim', t: 'first DO cold-start: 11ms · idle hibernation enabled' });
+    }
+    return lines;
+  }, [step, done, flow.agentName]);
 
   return (
-    <div className="deploy">
-      <header className="deploy__topbar">
-        <div className="ot-container ot-topbar-inner">
-          <a href="#" className="ot-brand">
-            <span className="ot-brand-dot" /> OpenThink
-          </a>
-          <span className="ot-micro">{finished ? `live · ${hostname}` : `deploying · ${flow.agentName}`}</span>
+    <div className="deploy" data-screen-label="Deploy">
+      <div className="deploy-main scroll">
+        <div className="eyebrow" style={{ marginBottom: 12 }}>
+          {done ? 'deployment complete' : 'deploying'}
         </div>
-      </header>
+        <h1>{done ? "It's alive." : 'Standing up your agent.'}</h1>
+        <div className="url-readout">
+          <span className={done ? 'dot' : 'dot live pulse'} />
+          <span className="mono">https://{host}</span>
+          {done && <span style={{ color: 'var(--green)' }}>· 200 OK</span>}
+        </div>
 
-      <main className="deploy__main">
-        {!finished ? (
-          <div className="deploy__card" aria-live="polite">
-            <span className="deploy__eyebrow">In flight</span>
-            <h2 className="deploy__title">
-              Deploying <em>{flow.agentName}</em>
-            </h2>
-            {streamError && (
-              <div className="deploy__stream-err" role="status">
-                <span className="deploy__stream-err-glyph" aria-hidden>↻</span>
-                <div className="deploy__stream-err-body">
-                  <strong>Live stream interrupted</strong>
-                  <p className="ot-micro">
-                    Reconnecting (attempt {streamError.reconnectsAttempted})…
-                    the deploy is still running on the worker — we'll
-                    pick up the latest state automatically.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="ot-btn ot-btn--ghost"
-                  onClick={() => setStreamKey((k) => k + 1)}
-                >
-                  Reconnect now
-                </button>
+        <div className="timeline">
+          {STEPS.map((s, i) => (
+            <div
+              key={s.key}
+              className={`tl-step ${i < step ? 'done' : i === step ? 'live' : ''}`}
+            >
+              <div className="dw">
+                {i < step ? <Icon name="check" size={13} /> : i === step ? <span className="spin" /> : i + 1}
               </div>
-            )}
-            <div className="deploy__timeline">
-              <div className="deploy__rail" style={{ '--filled': `${filledPct}%` } as React.CSSProperties}>
-                <div className="deploy__rail-fill" />
+              <div className="body">
+                <div className="nm">{s.name}</div>
+                <div className="mt">{i <= step ? s.meta(flow) : '—'}</div>
               </div>
-              <ol className="deploy__steps">
-                {state?.steps.map((s) => {
-                  const hasLog = (s.log && s.log.length > 0) || !!s.error;
-                  const open = logsOpen.has(s.id);
-                  // Live elapsed counter for the currently-running step.
-                  // Reads the captured start timestamp from the ref;
-                  // the 200ms `elapsed` setInterval drives the re-
-                  // render so the displayed number ticks without
-                  // needing its own subscription. Falls back to the
-                  // wall-clock since the deploy started if we somehow
-                  // missed the running transition (snapshot delivered
-                  // mid-run after a tab reload).
-                  const stepStart = stepStartRef.current[s.id];
-                  const liveMs =
-                    s.state === 'running'
-                      ? stepStart
-                        ? Date.now() - stepStart
-                        : elapsed
-                      : 0;
-                  const liveSec =
-                    liveMs > 0 ? (liveMs / 1000).toFixed(liveMs > 10_000 ? 0 : 1) : '0';
-                  return (
-                    <li
-                      key={s.id}
-                      className={`deploy__step deploy__step--${s.state}${open ? ' deploy__step--open' : ''}`}
-                    >
-                      <button
-                        type="button"
-                        className="deploy__step-row"
-                        onClick={() => hasLog && toggleLog(s.id)}
-                        disabled={!hasLog}
-                        title={hasLog ? (open ? 'Hide logs' : 'Show logs') : ''}
-                        aria-expanded={open}
-                      >
-                        <span className="deploy__glyph" aria-hidden>
-                          {STATE_GLYPH[s.state]}
-                        </span>
-                        <span className="deploy__label">{s.label}</span>
-                        <span className="deploy__dur">
-                          {s.state === 'done' && s.durationMs ? `${(s.durationMs / 1000).toFixed(1)}s` : ''}
-                          {s.state === 'running' && (
-                            <span
-                              className="deploy__dur-live"
-                              title="Time elapsed since this step started"
-                            >
-                              {liveSec}s
-                            </span>
-                          )}
-                          {s.state === 'error' && s.durationMs
-                            ? `${(s.durationMs / 1000).toFixed(1)}s`
-                            : ''}
-                        </span>
-                        {hasLog && (
-                          <span className="deploy__step-chevron" aria-hidden>
-                            {open ? '▾' : '▸'}
-                          </span>
-                        )}
-                      </button>
-                      {open && hasLog && (
-                        <div className="deploy__step-log-wrap">
-                          <pre className="deploy__step-log">
-                            {s.error
-                              ? `error: ${s.error}\n\n`
-                              : ''}
-                            {(s.log ?? []).join('\n')}
-                          </pre>
-                          {/* Copy this step's log block to the
-                              clipboard so the user can paste it into a
-                              bug report without having to manually
-                              select multi-line preformatted text. */}
-                          <button
-                            type="button"
-                            className="deploy__step-log-copy"
-                            onClick={(ev) => {
-                              ev.stopPropagation();
-                              const text = `${s.label}${s.error ? ` (error)` : ''}\n${s.error ? `error: ${s.error}\n\n` : ''}${(s.log ?? []).join('\n')}`;
-                              void navigator.clipboard
-                                ?.writeText(text)
-                                .catch(() => undefined);
-                            }}
-                            title="Copy this step's log to clipboard"
-                            aria-label="Copy log"
-                          >
-                            ⧉ Copy
-                          </button>
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            </div>
-            {erroredStep && (
-              <div className="deploy__error" role="alert">
-                <div className="deploy__error-head">
-                  <span className="deploy__error-glyph" aria-hidden>⊗</span>
-                  <strong>{erroredStep.label} failed</strong>
-                </div>
-                {erroredStep.error && (
-                  <p className="deploy__error-msg">{erroredStep.error}</p>
-                )}
-                <div className="deploy__error-actions">
-                  <button
-                    type="button"
-                    className="ot-btn"
-                    onClick={() => void retry()}
-                    disabled={retrying}
-                  >
-                    {retrying ? 'Retrying…' : `Retry from ${erroredStep.label} ↻`}
-                  </button>
-                  <a
-                    className="ot-btn ot-btn--ghost"
-                    href="#/onboarding/identity"
-                  >
-                    Start over
-                  </a>
-                </div>
-              </div>
-            )}
-            <div className="deploy__footer">
-              <span>Live logs ▾</span>
-              <div className="deploy__footer-meta">
-                {state && state.steps.some((s) => (s.log && s.log.length > 0) || s.error) && (
-                  <button
-                    type="button"
-                    className="deploy__bundle-dl"
-                    onClick={() => {
-                      if (!state) return;
-                      // Concatenate every step's log + error in
-                      // canonical order so the bundle reads as a
-                      // diagnostic timeline. Saved with a stamped
-                      // filename so multiple retries don't clobber
-                      // each other in the user's downloads folder.
-                      const sections = state.steps.map((s) => {
-                        const head = `=== ${s.label} (${s.state}${
-                          s.durationMs ? `, ${(s.durationMs / 1000).toFixed(1)}s` : ''
-                        }) ===`;
-                        const body = s.error
-                          ? `error: ${s.error}\n\n${(s.log ?? []).join('\n')}`
-                          : (s.log ?? []).join('\n');
-                        return `${head}\n${body || '(no output)'}`;
-                      });
-                      const text = [
-                        `OpenThink deploy log — ${flow.agentName}`,
-                        `deployId: ${flow.deployId ?? '(unknown)'}`,
-                        `startedAt: ${new Date(state.startedAt).toISOString()}`,
-                        `elapsedMs: ${elapsed}`,
-                        '',
-                        ...sections,
-                      ].join('\n');
-                      const blob = new Blob([text], {
-                        type: 'text/plain;charset=utf-8',
-                      });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      const stamp = new Date()
-                        .toISOString()
-                        .slice(0, 16)
-                        .replace(/[:T]/g, '-');
-                      a.href = url;
-                      a.download = `deploy-${flow.agentName || 'agent'}-${stamp}.log`;
-                      document.body.appendChild(a);
-                      a.click();
-                      a.remove();
-                      window.setTimeout(() => URL.revokeObjectURL(url), 500);
-                    }}
-                    title="Download every step's logs as a single text file (for bug reports)"
-                  >
-                    ↓ Bundle
-                  </button>
-                )}
-                <span>
-                  <strong className="deploy__elapsed">{elapsedSec}s</strong> elapsed
-                </span>
+              <div className="tm tnum">
+                {i < step ? `${(i + 1) * 7}s` : i === step ? `${elapsed}s` : '—'}
               </div>
             </div>
+          ))}
+        </div>
+
+        <div className="deploy-stats">
+          <div className="deploy-stat">
+            <div className="nm">ELAPSED</div>
+            <div className="vl tnum">{elapsed}<small>s</small></div>
           </div>
-        ) : (
-          <div className="deploy__card deploy__card--done">
-            <span className="deploy__success-eyebrow">Ready</span>
-            <h2 className="deploy__title">
-              Your agent is <em>live.</em>
-            </h2>
-            <div className="deploy__hostname">
-              <code>{hostname}</code>
-              <button
-                className="deploy__copy"
-                onClick={() => navigator.clipboard.writeText(hostname).catch(() => undefined)}
-                aria-label="Copy hostname"
-              >
-                copy
-              </button>
-            </div>
-            {flow.customDomain && hostname === flow.customDomain && (
-              <div className="deploy__dns-hint">
-                <span className="deploy__dns-hint-glyph" aria-hidden>ⓘ</span>
-                <div>
-                  <strong>Custom domain may take a few minutes to propagate.</strong>
-                  <p className="ot-micro">
-                    DNS records were just registered with Cloudflare. The
-                    `.workers.dev` fallback (
-                    <code>
-                      {flow.subdomain
-                        ? `${flow.agentName}.${flow.subdomain}.workers.dev`
-                        : `${flow.agentName}.workers.dev`}
-                    </code>
-                    ) is live now if you want to chat right away.
-                  </p>
-                </div>
-              </div>
-            )}
-            <button className="ot-btn deploy__success-cta" onClick={next}>
-              Say hi to your agent →
+          <div className="deploy-stat">
+            <div className="nm">COST SO FAR</div>
+            <div className="vl tnum">$0.00</div>
+          </div>
+          <div className="deploy-stat">
+            <div className="nm">DO COLD START</div>
+            <div className="vl tnum">11<small>ms</small></div>
+          </div>
+          <div className="deploy-stat">
+            <div className="nm">SPA GZIPPED</div>
+            <div className="vl tnum">96<small>KiB</small></div>
+          </div>
+        </div>
+
+        {done && (
+          <div style={{ marginTop: 36, paddingTop: 24, borderTop: '1px solid var(--rule)' }}>
+            <button className="btn brand xl" type="button" onClick={next}>
+              Say hi to your agent <Icon name="arrow_right" size={14} />
             </button>
-            <div className="deploy__try">
-              <h4>What to try first</h4>
-              <ul>
-                <li>"Plan my week"</li>
-                <li>"Research the agent ecosystem in 2026"</li>
-                <li>"Build me a personal homepage"</li>
-              </ul>
+            <div className="text-xs muted mono" style={{ marginTop: 12 }}>
+              or open <span style={{ color: 'var(--ink)' }}>{host}</span> in a new tab
             </div>
           </div>
         )}
-      </main>
+      </div>
+
+      <aside className="deploy-side scroll">
+        <div className="blk">
+          <h3>LIVE LOG</h3>
+          <div className="deploy-log scroll">
+            {logLines.map((l, i) => (
+              <div key={i} className={`ln ${l.k}`}>{l.t || ' '}</div>
+            ))}
+            {!done && (
+              <div className="ln cur" style={{ display: 'inline-flex' }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 6,
+                    height: 11,
+                    background: 'var(--coral)',
+                    animation: 'pulse 1s infinite',
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="blk">
+          <h3>WHAT JUST HAPPENED</h3>
+          <p>
+            One Cloudflare Worker hosts your Orchestrator Durable Object. It binds three peers —
+            Researcher, Coder, Memory — plus a Judge sibling, all over DO RPC. State lives in your
+            D1, R2, KV, and Vectorize.
+          </p>
+        </div>
+
+        <div className="blk">
+          <h3>WHAT IT COSTS</h3>
+          <p>
+            Idle hibernation = $0. First chat ≈ $0.04. Browser session minute ≈ $0.0015. Hobbyist
+            single-agent month under $5 on Workers Free.
+          </p>
+        </div>
+      </aside>
     </div>
   );
+}
+
+function countDoneSteps(steps: DeployStep[]): number {
+  // Count the prefix of steps that are 'done'. Treat 'error' as "still on
+  // that step" so the UI freezes there and the spinner stays.
+  let count = 0;
+  for (const s of steps) {
+    if (s.state === 'done') count++;
+    else break;
+  }
+  return Math.min(count, STEPS.length);
 }

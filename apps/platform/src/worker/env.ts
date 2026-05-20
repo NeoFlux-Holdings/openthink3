@@ -75,4 +75,12 @@ export interface Variables {
   agentId?: string;
   userId?: string;
   requestId: string;
+  // Mobile-companion bearer-token claims, set by the /api/mobile/* guard
+  // middleware. Present only for mobile API requests.
+  mobileToken?: {
+    token: string;
+    agentName: string;
+    deviceLabel: string;
+    issuedAt: number;
+  };
 }

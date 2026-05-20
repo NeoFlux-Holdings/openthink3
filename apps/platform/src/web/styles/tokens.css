@@ -1,53 +1,115 @@
-/* Design tokens — sourced from PRD §1 visual language.
- * Warm cream paper, ink type, accent-orange dot, light-only by default.
- * Dark mode is opt-in per PRD principle of progressive disclosure. */
+/* ============================================================
+   OpenThink v3 — Design tokens
+   Sourced verbatim from the Claude Design handoff (May 2026).
+   Warm-paper neutrals tied to Cloudflare orange in light mode;
+   richer ink with brighter amber accent in dark mode.
+
+   Legacy --ot-* tokens are kept as aliases pointing at the new
+   values so existing screens render correctly while they're
+   migrated to the new token vocabulary one at a time.
+   ============================================================ */
+
 :root {
-  /* Surface */
-  --ot-bg: #faf7f2;
-  --ot-bg-card: #fffefb;
-  --ot-bg-soft: #f2ede4;
-  --ot-bg-sunken: #ebe5d6;
+  /* === LIGHT (default) === */
+  --bg: #FBF8F2;
+  --bg-2: #F4EFE4;
+  --surface: #FFFFFF;
+  --surface-2: #F7F2E6;
+  --surface-3: #EFE8D6;
 
-  /* Type */
-  --ot-ink: #15140f;
-  --ot-ink-soft: #4a4640;
-  --ot-ink-mute: #807a70;
+  --ink: #0E0F12;
+  --ink-2: #2A2C32;
+  --ink-3: #4A4D55;
+  --mute: #6C707A;
+  --soft: #9CA0AB;
+  --faint: #C7CAD3;
 
-  /* Lines */
-  --ot-rule: #e3ddd0;
-  --ot-rule-soft: #ede7da;
+  --rule: rgba(14, 15, 18, 0.08);
+  --rule-2: rgba(14, 15, 18, 0.14);
+  --rule-strong: rgba(14, 15, 18, 0.22);
 
-  /* Accent */
-  --ot-accent: #e85d4a;
-  --ot-accent-soft: #fbe6e1;
-  --ot-accent-deep: #b33e2d;
+  /* Brand — Cloudflare orange */
+  --brand: #F38020;
+  --brand-2: #D86A12;
+  --brand-soft: #FEF1E0;
+  --brand-soft-2: #FDDDB8;
+  --brand-ink: #8A4109;
+
+  /* Coral — live / urgent */
+  --coral: #E54B2C;
+  --coral-soft: #FCE0D9;
+  --coral-ink: #962E14;
 
   /* Status */
-  --ot-good: #2e8b57;
-  --ot-warn: #c58b1a;
-  --ot-bad: #c2392e;
+  --green: #2BAA68;
+  --green-soft: #DDF3E6;
+  --green-ink: #146636;
+  --amber: #E0A012;
+  --amber-soft: #FBEFD0;
+  --amber-ink: #7C5409;
+  --red: #DA3232;
+  --red-soft: #FCE2E2;
+  --red-ink: #841C1C;
+  --blue: #2675E5;
+  --blue-soft: #DDEBFB;
+  --blue-ink: #0E4B9C;
 
-  /* Code surface */
+  /* Spacing */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px;
+  --s-6: 24px; --s-7: 32px; --s-8: 40px; --s-9: 56px; --s-10: 80px;
+
+  /* Radii */
+  --r-1: 4px; --r-2: 6px; --r-3: 8px; --r-4: 12px; --r-5: 16px; --r-6: 24px;
+  --r-pill: 999px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --quick: 140ms;
+  --base: 220ms;
+  --slow: 380ms;
+
+  /* Type */
+  --sans: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Geist Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Shadows */
+  --shadow-1: 0 1px 2px rgba(14, 15, 18, 0.05);
+  --shadow-2: 0 2px 4px rgba(14, 15, 18, 0.04), 0 8px 24px -8px rgba(14, 15, 18, 0.10);
+  --shadow-3: 0 12px 32px -10px rgba(14, 15, 18, 0.15);
+  --shadow-pop: 0 30px 80px -30px rgba(14, 15, 18, 0.30);
+  --focus: 0 0 0 3px var(--brand-soft);
+
+  /* Legacy --ot-* aliases. New screens should use unprefixed tokens. */
+  --ot-bg: var(--bg);
+  --ot-bg-card: var(--surface);
+  --ot-bg-soft: var(--surface-2);
+  --ot-bg-sunken: var(--surface-3);
+  --ot-ink: var(--ink);
+  --ot-ink-soft: var(--ink-2);
+  --ot-ink-mute: var(--mute);
+  --ot-rule: var(--rule);
+  --ot-rule-soft: var(--rule-2);
+  --ot-accent: var(--brand);
+  --ot-accent-soft: var(--brand-soft);
+  --ot-accent-deep: var(--brand-2);
+  --ot-good: var(--green);
+  --ot-warn: var(--amber);
+  --ot-bad: var(--red);
   --ot-code-bg: #1a1815;
   --ot-code-ink: #efe7d5;
   --ot-code-key: #f0b97d;
   --ot-code-str: #b7cc89;
   --ot-code-mute: #8c8474;
-
-  /* Type stack */
-  --ot-font-display: 'Fraunces', Georgia, serif;
-  --ot-font-ui: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --ot-font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
-
-  /* Radii */
+  --ot-font-display: var(--sans);
+  --ot-font-ui: var(--sans);
+  --ot-font-mono: var(--mono);
   --ot-radius-xs: 4px;
   --ot-radius-sm: 6px;
   --ot-radius-md: 8px;
-  --ot-radius-lg: 10px;
-  --ot-radius-xl: 14px;
+  --ot-radius-lg: 12px;
+  --ot-radius-xl: 16px;
   --ot-radius-pill: 999px;
-
-  /* Spacing */
   --ot-space-1: 4px;
   --ot-space-2: 8px;
   --ot-space-3: 12px;
@@ -57,69 +119,94 @@
   --ot-space-7: 48px;
   --ot-space-8: 64px;
   --ot-space-9: 96px;
-
-  /* Shadows */
-  --ot-shadow-sm: 0 1px 2px rgba(21, 20, 15, 0.04), 0 1px 1px rgba(21, 20, 15, 0.03);
-  --ot-shadow-md: 0 4px 16px rgba(21, 20, 15, 0.06), 0 1px 3px rgba(21, 20, 15, 0.04);
-  --ot-shadow-lg: 0 12px 40px rgba(21, 20, 15, 0.08), 0 4px 12px rgba(21, 20, 15, 0.04);
-
-  /* Motion */
-  --ot-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  --ot-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ot-ease-back: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ot-dur-quick: 120ms;
-  --ot-dur-base: 200ms;
-  --ot-dur-slow: 360ms;
+  --ot-shadow-sm: var(--shadow-1);
+  --ot-shadow-md: var(--shadow-2);
+  --ot-shadow-lg: var(--shadow-3);
+  --ot-ease: var(--ease);
+  --ot-ease-out: var(--ease);
+  --ot-ease-back: var(--spring);
+  --ot-dur-quick: var(--quick);
+  --ot-dur-base: var(--base);
+  --ot-dur-slow: var(--slow);
   --ot-dur-slower: 600ms;
-
-  /* Decorative — paper grain via inline SVG turbulence */
-  --ot-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.16  0 0 0 0 0.14  0 0 0 0 0.10  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-
-  /* Decorative — soft dot grid */
-  --ot-dotgrid: radial-gradient(circle at 1px 1px, rgba(21, 20, 15, 0.12) 1px, transparent 0);
-
-  /* Focus rings — keyboard accessible without the system aliasing */
-  --ot-focus-ring: 0 0 0 3px rgba(232, 93, 74, 0.32);
-  --ot-focus-ring-inset: inset 0 0 0 2px var(--ot-accent);
-
-  /* Glass for sticky surfaces */
-  --ot-glass-bg: rgba(250, 247, 242, 0.78);
-  --ot-glass-bg-soft: rgba(242, 237, 228, 0.7);
+  --ot-focus-ring: var(--focus);
+  --ot-focus-ring-inset: inset 0 0 0 2px var(--brand);
+  --ot-glass-bg: rgba(251, 248, 242, 0.78);
+  --ot-glass-bg-soft: rgba(244, 239, 228, 0.7);
   --ot-glass-blur: saturate(140%) blur(14px);
+  --ot-dotgrid: radial-gradient(circle at 1px 1px, rgba(14, 15, 18, 0.10) 1px, transparent 0);
+  --ot-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.16  0 0 0 0 0.14  0 0 0 0 0.10  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+[data-theme="dark"] {
+  --bg: #0A0B0E;
+  --bg-2: #101116;
+  --surface: #15171D;
+  --surface-2: #1B1E25;
+  --surface-3: #232730;
+
+  --ink: #F2F3F6;
+  --ink-2: #D6D9DF;
+  --ink-3: #A3A8B3;
+  --mute: #7E8390;
+  --soft: #5C6170;
+  --faint: #3D4150;
+
+  --rule: rgba(255, 255, 255, 0.08);
+  --rule-2: rgba(255, 255, 255, 0.14);
+  --rule-strong: rgba(255, 255, 255, 0.24);
+
+  --brand: #FAAD3F;
+  --brand-2: #F38020;
+  --brand-soft: rgba(243, 128, 32, 0.18);
+  --brand-soft-2: rgba(243, 128, 32, 0.32);
+  --brand-ink: #FFD9A3;
+
+  --coral: #FF7A52;
+  --coral-soft: rgba(255, 122, 82, 0.18);
+  --coral-ink: #FFB89E;
+
+  --green: #4FCB89;
+  --green-soft: rgba(79, 203, 137, 0.16);
+  --green-ink: #B5E9CC;
+  --amber: #F2BE52;
+  --amber-soft: rgba(242, 190, 82, 0.18);
+  --amber-ink: #F5D998;
+  --red: #F26060;
+  --red-soft: rgba(242, 96, 96, 0.18);
+  --red-ink: #FAB4B4;
+  --blue: #6FA8F4;
+  --blue-soft: rgba(111, 168, 244, 0.16);
+  --blue-ink: #B7D2F9;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.30), 0 8px 24px -8px rgba(0, 0, 0, 0.50);
+  --shadow-3: 0 12px 32px -10px rgba(0, 0, 0, 0.60);
+  --shadow-pop: 0 30px 80px -30px rgba(0, 0, 0, 0.80);
+  --focus: 0 0 0 3px var(--brand-soft-2);
+
+  --ot-glass-bg: rgba(10, 11, 14, 0.78);
+  --ot-glass-bg-soft: rgba(16, 17, 22, 0.7);
+  --ot-dotgrid: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.10) 1px, transparent 0);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root {
+  :root,
+  [data-theme="dark"] {
+    --quick: 0ms;
+    --base: 0ms;
+    --slow: 0ms;
     --ot-dur-quick: 0ms;
     --ot-dur-base: 0ms;
     --ot-dur-slow: 0ms;
     --ot-dur-slower: 0ms;
   }
-}
-
-/* Generic shimmer for skeleton loaders. Use as a class on any element you
-   want to look like it's "loading". The animation respects
-   prefers-reduced-motion via the cascade — `*-dur` tokens go to 0ms above. */
-.ot-skel {
-  background: linear-gradient(
-    90deg,
-    var(--ot-bg-soft) 0%,
-    rgba(232, 93, 74, 0.06) 50%,
-    var(--ot-bg-soft) 100%
-  );
-  background-size: 200% 100%;
-  animation: ot-shimmer 1.6s ease-in-out infinite;
-  border-radius: 4px;
-  display: inline-block;
-}
-
-.ot-skel--row {
-  display: block;
-  height: 14px;
-  margin: 6px 0;
-}
-
-@keyframes ot-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

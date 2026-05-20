@@ -1,11 +1,11 @@
+/* Top-level router. Replaces the old per-step onboarding routes with a
+ * single `/onboarding` that owns its own step state machine, matching the
+ * new 3-step design. Other routes are unchanged.
+ */
 import { useEffect, useState } from 'react';
 
 import { Landing } from './screens/Landing';
-import { OnboardingIdentity } from './screens/OnboardingIdentity';
-import { OnboardingFork } from './screens/OnboardingFork';
-import { OnboardingToken } from './screens/OnboardingToken';
-import { OnboardingStripe } from './screens/OnboardingStripe';
-import { OnboardingUpgrades } from './screens/OnboardingUpgrades';
+import { Onboarding } from './screens/Onboarding';
 import { DeployProgress } from './screens/DeployProgress';
 import { Shell } from './shell/Shell';
 import { AppShell } from './shell/AppShell';
@@ -15,6 +15,7 @@ import { Skills } from './screens/Skills';
 import { Learning } from './screens/Learning';
 import { Settings } from './screens/Settings';
 import { Workspaces } from './screens/Workspaces';
+import { MobilePair } from './screens/MobilePair';
 import { ShortcutsHelp } from './shell/ShortcutsHelp';
 import { ToastHost } from './shell/Toast';
 
@@ -22,18 +23,15 @@ import './styles/app.css';
 
 type RouteName =
   | 'landing'
-  | 'onboarding/identity'
-  | 'onboarding/fork'
-  | 'onboarding/token'
-  | 'onboarding/stripe'
-  | 'onboarding/upgrades'
+  | 'onboarding'
   | 'deploy'
   | 'shell'
   | 'library'
   | 'skills'
   | 'learning'
   | 'settings'
-  | 'workspaces';
+  | 'workspaces'
+  | 'mobile/pair';
 
 export interface AppFlowState {
   email: string;
@@ -61,16 +59,12 @@ const INITIAL_FLOW: AppFlowState = {
 };
 
 function parseRoute(): RouteName {
-  // Strip leading `#/` AND any `?…` query so deep-links (`#/shell?thread=…`)
-  // route correctly. Query params get re-read by individual screens from
-  // `window.location.hash` when they care.
-  const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
-  switch (hash) {
-    case 'onboarding/identity':
-    case 'onboarding/fork':
-    case 'onboarding/token':
-    case 'onboarding/stripe':
-    case 'onboarding/upgrades':
+  // Strip leading `#/` AND any `?…` query so deep-links route correctly.
+  // Legacy `onboarding/<step>` URLs all collapse to the new `/onboarding`.
+  const raw = window.location.hash.replace(/^#\/?/, '').split('?')[0] ?? '';
+  if (raw.startsWith('onboarding')) return 'onboarding';
+  if (raw.startsWith('mobile/pair')) return 'mobile/pair';
+  switch (raw) {
     case 'deploy':
     case 'shell':
     case 'library':
@@ -78,7 +72,7 @@ function parseRoute(): RouteName {
     case 'learning':
     case 'settings':
     case 'workspaces':
-      return hash;
+      return raw;
     default:
       return 'landing';
   }
@@ -96,9 +90,6 @@ export function App() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  // Bootstrap active workspace on first paint. We only seed `flow.agentName`
-  // when the user hasn't completed onboarding yet — preserving the explicit
-  // choice when they did go through identity/fork/token.
   useEffect(() => {
     void fetch('/api/workspaces')
       .then((r) => r.json())
@@ -110,18 +101,13 @@ export function App() {
         const active = data.workspaces.find((w) => w.id === data.activeId) ?? data.workspaces[0];
         if (active) {
           setFlow((prev) =>
-            prev.agentName
-              ? prev
-              : { ...prev, agentName: active.agentName },
+            prev.agentName ? prev : { ...prev, agentName: active.agentName },
           );
         }
       })
       .catch(() => undefined);
   }, []);
 
-  // Global ⌘K / Ctrl+K shortcut. The browser's own Ctrl+K (URL bar focus)
-  // gets preempted because we call preventDefault — that's the standard
-  // command-palette UX and matches the PRD §9 spec.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const isPaletteShortcut = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
@@ -129,7 +115,6 @@ export function App() {
         e.preventDefault();
         setPaletteOpen((v) => !v);
       }
-      // Also open palette when the user types '/' from outside an input.
       if (e.key === '/' && !paletteOpen) {
         const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
         if (tag !== 'input' && tag !== 'textarea') {
@@ -137,9 +122,6 @@ export function App() {
           setPaletteOpen(true);
         }
       }
-      // `?` opens the shortcuts cheat sheet. Same input-elision rule as
-      // above so users typing in the composer can write actual question
-      // marks. Shift+/ matches `?` on US keyboards.
       if (e.key === '?' && !shortcutsOpen) {
         const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
         const editable = (e.target as HTMLElement | null)?.isContentEditable;
@@ -148,17 +130,10 @@ export function App() {
           setShortcutsOpen(true);
         }
       }
-      // ⌘+Shift+N / Ctrl+Shift+N → new thread. Works from anywhere in
-      // the app: if we're on /shell already, dispatch the existing
-      // `openthink:new-thread` event so the Shell creates the thread
-      // in-place. Otherwise hash-navigate to `#/shell?newThread=1` and
-      // let Shell's bootstrap effect handle it on mount. This matches
-      // Slack / Notion / Linear conventions.
       const isNewThread =
         (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'n';
       if (isNewThread) {
         e.preventDefault();
-        // Close the palette + shortcut help so the user lands clean.
         setPaletteOpen(false);
         setShortcutsOpen(false);
         const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
@@ -173,16 +148,12 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [paletteOpen, shortcutsOpen]);
 
-  // Listen for sidebar-search clicks (the sidebar input dispatches this
-  // custom event so we don't have to thread the open() callback down).
   useEffect(() => {
     const onOpen = () => setPaletteOpen(true);
     window.addEventListener('openthink:open-palette', onOpen);
     return () => window.removeEventListener('openthink:open-palette', onOpen);
   }, []);
 
-  // Same pattern for the shortcuts cheat sheet — the Shell composer
-  // hint fires this event so the modal opens without prop-drilling.
   useEffect(() => {
     const onOpen = () => setShortcutsOpen(true);
     window.addEventListener('openthink:open-shortcuts', onOpen);
@@ -197,44 +168,10 @@ export function App() {
 
   const renderRoute = () => {
     switch (route) {
-      case 'onboarding/identity':
-        return <OnboardingIdentity flow={flow} merge={merge} next={() => goto('onboarding/fork')} />;
-      case 'onboarding/fork':
-        return (
-          <OnboardingFork
-            flow={flow}
-            onPickToken={() => goto('onboarding/token')}
-            onPickStripe={() => goto('onboarding/stripe')}
-            back={() => goto('onboarding/identity')}
-          />
-        );
-      case 'onboarding/token':
-        return (
-          <OnboardingToken
-            flow={flow}
-            merge={merge}
-            next={() => goto('onboarding/upgrades')}
-            back={() => goto('onboarding/fork')}
-          />
-        );
-      case 'onboarding/stripe':
-        return (
-          <OnboardingStripe
-            flow={flow}
-            merge={merge}
-            next={() => goto('onboarding/upgrades')}
-            back={() => goto('onboarding/fork')}
-          />
-        );
-      case 'onboarding/upgrades':
-        return (
-          <OnboardingUpgrades
-            flow={flow}
-            merge={merge}
-            next={() => goto('deploy')}
-            back={() => goto(flow.cloudflareToken ? 'onboarding/token' : 'onboarding/stripe')}
-          />
-        );
+      case 'onboarding':
+        return <Onboarding flow={flow} merge={merge} onDeploy={() => goto('deploy')} />;
+      case 'mobile/pair':
+        return <MobilePair flow={flow} />;
       case 'deploy':
         return <DeployProgress flow={flow} merge={merge} next={() => goto('shell')} />;
       case 'shell':
@@ -276,7 +213,7 @@ export function App() {
         );
       case 'landing':
       default:
-        return <Landing onStart={() => goto('onboarding/identity')} />;
+        return <Landing onStart={() => goto('onboarding')} />;
     }
   };
 

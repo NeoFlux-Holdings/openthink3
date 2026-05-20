@@ -5,6 +5,125 @@ verified end-to-end. Updated each loop iteration.
 
 ## What works (verified end-to-end against `wrangler dev --local`)
 
+### Claude Design implementation (Geist · Cloudflare-orange · 3-step onboarding)
+- ✓ **Design tokens ported verbatim** from the Claude Design handoff into
+  `apps/platform/src/web/styles/tokens.css` — light + dark, brand orange
+  `#F38020`, coral `#E54B2C`, status quartet, spacing/radii/motion scale.
+  Legacy `--ot-*` tokens kept as aliases pointing at the new values so
+  existing 18k-line screens (Library / Skills / Learning / Settings / Sync)
+  inherit the palette + Geist typography without per-file rewrites.
+- ✓ **Geist + Geist Mono** loaded via Google Fonts; preconnect tags +
+  font feature settings `"cv11" 1, "ss03" 1` for the OpenType polish.
+- ✓ **Primitives & utility classes** (`primitives.css`) — `.btn`
+  (default / primary / brand / ghost · sm/md/lg/xl), `.chip` (default +
+  7 status variants), `.kbd`, `.dot` (with `.pulse` ring), `.switch`,
+  `.card`, `.input`, `.info-note`. Reduced-motion zeroes durations.
+- ✓ **Chord + Icon components** (`shell/Chord.tsx`, `shell/Icon.tsx`) —
+  platform-aware kbd rendering (⌘K on Mac, Ctrl+K on Win) and a 60+
+  icon set as one typed module (24×24, 1.5 stroke, currentColor).
+- ✓ **Theme module** (`shell/theme.ts` + `ThemeToggle.tsx`) — persists
+  light/dark to localStorage, syncs across surfaces, applies
+  `data-theme="dark"` on `<html>` synchronously so we never flash the
+  wrong palette on first paint.
+- ✓ **Landing page rebuilt** — nav with theme toggle, hero with gradient
+  italic "Cloudflare", live demo two-pane card, 4-cell stats strip
+  (90s · $5/mo · 96 KiB · 0), **2-step "how it works"** (fork removed),
+  6-tile capability grid, compare block, two-tier pricing ($0 BYO · $12
+  Hosted), final CTA. ⌘D / Ctrl+D anywhere on the page deploys. Old
+  `Landing.css` deleted.
+- ✓ **Onboarding collapsed to 3 steps** in a single `Onboarding.tsx`:
+  - Step 01 — Name + workspace, six suggestion chips.
+  - Step 02 — Connect Cloudflare with path-toggle: **BYO** (real
+    `/api/cf-token/validate` against `api.cloudflare.com/.../user/tokens/verify`
+    on every paste/validate) or **Hosted** (real Stripe checkout via
+    `/api/stripe/checkout`).
+  - Step 03 — Pick capabilities + daily spend cap, then
+    POSTs `/api/deploy/start` and routes to the new deploy screen.
+  Old 5-route `onboarding/{identity,fork,token,stripe,upgrades}` tree
+  collapsed to a single `/onboarding` hash.
+- ✓ **Deploy progress rebuilt** with the design timeline — 7-step
+  animated rail, live `LIVE LOG` terminal panel with color-coded lines,
+  2×2 stats grid, "what just happened" + "what it costs" side blocks.
+  Polls `/api/deploy/status?id=…` against the real `DeployState`
+  contract when a deployId is present.
+- ✓ **`design.css`** — 2,000-line port of every remaining screen-level
+  selector from the handoff (sidebar + command palette, thread +
+  composer, canvas + 7 artifact types, library / skills / learning /
+  sync rows, settings, train mode, mobile-web responsive shrinks).
+  Loaded once from `main.tsx`.
+
+### Mobile companion app — Expo (NEW)
+- ✓ **`apps/mobile`** scaffolded as a pnpm workspace member. Expo 54 +
+  Expo Router 6 + React Native 0.81 + TypeScript strict. Plugins for
+  expo-font, expo-camera, expo-notifications. Metro watches workspace
+  root for hoisted deps.
+- ✓ **Shared design tokens** mirror the web in `src/theme/tokens.ts` —
+  light + dark palettes, spacing scale, enlarged radii (12 → 14,
+  16 → 18) for the iOS feel, type roles mapped to Geist with
+  system-font fallback baked in via the safe-require wrapper in
+  `_layout.tsx`.
+- ✓ **`ThemeContext`** — persists choice to expo-secure-store, honors
+  OS-level flips until the user picks one explicitly, exposes
+  `useTheme()` returning `{ theme, colors, setTheme, toggleTheme }`.
+- ✓ **Primitives** (`src/components/primitives.tsx`) — `H1`/`H2`/`H3`,
+  `Body`, `Mono`, `Eyebrow`, `Dot`, `Chip` (default + 7 status
+  variants), `Card`, `Button`, `PillPicker`, `Avatar`, `SectionLabel`,
+  `Screen` wrapper. All theme-aware.
+- ✓ **TabBar** — bottom nav with a 56×40 brand FAB in the middle that
+  opens the New Task sheet. Safe-area aware.
+- ✓ **Sign-in / pair-a-device flow** — two-stage:
+  1. User types/pastes their agent handle → app opens
+     `https://<agent>/#/mobile/pair?device=<label>` in expo-web-browser.
+  2. New `/mobile/pair` page on the web app (rendered by
+     `MobilePair.tsx`) POSTs `/api/mobile/pair/init`, displays a
+     6-letter code (5-minute TTL in KV).
+  3. Mobile POSTs `/api/mobile/session/exchange { code, deviceLabel }`
+     → bearer token stored in expo-secure-store.
+  Deep links (`openthink://?code=…&host=…`) auto-fill so the future
+  Universal Link upgrade is one-tap.
+- ✓ **11 screens implemented** matching the design's 11 mobile boards:
+  - `/today` — greeting + live activity card + approvals + spend bar
+    + recent threads. Pull-to-refresh.
+  - `/threads` — search + 5 filter chips + grouped lists (Live, Today,
+    This week, Older) + chevron rows.
+  - `/threads/[id]` — conversation: pinned brand-soft working notes,
+    msg-user (brand-2 fill, asymmetric radii), msg-ag (ink avatar +
+    tool chips + reasoning trace), horizontal artifact scroll, live
+    status pill, send-on-Enter composer with optimistic append.
+  - `/threads/[id]/browser` — full-bleed Calendly mock with the
+    animated agent cursor (Animated path, 4-position 2.2s loop),
+    "agent driving" overlay, brand "Take over" CTA.
+  - `/sheets/new-task` — bottom sheet, 96×96 brand mic button with
+    pulsing halo (Animated.parallel scale + opacity loop), suggested-
+    prompt chips, fallback textarea.
+  - `/sheets/approval` — bottom sheet with coral-tinted icon, preview
+    card, Skip / Send buttons, "Edit before sending" link. POSTs
+    `/api/mobile/approvals/:id/respond`.
+  - `/library` — 2-column tile grid with type-tinted previews,
+    uppercase mono `EXT` badges, filter pills.
+  - `/you` — profile card with gradient avatar, spend meter, Agent
+    rows, App rows (theme segmented control, updates badge,
+    biometrics), sign-out.
+  - `/updates` — reframed Sync screen with status hero, safe/review
+    rows, "your agent wants to share" contribution row.
+- ✓ **`/api/mobile/*` worker routes** (`apps/platform/src/worker/routes/mobile.ts`):
+  - `POST /pair/init` — issue one-time pairing code (5-min KV TTL).
+  - `POST /session/exchange` — trade code for bearer token.
+  - Middleware enforces `Authorization: Bearer …` on every other
+    mobile endpoint.
+  - `GET /today`, `/threads`, `/threads/:id`, `POST /threads/send`,
+    `/approvals`, `/approvals/:id/respond`, `/library`,
+    `POST /push/register`.
+- ✓ **Push notifications** — `src/lib/notifications.ts` requests perms,
+  configures the Android `default` channel with brand orange,
+  registers the Expo push token with the agent. Best-effort: simulator
+  + denied perms degrade silently.
+- ✓ **Verify suite 24/24 PASS** after the rewrite. Web typecheck +
+  worker typecheck + mobile typecheck + `wrangler deploy --dry-run`
+  all green.
+
+
+
 ### Onboarding & deployment
 - ✓ Identity → Fork → Token/Stripe → **Upgrades (optional)** → Deploy progress flow
 - ✓ **Workers Paid opt-in** ($5/mo) — Stripe checkout intent created on click,

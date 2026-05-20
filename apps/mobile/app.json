@@ -1,0 +1,79 @@
+{
+  "expo": {
+    "name": "OpenThink",
+    "slug": "openthink",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "openthink",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FBF8F2"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "run.openthink.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "OpenThink uses the camera to scan a sign-in QR code from your agent.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "run.openthink.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#FBF8F2",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "permissions": [
+        "CAMERA",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Geist-Regular.ttf",
+            "./assets/fonts/Geist-Medium.ttf",
+            "./assets/fonts/Geist-SemiBold.ttf",
+            "./assets/fonts/GeistMono-Regular.ttf",
+            "./assets/fonts/GeistMono-Medium.ttf"
+          ]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FBF8F2"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "OpenThink uses the camera to scan a sign-in QR code from your agent."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#F38020",
+          "defaultChannel": "default"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

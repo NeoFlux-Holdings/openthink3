@@ -23,6 +23,7 @@ import { workspaces } from './routes/workspaces';
 import { audit } from './routes/audit';
 import { goal } from './routes/goal';
 import { threads } from './routes/threads';
+import { mobile } from './routes/mobile';
 
 export { Orchestrator } from './agents/orchestrator';
 export { Researcher } from './agents/researcher';
@@ -146,6 +147,7 @@ app.route('/api/workspaces', workspaces);
 app.route('/api/audit', audit);
 app.route('/api/goal', goal);
 app.route('/api/threads', threads);
+app.route('/api/mobile', mobile);
 
 // WebSocket upgrade — routes to the orchestrator DO for a given agent.
 app.get('/agents/:agentId/ws', async (c) => {
