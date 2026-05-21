@@ -15,7 +15,7 @@ import { LargeTitleHeader } from '../src/components/LargeTitleHeader';
 import { useTheme } from '../src/theme/ThemeContext';
 import { radius, space, type as fontFamily } from '../src/theme/tokens';
 
-const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+const AnimatedScrollView = Animated.ScrollView;
 
 const UPDATES = [
   {

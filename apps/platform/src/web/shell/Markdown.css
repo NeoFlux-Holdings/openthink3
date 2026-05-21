@@ -1,0 +1,156 @@
+/* Markdown — chat-message rich text.
+   Sized to feel native inside the message bubble; uses our existing
+   token vars so light/dark themes flip without overrides. */
+
+.md-body {
+  font-family: var(--sans);
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.md-body > * + * { margin-top: 8px; }
+
+.md-p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.md-h1, .md-h2, .md-h3 {
+  margin: 14px 0 4px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  line-height: 1.25;
+}
+.md-h1 { font-size: 18px; }
+.md-h2 { font-size: 16px; }
+.md-h3 { font-size: 15px; }
+
+.md-list {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+.md-list li {
+  margin: 2px 0;
+}
+.md-list--ord { list-style-type: decimal; }
+.md-list:not(.md-list--ord) { list-style-type: disc; }
+
+.md-quote {
+  margin: 4px 0;
+  padding: 6px 12px;
+  border-left: 3px solid var(--rule-strong);
+  color: var(--mute);
+  font-style: italic;
+}
+
+.md-hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.md-a {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.md-a:hover { color: var(--brand-2); }
+
+.md-inline-code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  color: var(--brand-ink);
+}
+
+.md-code {
+  margin: 4px 0;
+  background: #0E0F12;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+}
+
+.md-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.md-code-lang {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.md-code-copy {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 3px 8px;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: background 140ms, color 140ms;
+}
+.md-code-copy:hover {
+  background: rgba(255, 255, 255, 0.10);
+  color: #FFFFFF;
+}
+
+.md-code-pre {
+  margin: 0;
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.86);
+  overflow-x: auto;
+  white-space: pre;
+}
+.md-code-pre code {
+  font: inherit;
+  color: inherit;
+}
+
+.md-code--streaming::after {
+  /* Subtle "still streaming" hint on the trailing fence */
+  content: '';
+  display: block;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--brand), transparent);
+  animation: md-code-stream 1200ms ease-in-out infinite;
+}
+@keyframes md-code-stream {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.9; }
+}
+
+/* Dark theme tweak — inline code reads better against dark surfaces */
+[data-theme='dark'] .md-inline-code {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.10);
+  color: var(--brand);
+}
+
+/* Tight version for narrow contexts (canvas split, mobile-web) */
+.md-body--tight {
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.md-body--tight .md-code-pre { font-size: 11.5px; }

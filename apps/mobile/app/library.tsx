@@ -28,7 +28,7 @@ import { tabReTapped } from '../src/lib/events';
 import { useTheme } from '../src/theme/ThemeContext';
 import { radius, space, type as fontFamily } from '../src/theme/tokens';
 
-const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+const AnimatedScrollView = Animated.ScrollView;
 
 type Filter = 'all' | 'doc' | 'code' | 'table' | 'image' | 'chart' | 'webpage';
 

@@ -5,6 +5,7 @@ import type { ChatMessage, ComposerMode } from '@shared/types';
 import { AppSidebar } from './AppSidebar';
 import { Canvas } from './canvas/Canvas';
 import { GoalCard } from './GoalCard';
+import { Markdown } from './Markdown';
 import { SEED_ARTIFACTS } from './seed-artifacts';
 import { PlanCard, type PlanStep } from './train/PlanCard';
 import { SaveAsSkillSheet } from './train/SaveAsSkillSheet';
@@ -125,6 +126,14 @@ export function Shell({ flow }: Props) {
   const [titleDraft, setTitleDraft] = useState('');
   const [codeMode, setCodeMode] = useState<'always' | 'smart' | 'off'>('smart');
   const socket = useAgentSocket(flow.agentName || 'guest');
+
+  // Scroll watcher + new-message pill. We track whether the user is
+  // sitting at the bottom — if not, a "↓ new message" pill appears the
+  // next time the assistant lands a frame. Tapping it scrolls to the
+  // end. Sitting at the bottom keeps autoscroll-on-new-message behavior.
+  const messagesRef = useRef<HTMLDivElement | null>(null);
+  const [atBottom, setAtBottom] = useState(true);
+  const [hasNewBelow, setHasNewBelow] = useState(false);
 
   // Create a new thread on demand — both via the sidebar's "+ New task"
   // button and via the `#/shell?newThread=1` hash form (used when the user
@@ -845,6 +854,35 @@ export function Shell({ flow }: Props) {
   };
 
   const isEmpty = messages.length <= 1;
+
+  // Auto-scroll when a new message arrives — but only if the user is
+  // sitting at the bottom. If they've scrolled up to re-read, surface
+  // a "new message" pill instead so the floor doesn't slide out.
+  // Token-by-token streaming triggers via a digest on content length;
+  // pure message-count changes also re-fire the effect.
+  const feedSignature = useMemo(
+    () => messages.map((m) => `${m.id}:${m.content.length}`).join(','),
+    [messages],
+  );
+  useEffect(() => {
+    if (atBottom) {
+      const t = setTimeout(() => {
+        const el = messagesRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      }, 30);
+      return () => clearTimeout(t);
+    }
+    setHasNewBelow(true);
+    return undefined;
+  }, [feedSignature, atBottom]);
+
+  // While a tool is mid-flight we treat the assistant as "typing" so
+  // the chat shows the 3-dot indicator. `running` is the in-progress
+  // state; `done` / `blocked` / `error` all settle.
+  const isThinking = useMemo(
+    () => socket.toolEvents.some((e) => e.status === 'running'),
+    [socket.toolEvents],
+  );
   const quickPrompts = useMemo(
     () => [
       { glyph: '✦', label: 'Plan my week' },
@@ -1128,7 +1166,18 @@ export function Shell({ flow }: Props) {
             </button>
           </div>
         )}
-        <div className="shell__messages" aria-live="polite">
+        <div
+          className="shell__messages"
+          aria-live="polite"
+          ref={messagesRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            const distanceFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight);
+            const isAt = distanceFromBottom < 64;
+            if (isAt !== atBottom) setAtBottom(isAt);
+            if (isAt && hasNewBelow) setHasNewBelow(false);
+          }}
+        >
           {(workingDoc || workingDocEditing) && !isEmpty && (() => {
             const isCollapsed = !!workingDocCollapsed[activeThread ?? ''];
             const toggleCollapse = () =>
@@ -1267,7 +1316,14 @@ export function Shell({ flow }: Props) {
                 >
                   <span className="shell__msg-role">{m.role === 'user' ? 'You' : flow.agentName || 'agent'}</span>
                   <div className="shell__msg-body">
-                    {renderMessageBody(m.content, q, matchIndexInThisMessage)}
+                    {/* Markdown is reserved for assistant output, and only when
+                        there's no active search query — search highlight needs
+                        to operate on raw text so the rendering pipeline can
+                        wrap matches in a <mark>. User messages stay plain so
+                        @-mentions still hyperlink. */}
+                    {m.role === 'assistant' && !q
+                      ? <Markdown source={m.content} />
+                      : renderMessageBody(m.content, q, matchIndexInThisMessage)}
                   </div>
                   <div className="shell__msg-actions">
                     <button
@@ -1437,7 +1493,29 @@ export function Shell({ flow }: Props) {
               onDismiss={() => setShowSaveSkill(false)}
             />
           )}
+          {isThinking && (
+            <div className="shell__typing" aria-live="polite" aria-label="Agent is thinking">
+              <span className="shell__typing-dot" />
+              <span className="shell__typing-dot" />
+              <span className="shell__typing-dot" />
+            </div>
+          )}
         </div>
+        {hasNewBelow && !atBottom && (
+          <button
+            type="button"
+            className="shell__jump-bottom"
+            onClick={() => {
+              const el = messagesRef.current;
+              if (el) {
+                el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+                setHasNewBelow(false);
+              }
+            }}
+          >
+            ↓ New message
+          </button>
+        )}
         <form
           className="shell__composer"
           onSubmit={(e) => {

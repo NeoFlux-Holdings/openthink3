@@ -32,7 +32,7 @@ import { tabReTapped } from '../src/lib/events';
 import { useTheme } from '../src/theme/ThemeContext';
 import { fontSize, radius, space, type as fontFamily } from '../src/theme/tokens';
 
-const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+const AnimatedScrollView = Animated.ScrollView;
 
 const FALLBACK: ThreadSummary[] = [
   { id: 'q3', title: 'Q3 launch plan + customer calls', updatedAt: Date.now(), live: true, pending: 2 },

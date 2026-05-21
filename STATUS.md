@@ -122,6 +122,79 @@ verified end-to-end. Updated each loop iteration.
   worker typecheck + mobile typecheck + `wrangler deploy --dry-run`
   all green.
 
+### Agents SDK 0.13 + Vercel AI 6 adoption + chat UI polish
+Reference: github.com/cloudflare/agents-starter. We absorbed the
+patterns + deps into our existing Orchestrator-based flow — no
+parallel chat system. Wrangler bumped to 4.93 (needed for the
+newer SDK runtime).
+
+- ✓ **New deps installed**: `agents@0.13.2`, `ai@6`,
+  `workers-ai-provider@3`, `@cloudflare/ai-chat@0.7.1`,
+  `streamdown@2`, `@streamdown/code@1`, `@phosphor-icons/react@2`.
+- ✓ **Shared inference helper** (`apps/platform/src/worker/lib/inference.ts`)
+  wraps `createWorkersAI` + `generateText`/`streamText` from the AI SDK.
+  Cost-class API (`cheap | reasoning | long | embed`) lets us re-tune
+  models in one place. Same surface as the legacy `env.AI.run`.
+- ✓ **Orchestrator refactored** to use the helper for the chat reply
+  path + auto-summary title path. Behavior identical, just the modern
+  pattern.
+- ✓ **Researcher + Coder + Judge refactored** to use the helper
+  (fetch-url summary, free-form research, code review, trajectory
+  judge). Cost class declared per call (`cheap` vs `reasoning`).
+- ✓ **Declarative tool registry** (`worker/agents/tools/registry.ts`)
+  adopts the starter's `tool({ inputSchema, execute, needsApproval })`
+  pattern. The `needsApproval` callback is wired into the existing
+  `Orchestrator.requestApproval` so a new approval-gated tool is a
+  one-liner.
+  - Three v1 fixtures land the pattern: `getWeather` (no approval),
+    `calculate` (approval over abs 1000 — same threshold as the
+    starter), `searchWeb` (always asks).
+  - Public RPCs on the Orchestrator: `runDeclarativeTool(threadId,
+    name, args)` and `listDeclarativeTools(threadId)` — chat path
+    + Skills surface can both consume.
+- ✓ **Desktop chat — Markdown rendering**
+  (`apps/platform/src/web/shell/Markdown.tsx`) — assistant messages
+  now render bold / italic / inline code / fenced code with a copy
+  button / bullets / numbered lists / quotes / headings 1–3 / links.
+  ~150 lines, no Tailwind dep, theme-token aware. Search-highlight
+  path still uses the existing plain-text renderer so the `<mark>`
+  pipeline survives. Streaming-friendly: an unterminated code fence
+  shows the partial content + a brand pulse line.
+- ✓ **Desktop chat — typing indicator** — 3 brand-color dots animate
+  in a 1.2s loop whenever any toolEvent is in the `running` state.
+- ✓ **Desktop chat — jump-to-bottom pill** — appears when the user
+  scrolls up and a new message arrives. Tapping scrolls to end +
+  clears the pill. Auto-scroll still fires while the user is sitting
+  at the bottom; the digest of message text lengths picks up
+  token-by-token streaming, not just message-count changes.
+- ✓ **Desktop chat — tool cards polished** — `shell__tool` row now
+  picks up status-tinted backgrounds (brand-soft running, green-soft
+  done, coral-soft blocked/error) instead of just border colors. The
+  expanded state morphs to a card shape so the JSON output reads as
+  a structured block.
+- ✓ **Mobile app — Markdown primitive**
+  (`apps/mobile/src/components/Markdown.tsx`) — same subset as web,
+  renders to RN `<Text>`/`<View>`, theme-token aware. Code blocks
+  ship with a copy button via `expo-clipboard`. No new RN dep.
+  Wired into the assistant-message body in `/threads/[id]`.
+- ✓ **Mobile app — ToolCallCard**
+  (`apps/mobile/src/components/ToolCallCard.tsx`) — five states
+  (`running` / `done` / `approval-needed` / `blocked` / `error`)
+  with brand/green/coral-soft tints, Reanimated spin on running,
+  Approve/Reject buttons baked in for the approval state, tap to
+  expand the JSON output, +inline cost display for approval cards.
+  Replaces the simple tool-chip row in the conversation screen.
+- ✓ **Mobile-web composer polish** at ≤760px (`compat.css`):
+  - `shell__composer` picks up `safe-area-inset-bottom` padding +
+    16px+ font on the input so iOS Safari skips the focus zoom.
+  - `shell__composer-send` / `shell__composer-mic` clamped to 44px
+    minimum for thumb-reach.
+  - Composer-meta row reflows to wrap so the send button always
+    sits at the right edge.
+  - Desktop-only hint strip hides on mobile to free vertical space.
+  - Jump-to-bottom pill lifts above the composer so it never sits
+    behind the send button when the iOS URL bar transitions.
+
 ### Approval round-trip + push send pipeline (Tier-1 backend close-out)
 Closes the gap where the mobile UI promised "tap Send to unblock the
 agent" but the worker route was a stubbed `// TODO`. See `BACKLOG.md`

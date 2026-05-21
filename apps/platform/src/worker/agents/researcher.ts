@@ -11,6 +11,7 @@
 // the agent's pinned Knowledge items before falling back to ad-hoc fetches.
 
 import { BaseRpcAgent } from './base-rpc-agent';
+import { generate as aiGenerate, inferenceFor } from '../lib/inference';
 
 const MAX_BODY_BYTES = 256 * 1024; // 256 KB — keep prompts cheap
 const FETCH_TIMEOUT_MS = 8_000;
@@ -67,7 +68,8 @@ export class Researcher extends BaseRpcAgent {
     // hallucinate beyond the page — every claim must trace back to text.
     let summary = '';
     try {
-      const result = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      const result = await aiGenerate(inferenceFor(this.env), {
+        costClass: 'cheap',
         messages: [
           {
             role: 'system',
@@ -84,8 +86,8 @@ export class Researcher extends BaseRpcAgent {
               `\nPAGE TEXT:\n${trimmed}`,
           },
         ],
-      })) as { response?: string };
-      summary = (result.response ?? '').trim();
+      });
+      summary = result.text.trim();
     } catch (err) {
       summary = `(summary unavailable — ${err instanceof Error ? err.message : String(err)})`;
     }
@@ -113,7 +115,8 @@ export class Researcher extends BaseRpcAgent {
     // commented out for local dev). Use Workers AI as the sole knowledge
     // source so the chat surface always gets *something* back.
     try {
-      const result = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      const result = await aiGenerate(inferenceFor(this.env), {
+        costClass: 'cheap',
         messages: [
           {
             role: 'system',
@@ -124,11 +127,11 @@ export class Researcher extends BaseRpcAgent {
           },
           { role: 'user', content: query },
         ],
-      })) as { response?: string };
+      });
       return {
         ok: true,
         query,
-        summary: (result.response ?? '').trim(),
+        summary: result.text.trim(),
         sources: [],
       };
     } catch (err) {

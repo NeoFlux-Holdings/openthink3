@@ -25,7 +25,7 @@ import { useTheme } from '../../src/theme/ThemeContext';
 import { radius, space, type as fontFamily } from '../../src/theme/tokens';
 import { selection as hapticSelection } from '../../src/lib/haptics';
 
-const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+const AnimatedScrollView = Animated.ScrollView;
 
 const TITLES: Record<string, string> = {
   'approval-mode': 'Approval mode',

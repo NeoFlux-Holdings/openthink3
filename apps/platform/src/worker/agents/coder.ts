@@ -16,6 +16,7 @@
 // user opts out of execution.
 
 import { BaseRpcAgent } from './base-rpc-agent';
+import { generate as aiGenerate, inferenceFor } from '../lib/inference';
 
 interface ReviewArgs {
   source?: string;
@@ -57,7 +58,8 @@ export class Coder extends BaseRpcAgent {
 
     let raw = '';
     try {
-      const result = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      const result = await aiGenerate(inferenceFor(this.env), {
+        costClass: 'reasoning',
         messages: [
           {
             role: 'system',
@@ -78,8 +80,8 @@ export class Coder extends BaseRpcAgent {
               `\nCODE:\n${snippet}`,
           },
         ],
-      })) as { response?: string };
-      raw = result.response ?? '';
+      });
+      raw = result.text;
     } catch (err) {
       return {
         ok: false,

@@ -24,7 +24,7 @@ import { useTheme } from '../src/theme/ThemeContext';
 import { fontSize, radius, space, type as fontFamily } from '../src/theme/tokens';
 import { selection as hapticSelection } from '../src/lib/haptics';
 
-const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+const AnimatedScrollView = Animated.ScrollView;
 
 export default function You() {
   const router = useRouter();

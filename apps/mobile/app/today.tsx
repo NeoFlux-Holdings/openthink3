@@ -40,7 +40,7 @@ import { registerForPush } from '../src/lib/notifications';
 import { useTheme } from '../src/theme/ThemeContext';
 import { fontSize, radius, space, type as fontFamily } from '../src/theme/tokens';
 
-const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+const AnimatedScrollView = Animated.ScrollView;
 
 const FALLBACK: TodayState = {
   greeting: 'Tuesday, May 20',

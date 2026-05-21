@@ -1729,29 +1729,43 @@
   cursor: default;
 }
 
+/* Status-tinted backgrounds make the four tool-call states readable at
+   a glance without forcing the user to parse glyphs. Subtle so they
+   don't compete with chat content. */
 .shell__tool--running {
-  border-color: var(--ot-accent);
-  color: var(--ot-accent);
+  border-color: var(--brand);
+  color: var(--brand-ink);
+  background: var(--brand-soft);
 }
-
 .shell__tool--running .shell__tool-glyph {
   animation: shell-tool-spin 1.2s linear infinite;
 }
-
 @keyframes shell-tool-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
 .shell__tool--done {
-  border-color: rgba(79, 122, 77, 0.5);
-  color: var(--ot-good, #4f7a4d);
+  border-color: transparent;
+  color: var(--green-ink);
+  background: var(--green-soft);
 }
 
 .shell__tool--blocked,
 .shell__tool--error {
-  border-color: rgba(232, 93, 74, 0.5);
-  color: var(--ot-bad, #c84439);
+  border-color: transparent;
+  color: var(--coral-ink);
+  background: var(--coral-soft);
+}
+
+.shell__tool--expanded {
+  /* When expanded, become a card rather than a pill so the JSON output
+     reads as a structured block. */
+  border-radius: 10px;
+  padding: 7px 11px;
+  align-items: flex-start;
+  flex-direction: column;
+  align-self: flex-start;
 }
 
 .shell__tool-glyph {
@@ -2660,4 +2674,63 @@
   .shell .shell__messages {
     padding: 24px 18px 12px;
   }
+}
+
+/* ----- Typing indicator + jump-to-bottom pill ----- */
+
+.shell__typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  margin-top: 6px;
+  width: fit-content;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+}
+.shell__typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--mute);
+  animation: shell-typing 1.2s ease-in-out infinite;
+}
+.shell__typing-dot:nth-child(2) { animation-delay: 0.18s; }
+.shell__typing-dot:nth-child(3) { animation-delay: 0.36s; }
+@keyframes shell-typing {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+  40% { transform: translateY(-3px); opacity: 1; }
+}
+
+.shell__jump-bottom {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  z-index: 30;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--bg);
+  border: 0;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(14, 15, 18, 0.18);
+  transition: transform var(--quick) var(--ease), background var(--quick) var(--ease);
+  animation: shell-jump-bottom-in 200ms ease-out;
+}
+.shell__jump-bottom:hover {
+  background: var(--ink-2);
+  transform: translateX(-50%) translateY(-1px);
+}
+.shell__jump-bottom:active {
+  transform: translateX(-50%) translateY(0);
+}
+@keyframes shell-jump-bottom-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }

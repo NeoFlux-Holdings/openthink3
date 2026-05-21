@@ -42,8 +42,10 @@ import {
   Screen,
 } from '../../src/components/primitives';
 import { LiveDot } from '../../src/components/LiveDot';
+import { Markdown } from '../../src/components/Markdown';
 import { MiniBrowserThumb } from '../../src/components/MiniBrowserThumb';
 import { Segmented } from '../../src/components/Segmented';
+import { ToolCallCard } from '../../src/components/ToolCallCard';
 import { confirm as hapticConfirm, success as hapticSuccess, tap as hapticTap } from '../../src/lib/haptics';
 import { getConversation, sendMessage, type Conversation, type ConversationMessage } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session-store';
@@ -580,29 +582,17 @@ function Message({
           {message.reasoned && ` · reasoned ${message.reasoned.seconds}s · ${message.reasoned.tokens.toLocaleString()} tokens`}
         </Mono>
         {message.tools && message.tools.length > 0 && (
-          <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
+          <View style={{ gap: 6 }}>
             {message.tools.map((t) => (
-              <View
+              <ToolCallCard
                 key={t.name}
-                style={{
-                  paddingHorizontal: 7,
-                  paddingVertical: 2,
-                  backgroundColor: colors.surface2,
-                  borderColor: colors.rule,
-                  borderWidth: 1,
-                  borderRadius: 4,
-                }}
-              >
-                <Text
-                  style={{ fontFamily: fontFamily.mono, fontSize: 10.5, color: colors.ink2 }}
-                >
-                  {t.name}
-                </Text>
-              </View>
+                name={t.name}
+                status="done"
+              />
             ))}
           </View>
         )}
-        <Body style={{ color: colors.ink2, lineHeight: 22 }}>{message.text}</Body>
+        <Markdown source={message.text} textColor={colors.ink2} />
       </View>
     </Pressable>
   );

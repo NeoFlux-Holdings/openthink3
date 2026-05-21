@@ -19,6 +19,7 @@
 
 import { BaseRpcAgent } from './base-rpc-agent';
 import type { Trajectory } from '../../shared/types';
+import { generate as aiGenerate, inferenceFor } from '../lib/inference';
 
 interface ScoreResult {
   overall: number;
@@ -142,7 +143,8 @@ export class Judge extends BaseRpcAgent {
     let faithfulness = 0.5;
 
     try {
-      const result = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      const result = await aiGenerate(inferenceFor(this.env), {
+        costClass: 'reasoning',
         messages: [
           {
             role: 'system',
@@ -161,8 +163,8 @@ export class Judge extends BaseRpcAgent {
               `ASSISTANT: ${truncate(assistantText, 2_000)}`,
           },
         ],
-      })) as { response?: string };
-      const parsed = safeParseJson(result.response ?? '');
+      });
+      const parsed = safeParseJson(result.text);
       if (parsed && typeof parsed === 'object') {
         relevancy = clamp01(Number((parsed as { relevancy?: unknown }).relevancy));
         faithfulness = clamp01(Number((parsed as { faithfulness?: unknown }).faithfulness));

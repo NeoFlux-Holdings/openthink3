@@ -577,6 +577,39 @@
   }
   .thread-feed { padding: 16px 12px 12px; }
 
+  /* --- Shell composer (the live chat one) — same treatment.
+       Bigger send button + safe-area + 16px+ font so iOS Safari
+       doesn't zoom the viewport when the input gets focus. */
+  .shell__composer {
+    padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  .shell__composer-input {
+    font-size: 16px;
+    min-height: 44px;
+    line-height: 1.4;
+  }
+  .shell__composer-send,
+  .shell__composer-mic {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  /* Attachment / metadata row stacks under the input on phone widths
+     so the send button always sits at thumb-reach on the right edge. */
+  .shell__composer-meta {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 6px;
+  }
+  /* The "more options" hint is desktop-only — phones have a sheet for
+     this surface, so hide it to free vertical space. */
+  .shell__composer-hint,
+  .shell__composer-hint-more { display: none; }
+  /* Jump-to-bottom pill: lift it a hair higher than the composer so it
+     never sits behind the send button on iOS Safari with the URL bar
+     in transition. */
+  .shell__jump-bottom { bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+
   /* --- Page heads compact, search expands to full width --- */
   .page-head { padding: 16px 16px 12px; }
   .page-head h1 { font-size: 22px; }

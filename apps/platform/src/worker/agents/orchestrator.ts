@@ -11,6 +11,8 @@ import type {
   ToolCall,
 } from '../../shared/types';
 import { pushApprovalNeeded, pushStatus } from '../lib/push';
+import { generate as aiGenerate, inferenceFor } from '../lib/inference';
+import { buildTools, runTool, listTools } from './tools/registry';
 
 /** Mobile UX uses Send/Skip/Edit. We normalize to approve/deny/edit on the wire. */
 export type ApprovalDecision = 'approve' | 'deny' | 'edit';
@@ -637,6 +639,63 @@ export class Orchestrator extends DurableObject<Env> {
     }
   }
 
+  // ============================================================
+  // Declarative tool runner — agents-starter pattern.
+  // ============================================================
+  //
+  // Each tool is a `tool({ inputSchema, execute, needsApproval })`
+  // object declared in `tools/registry.ts`. We resolve them per-call
+  // because the registry binds `requestApproval` to *this* DO and
+  // *this* thread — that wiring can't be done at module-load time
+  // since the DO is per-agent.
+  //
+  // Adding a tool is a one-liner in registry.ts. The approval hook
+  // routes through the same plumbing the mobile app already drives;
+  // the tool author never touches WS frames or DO state directly.
+
+  /** Resolve and run a tool by name. Returns `{ok, output}` or `{ok:false}`. */
+  async runDeclarativeTool(
+    threadId: string,
+    name: string,
+    args: unknown,
+  ): Promise<
+    | { ok: true; output: unknown }
+    | { ok: false; reason: string; detail?: string }
+  > {
+    const tools = buildTools({
+      env: this.env,
+      threadId,
+      requestApproval: (req) => this.requestApproval(req),
+    });
+    const result = await runTool(tools, name, args, {
+      env: this.env,
+      threadId,
+      requestApproval: (req) => this.requestApproval(req),
+    });
+    // Audit + spend hooks so behavior parity with the legacy intent path:
+    // - declined: log as a `tool_blocked` audit event so the spending
+    //   panel still reflects the agent attempt.
+    // - succeeded: charge the estimated cost class (1¢ floor).
+    if (result.ok) {
+      void this.audit('tool_call', { tool: name });
+      await this.chargeSpend(1, name);
+    } else if (result.reason === 'denied') {
+      void this.audit('tool_blocked', { tool: name, reason: 'user_denied' });
+    }
+    return result;
+  }
+
+  /** List declarative tools — useful for the Skills surface to render
+   *  the available tools without parsing the registry directly. */
+  async listDeclarativeTools(threadId: string): Promise<Array<{ name: string; description: string; needsApproval: boolean }>> {
+    const tools = buildTools({
+      env: this.env,
+      threadId,
+      requestApproval: (req) => this.requestApproval(req),
+    });
+    return listTools(tools);
+  }
+
   /** Shape for the WS frame + mobile API. Hides the SQL row keys. */
   private toWireApproval(r: ApprovalRecord): Record<string, unknown> {
     return {
@@ -1012,19 +1071,18 @@ export class Orchestrator extends DurableObject<Env> {
         `Bump it in Settings → Spending if you want me to keep going — resets at local midnight.`;
     } else
     try {
-      // Race the AI call against a 3.5s timeout so a hung model doesn't
-      // block the assistant frame indefinitely. llama-3.1-8b typically
-      // responds in 1-2s; this gives some headroom while still letting
-      // the verify suite's 4.5s WS-frame window complete reliably. On
-      // timeout the user sees a graceful "didn't respond in time" reply
-      // and can re-send.
-      const result = (await Promise.race([
-        this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages: aiMessages }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('ai_timeout')), 3_500),
-        ),
-      ])) as { response?: string };
-      reply = result.response ?? '';
+      // Inference goes through `lib/inference.ts` so the model + AI
+      // Gateway choice lives in one place. The 3.5s timeout still
+      // applies — llama-3.1-8b typically responds in 1-2s; this gives
+      // headroom while still letting the verify suite's 4.5s WS-frame
+      // window complete reliably. On timeout the user sees a graceful
+      // "didn't respond in time" reply and can re-send.
+      const result = await aiGenerate(inferenceFor(this.env), {
+        messages: aiMessages,
+        costClass: 'cheap',
+        timeoutMs: 3_500,
+      });
+      reply = result.text;
       await this.chargeSpend(1, 'workers-ai/llama-3.1-8b');
     } catch (err) {
       console.error('[orchestrator] AI.run failed', err);
@@ -1164,7 +1222,8 @@ export class Orchestrator extends DurableObject<Env> {
 
     let summarized = '';
     try {
-      const res = (await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      const res = await aiGenerate(inferenceFor(this.env), {
+        costClass: 'cheap',
         messages: [
           {
             role: 'system',
@@ -1176,8 +1235,8 @@ export class Orchestrator extends DurableObject<Env> {
             content: `User: ${userContent.slice(0, 600)}\n\nAssistant: ${assistantContent.slice(0, 400)}`,
           },
         ],
-      })) as { response?: string } | undefined;
-      summarized = (res?.response ?? '').trim();
+      });
+      summarized = res.text.trim();
     } catch {
       /* fall through to heuristic */
     }
