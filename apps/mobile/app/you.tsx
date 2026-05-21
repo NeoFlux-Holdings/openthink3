@@ -1,103 +1,215 @@
-/* You — profile + settings + theme + sign-out. */
-import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
+/* You — profile + agent settings + app settings + sign-out.
+ *
+ * Layout matches the design handoff:
+ *   - Hero profile card (gradient avatar 56px · agent URL · live dot)
+ *   - This month spend with mini visualization (number + bar + 3 sub-stats)
+ *   - Agent group: Approval mode · Spend cap · Skills · Memory
+ *   - App group: Theme picker (opens bottom sheet) · Updates · Face ID
+ *   - Sign out (coral text)
+ */
+import { useEffect, useRef } from 'react';
+import { Pressable, ScrollView, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
-import { Avatar, Body, Card, Chip, Eyebrow, H1, Mono, Screen } from '../src/components/primitives';
+import { Card, Chip, Eyebrow, Mono, Screen } from '../src/components/primitives';
+import { LargeTitleHeader } from '../src/components/LargeTitleHeader';
+import { LiveDot } from '../src/components/LiveDot';
 import { TabBar, TAB_BAR_HEIGHT } from '../src/components/TabBar';
 import { useSession } from '../src/lib/session-store';
+import { tabReTapped } from '../src/lib/events';
 import { useTheme } from '../src/theme/ThemeContext';
 import { fontSize, radius, space, type as fontFamily } from '../src/theme/tokens';
+import { selection as hapticSelection } from '../src/lib/haptics';
+
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 export default function You() {
   const router = useRouter();
   const { session, signOut } = useSession();
-  const { theme, setTheme, colors } = useTheme();
+  const { theme, colors } = useTheme();
+  const scrollRef = useRef<ScrollView | null>(null);
+  const scrollY = useSharedValue(0);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollY.value = e.contentOffset.y;
+    },
+  });
+
+  useEffect(() => {
+    return tabReTapped.on((key) => {
+      if (key === 'you') {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }
+    });
+  }, []);
+
+  const agentHost = (session?.agentUrl ?? '').replace(/^https?:\/\//, '');
 
   return (
     <Screen>
-      <ScrollView
+      <LargeTitleHeader
+        title="You"
+        subtitle="Personal workspace"
+        scrollY={scrollY}
+      />
+
+      <AnimatedScrollView
+        ref={scrollRef as never}
+        onScroll={scrollHandler as unknown as (e: NativeSyntheticEvent<NativeScrollEvent>) => void}
+        scrollEventThrottle={16}
         contentContainerStyle={{
-          paddingHorizontal: space.s5,
-          paddingTop: space.s8,
+          paddingTop: space.s2,
           paddingBottom: TAB_BAR_HEIGHT + space.s5,
-          gap: space.s5,
+          gap: space.s3,
         }}
       >
-        <H1>You</H1>
-
-        <Card style={{ padding: space.s5, flexDirection: 'row', alignItems: 'center', gap: space.s4 }}>
-          <Avatar name={session?.agentName ?? 'a'} size={56} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontFamily: fontFamily.display500, fontSize: fontSize.h3, color: colors.ink }}>
-              {session?.agentName ?? 'agent'}
-            </Text>
-            <Mono style={{ color: colors.soft }}>{session?.agentUrl.replace(/^https?:\/\//, '')}</Mono>
-            <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
-              <Chip kind="green" small>
-                ● live
-              </Chip>
-              <Chip kind="default" small>
-                free tier
-              </Chip>
+        {/* Profile card */}
+        <View style={{ paddingHorizontal: space.s4 }}>
+          <Card style={{ padding: space.s4, flexDirection: 'row', alignItems: 'center', gap: space.s3 }}>
+            <LinearGradient
+              colors={[colors.brand, colors.coral]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.display, fontSize: 22 }}>
+                {(session?.agentName ?? 'a').slice(0, 1).toUpperCase()}
+              </Text>
+            </LinearGradient>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text
+                style={{
+                  fontFamily: fontFamily.display500,
+                  fontSize: fontSize.h3,
+                  color: colors.ink,
+                  letterSpacing: -0.2,
+                }}
+              >
+                {session?.agentName ?? 'agent'}
+              </Text>
+              <Mono numberOfLines={1}>{agentHost || 'agent.openthink.run'}</Mono>
             </View>
-          </View>
-        </Card>
-
-        <Section title="Spend">
-          <Card style={{ padding: space.s4, gap: space.s3 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <Mono style={{ color: colors.mute }}>this month</Mono>
-              <Text style={{ fontFamily: fontFamily.display500, fontSize: fontSize.h2, color: colors.ink }}>$4.17</Text>
-            </View>
-            <View style={{ height: 8, backgroundColor: colors.surface2, borderRadius: radius.pill, overflow: 'hidden' }}>
-              <View style={{ width: '42%', height: '100%', backgroundColor: colors.brand }} />
-            </View>
-            <Mono style={{ fontSize: 11.5 }}>cap $10 · resets monthly</Mono>
+            <LiveDot kind="green" size={8} />
           </Card>
-        </Section>
+        </View>
 
-        <Section title="Agent">
-          <Card>
-            <Row icon="checkmark-done-outline" label="Approval mode" value="Smart" onPress={() => session && Linking.openURL(`${session.agentUrl}/#/settings`)} />
-            <Row icon="cash-outline" label="Spend cap" value="$5 / day" onPress={() => session && Linking.openURL(`${session.agentUrl}/#/settings`)} />
-            <Row icon="construct-outline" label="Skills" value="14 enabled" onPress={() => session && Linking.openURL(`${session.agentUrl}/#/skills`)} />
-            <Row icon="bulb-outline" label="Memory" value="218 entries" onPress={() => session && Linking.openURL(`${session.agentUrl}/#/learning`)} />
-          </Card>
-        </Section>
-
-        <Section title="App">
-          <Card>
-            <View style={{ paddingHorizontal: space.s4, paddingVertical: space.s3, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomColor: colors.rule, borderBottomWidth: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.s3 }}>
-                <Ionicons name={theme === 'dark' ? 'moon-outline' : 'sunny-outline'} size={18} color={colors.mute} />
-                <Text style={{ fontFamily: fontFamily.body, fontSize: fontSize.body, color: colors.ink }}>Theme</Text>
-              </View>
-              <View style={{ flexDirection: 'row', backgroundColor: colors.surface2, borderRadius: radius.r2, padding: 2 }}>
-                {(['light', 'dark'] as const).map((t) => (
-                  <Pressable
-                    key={t}
-                    onPress={() => setTheme(t)}
+        {/* Spend visualization */}
+        <View style={{ gap: space.s2 }}>
+          <SectionTitle>This month</SectionTitle>
+          <View style={{ paddingHorizontal: space.s4 }}>
+            <Card style={{ padding: space.s4, gap: space.s3 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                  <Text
                     style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                      borderRadius: 4,
-                      backgroundColor: theme === t ? colors.surface : 'transparent',
+                      fontFamily: fontFamily.display500,
+                      fontSize: 28,
+                      letterSpacing: -0.6,
+                      color: colors.ink,
                     }}
                   >
-                    <Text style={{ fontFamily: fontFamily.mono, fontSize: 11, color: theme === t ? colors.ink : colors.mute }}>
-                      {t}
-                    </Text>
-                  </Pressable>
-                ))}
+                    $4.82
+                  </Text>
+                  <Text style={{ fontFamily: fontFamily.body, fontSize: 13, color: colors.mute }}>spent</Text>
+                </View>
+                <Mono style={{ fontSize: 12 }}>of $20.00</Mono>
               </View>
-            </View>
-            <Row icon="refresh-outline" label="Updates" value="3 available" pill="amber" onPress={() => router.push('/updates' as any)} />
-            <Row icon="finger-print-outline" label="Face / Touch ID" />
-            <Row icon="help-circle-outline" label="Help" onPress={() => session && Linking.openURL(`${session.agentUrl}/#/help`)} />
-          </Card>
-        </Section>
+              <View style={{ height: 8, backgroundColor: colors.bg2, borderRadius: radius.pill, overflow: 'hidden' }}>
+                <LinearGradient
+                  colors={[colors.brand, colors.coral]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{ width: '24%', height: '100%' }}
+                />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 14 }}>
+                <SubStat label="Models" value="$2.40" />
+                <SubStat label="Browser" value="$1.20" />
+                <SubStat label="Storage" value="$0.80" />
+              </View>
+            </Card>
+          </View>
+        </View>
+
+        {/* Agent group */}
+        <View style={{ gap: space.s2 }}>
+          <SectionTitle>Agent</SectionTitle>
+          <View style={{ paddingHorizontal: space.s4 }}>
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              <Row
+                tone="brand"
+                icon="shield-checkmark-outline"
+                label="Approval mode"
+                value="Smart auto"
+                onPress={() => router.push('/settings/approval-mode' as never)}
+              />
+              <Row
+                tone="coral"
+                icon="cash-outline"
+                label="Spend cap"
+                value="$20/month · hard limit"
+                onPress={() => router.push('/settings/spend-cap' as never)}
+              />
+              <Row
+                tone="blue"
+                icon="flash-outline"
+                label="Skills"
+                value="14 enabled · 41 in registry"
+                onPress={() => router.push('/settings/skills' as never)}
+              />
+              <Row
+                tone="green"
+                icon="bulb-outline"
+                label="Memory"
+                value="218 facts · 7 pending"
+                onPress={() => router.push('/settings/memory' as never)}
+                isLast
+              />
+            </Card>
+          </View>
+        </View>
+
+        {/* App group */}
+        <View style={{ gap: space.s2 }}>
+          <SectionTitle>App</SectionTitle>
+          <View style={{ paddingHorizontal: space.s4 }}>
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              <Row
+                icon={theme === 'dark' ? 'moon-outline' : 'sunny-outline'}
+                label="Theme"
+                value={theme === 'dark' ? 'Dark' : 'Light'}
+                onPress={() => {
+                  hapticSelection();
+                  router.push('/sheets/theme' as never);
+                }}
+              />
+              <Row
+                tone="amber"
+                icon="refresh-outline"
+                label="Updates"
+                value="3 available · 2 safe"
+                pill={{ kind: 'coral', text: '3' }}
+                onPress={() => router.push('/updates' as never)}
+              />
+              <Row
+                icon="finger-print-outline"
+                label="Face ID for approvals"
+                switchOn
+                isLast
+              />
+            </Card>
+          </View>
+        </View>
 
         <Pressable
           onPress={() => void signOut()}
@@ -105,17 +217,33 @@ export default function You() {
         >
           <Mono style={{ color: colors.coral }}>Sign out of {session?.agentName ?? 'agent'}</Mono>
         </Pressable>
-      </ScrollView>
-      <TabBar active="you" onNavigate={(href) => router.push(href as any)} onCompose={() => router.push('/sheets/new-task' as any)} />
+      </AnimatedScrollView>
+
+      <TabBar
+        active="you"
+        onNavigate={(href) => router.push(href as never)}
+        onCompose={() => router.push('/sheets/new-task' as never)}
+      />
     </Screen>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <View style={{ gap: space.s2 }}>
-      <Eyebrow>{title}</Eyebrow>
-      {children}
+    <View style={{ paddingHorizontal: space.s4, paddingTop: space.s1 }}>
+      <Eyebrow>{children}</Eyebrow>
+    </View>
+  );
+}
+
+function SubStat({ label, value }: { label: string; value: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <Mono style={{ fontSize: 11.5 }}>{label}</Mono>
+      <Text style={{ fontFamily: fontFamily.bodyMedium, fontSize: 12, color: colors.ink }}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -126,14 +254,28 @@ function Row({
   value,
   onPress,
   pill,
+  tone,
+  switchOn,
+  isLast,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value?: string;
   onPress?: () => void;
-  pill?: 'amber' | 'green' | 'red';
+  pill?: { kind: 'coral' | 'green' | 'amber'; text: string };
+  tone?: 'brand' | 'coral' | 'green' | 'amber' | 'blue';
+  switchOn?: boolean;
+  isLast?: boolean;
 }) {
   const { colors } = useTheme();
+  const toneMap = {
+    brand: { bg: colors.brandSoft, fg: colors.brandInk },
+    coral: { bg: colors.coralSoft, fg: colors.coralInk },
+    green: { bg: colors.greenSoft, fg: colors.greenInk },
+    amber: { bg: colors.amberSoft, fg: colors.amberInk },
+    blue: { bg: colors.blueSoft, fg: colors.blueInk },
+  } as const;
+  const t = tone ? toneMap[tone] : { bg: colors.bg2, fg: colors.mute };
   return (
     <Pressable
       onPress={onPress}
@@ -143,22 +285,67 @@ function Row({
         gap: space.s3,
         paddingHorizontal: space.s4,
         paddingVertical: space.s3,
-        backgroundColor: pressed ? colors.surface2 : 'transparent',
+        backgroundColor: pressed && onPress ? colors.surface2 : 'transparent',
         borderBottomColor: colors.rule,
-        borderBottomWidth: 1,
+        borderBottomWidth: isLast ? 0 : 0.5,
+        minHeight: 56,
       })}
     >
-      <Ionicons name={icon} size={18} color={colors.mute} />
-      <Text style={{ flex: 1, fontFamily: fontFamily.body, fontSize: fontSize.body, color: colors.ink }}>
-        {label}
-      </Text>
-      {pill && value && (
-        <Chip kind={pill as any} small>
-          {value}
+      <View
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: 7,
+          backgroundColor: t.bg,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Ionicons name={icon} size={14} color={t.fg} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontFamily: fontFamily.bodyMedium,
+            fontSize: 14.5,
+            color: colors.ink,
+            letterSpacing: -0.05,
+          }}
+        >
+          {label}
+        </Text>
+        {value && <Mono style={{ fontSize: 11.5, marginTop: 1 }}>{value}</Mono>}
+      </View>
+      {pill && (
+        <Chip kind={pill.kind} small>
+          {pill.text}
         </Chip>
       )}
-      {!pill && value && <Mono style={{ color: colors.mute }}>{value}</Mono>}
-      {onPress && <Ionicons name="chevron-forward" size={16} color={colors.soft} />}
+      {switchOn !== undefined && (
+        <View
+          style={{
+            width: 36,
+            height: 22,
+            borderRadius: 11,
+            backgroundColor: switchOn ? colors.brand : colors.ruleStrong,
+            padding: 2,
+            justifyContent: 'center',
+          }}
+        >
+          <View
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: 9,
+              backgroundColor: '#FFFFFF',
+              alignSelf: switchOn ? 'flex-end' : 'flex-start',
+            }}
+          />
+        </View>
+      )}
+      {onPress && switchOn === undefined && !pill && (
+        <Ionicons name="chevron-forward" size={16} color={colors.soft} />
+      )}
     </Pressable>
   );
 }

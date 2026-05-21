@@ -399,7 +399,7 @@
    Mobile responsive overrides for the existing Shell
    (these reach into Shell.css' grid without rewriting it)
    ============================================================ */
-@media (max-width: 900px) {
+@media (max-width: 760px) {
   /* Collapse sidebar to icons by default at phone widths. The user can
      still get the full sidebar by tapping the collapse-toggle button —
      same affordance that's there on desktop, just more important here. */
@@ -494,4 +494,126 @@
   .cmd-input { font-size: 15px; padding: 14px 16px; }
   .cmd-row { padding: 8px 16px; }
   .cmd-foot { padding: 10px 16px; gap: 10px; flex-wrap: wrap; }
+}
+
+/* ============================================================
+   Mobile web — ≤760px responsive pass (delta v2).
+   Implements the rules from the design handoff so every surface
+   (marketing, onboarding, deploy, app, settings) reads cleanly on
+   a phone-sized browser.
+   ============================================================ */
+@media (max-width: 760px) {
+  /* --- Marketing nav: collapse links to just the primary CTA --- */
+  .lnav-links a:not(:last-child):not(.btn) { display: none; }
+  .lnav-links .sep { display: none; }
+
+  /* --- Landing hero / sections: tighten + single column --- */
+  .lhero { padding: 32px 0 48px; }
+  .lhero-cta .meta { display: none; }
+  .lhero-demo-body { grid-template-columns: 1fr; }
+  .stats-strip { grid-template-columns: 1fr 1fr; }
+  .lsection { padding: 56px 0; }
+  .compare-block,
+  .two-step,
+  .cap-grid,
+  .price-block { grid-template-columns: 1fr; }
+  .compare-col,
+  .price-card { padding: 22px; }
+
+  /* --- Onboarding: hide the side rail, give the form more breathing room --- */
+  .onb { grid-template-columns: 1fr; }
+  .onb-rail { display: none; }
+  .onb-main { padding: 32px 20px; }
+  .onb-content h1 { font-size: 28px; }
+
+  /* --- Deploy progress: hide the side panel, stack the timeline --- */
+  .deploy { grid-template-columns: 1fr; }
+  .deploy-side { display: none; }
+  .deploy-main { padding: 32px 20px; }
+
+  /* --- App library grid drops to 2-col tiles --- */
+  .lib-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* --- Skills + audit rows: hide the long category column --- */
+  .skill-row { grid-template-columns: 36px 1fr 60px; }
+  .skill-row .ct { display: none; }
+  .audit-row { grid-template-columns: 70px 60px 1fr; gap: 8px; padding: 8px 14px; }
+  .audit-row .ct { display: none; }
+
+  /* --- Sync PR rows: keep title + state, drop branch + who --- */
+  .pr-row { grid-template-columns: 22px 1fr auto; gap: 10px; padding: 12px 14px; }
+  .pr-row .branch,
+  .pr-row .who { display: none; }
+  .update-head { grid-template-columns: 18px 1fr auto; padding: 14px; }
+
+  /* --- Sync hero stacks: stat + CTAs vertical --- */
+  .sync-hero { flex-direction: column; align-items: flex-start; padding: 18px; gap: 14px; }
+  .auto-row { grid-template-columns: 1fr; }
+  .auto-card { border-right: none; border-bottom: 1px solid var(--rule); }
+  .auto-card:last-child { border-bottom: none; }
+
+  /* --- Settings: rows stack their controls so the input goes full-width --- */
+  .setting-row { grid-template-columns: 1fr; }
+  .setting-row .composer-mode,
+  .setting-row .theme-toggle { justify-self: flex-start; }
+
+  /* --- Train mode: tighter padding so the canvas isn't cropped --- */
+  .train-body { padding: 24px 16px; }
+  .train-canvas { padding: 20px; }
+  .train-head { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+  .train-foot { padding: 12px 16px; }
+
+  /* --- Stage bar (preview chrome) drops the URL when there's no room --- */
+  .stage-bar .url { display: none; }
+
+  /* --- Composer + thread feed: respect safe-area + tighten padding --- */
+  .composer {
+    padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  .composer-input {
+    padding: 12px 14px;
+    font-size: 16px; /* 16px+ prevents iOS Safari zoom on focus */
+    min-height: 48px;
+  }
+  .thread-feed { padding: 16px 12px 12px; }
+
+  /* --- Page heads compact, search expands to full width --- */
+  .page-head { padding: 16px 16px 12px; }
+  .page-head h1 { font-size: 22px; }
+  .page-tools { gap: 8px; }
+  .search-wrap { max-width: 100%; }
+
+  /* --- Tap targets: every interactive row at least 44px tall --- */
+  .nav-item,
+  .sb-item,
+  .m-list-row,
+  .shell__nav-item { min-height: 44px; }
+}
+
+/* ============================================================
+   Mobile web: app canvas behavior at ≤760px
+   ============================================================ */
+@media (max-width: 760px) {
+  /* When the user opens the canvas pane on a phone, render it as a
+     bottom-sheet that slides up from the home indicator. The Shell
+     itself decides when the canvas is visible (via shell--pane-canvas);
+     this just changes how it presents. */
+  .shell--pane-canvas .shell__canvas-pane {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 80%;
+    transform: translateY(0);
+    transition: transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    z-index: 60;
+    box-shadow: 0 -16px 50px -10px rgba(0, 0, 0, 0.20);
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+    overflow: hidden;
+  }
+  .shell--pane-feed .shell__canvas-pane {
+    transform: translateY(100%);
+    pointer-events: none;
+  }
 }

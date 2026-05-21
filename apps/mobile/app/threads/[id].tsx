@@ -1,8 +1,20 @@
-/* Conversation detail — header bar + working notes pin + msg-user / msg-ag
- * stream + composer at the bottom. Tap an artifact card to push the
- * Browser session screen.
+/* Conversation detail — chat thread + canvas view, switched via Segmented.
+ *
+ * Layout:
+ *   Top nav: back chevron + thread title + share/more
+ *   Segmented control: Chat (default) | Canvas (count badge)
+ *   Body:
+ *     Chat → working notes pin · message bubbles · agent reply with
+ *            tool chips + token count · live status pill · suggested chips
+ *     Canvas → artifact cards (full-width, type-specific mini previews)
+ *   Composer pinned at bottom (KeyboardAvoidingView)
+ *
+ * Streaming auto-scroll: digest of {message text lengths} flips when tokens
+ * arrive, scrolling to the bottom — but only if the user hasn't scrolled
+ * up. If they have, we surface a "New message" pill instead of yanking
+ * them back. Long-press a message to copy.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -25,12 +37,13 @@ import {
   Body,
   Card,
   Chip,
-  Dot,
   Eyebrow,
   Mono,
   Screen,
 } from '../../src/components/primitives';
 import { LiveDot } from '../../src/components/LiveDot';
+import { MiniBrowserThumb } from '../../src/components/MiniBrowserThumb';
+import { Segmented } from '../../src/components/Segmented';
 import { confirm as hapticConfirm, success as hapticSuccess, tap as hapticTap } from '../../src/lib/haptics';
 import { getConversation, sendMessage, type Conversation, type ConversationMessage } from '../../src/lib/api';
 import { useSession } from '../../src/lib/session-store';
@@ -39,7 +52,7 @@ import { fontSize, radius, space, type as fontFamily } from '../../src/theme/tok
 
 const FALLBACK: Conversation = {
   id: 'q3',
-  title: 'Q3 launch + customer calls',
+  title: 'Q3 launch plan',
   live: true,
   workingNotes: {
     goal: 'Q3 launch + book 3 calls next week.',
@@ -48,22 +61,24 @@ const FALLBACK: Conversation = {
     updatedAt: Date.now() - 2000,
   },
   messages: [
-    { id: 'm1', role: 'user', text: 'Book 3 customer calls next week from the tier-2 list', time: '9:14' },
+    { id: 'm1', role: 'user', text: 'Help me plan Q3 launch. Book 3 customer calls this week.', time: '9:14' },
     {
       id: 'm2',
       role: 'agent',
-      text: "Found 8 candidates in the CRM. I'll start with Sarah Cohen (warm), Derek Mason (cold but high signal), and Priya Vance (Tier 2 archetype). Drafting outreach now.",
+      text: "Drafted `launch.md` with audience, risks, candidate list. Queried CRM — **8 tier-2 candidates**. Booked Sarah Cohen (Thu 2pm) + Derek Mason (Fri 11am). Drafting outreach for Priya.",
       time: '9:15',
-      tools: [{ name: 'crm.query' }, { name: 'calendar' }, { name: 'browser' }],
-      reasoned: { seconds: 4, tokens: 612, preview: 'Tier-2 customers have the warmest cold-start when the agent shows...' },
+      tools: [{ name: 'crm.query' }, { name: 'calendar.read' }, { name: 'doc.edit' }],
+      reasoned: { seconds: 6, tokens: 2810, preview: 'Two parallel tracks — strategic + tactical.' },
     },
   ],
   artifacts: [
-    { id: 'a1', type: 'doc', title: 'launch.md', size: '4.2KB' },
-    { id: 'a2', type: 'table', title: 'candidates', size: '1.4KB' },
-    { id: 'a3', type: 'browser', title: 'calendly.com/derek-m', size: 'live' },
+    { id: 'a1', type: 'browser', title: 'calendly.com/derek-m', size: 'live · 4.2 fps' },
+    { id: 'a2', type: 'doc', title: 'launch.md', size: 'v8 · 2.4 KB' },
+    { id: 'a3', type: 'table', title: 'Q3 candidate calls', size: '8 rows' },
   ],
 };
+
+type Mode = 'chat' | 'canvas';
 
 export default function Conversation() {
   const router = useRouter();
@@ -72,12 +87,10 @@ export default function Conversation() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [data, setData] = useState<Conversation>(FALLBACK);
+  const [mode, setMode] = useState<Mode>('chat');
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  // Tracks whether the user has scrolled away from the bottom. When true and
-  // a new message arrives we show a "new message" pill instead of auto-
-  // scrolling — pulling the floor out from under a user mid-read is rude.
   const [atBottom, setAtBottom] = useState(true);
   const [hasNew, setHasNew] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
@@ -102,23 +115,22 @@ export default function Conversation() {
     setRefreshing(false);
   }, [load]);
 
-  // Build a digest of the feed that changes on text growth too — so streaming
-  // tokens trigger our auto-scroll, not just message-count flips.
+  // Digest changes when text length grows — catches token streaming.
   const feedSignature = data.messages.map((m) => m.text.length).join(',');
 
   useEffect(() => {
+    if (mode !== 'chat') return;
     if (!atBottom) {
       setHasNew(true);
       return;
     }
     const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
     return () => clearTimeout(t);
-  }, [feedSignature, atBottom]);
+  }, [feedSignature, atBottom, mode]);
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
-    const distanceFromBottom =
-      contentSize.height - (layoutMeasurement.height + contentOffset.y);
+    const distanceFromBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y);
     const wasAtBottom = atBottom;
     const isAtBottom = distanceFromBottom < 80;
     if (wasAtBottom !== isAtBottom) setAtBottom(isAtBottom);
@@ -129,9 +141,7 @@ export default function Conversation() {
     hapticTap();
     try {
       await Clipboard.setStringAsync(text);
-    } catch {
-      /* clipboard unavailable */
-    }
+    } catch { /* clipboard unavailable */ }
   };
 
   const shareThread = async () => {
@@ -139,9 +149,7 @@ export default function Conversation() {
     try {
       const url = session ? `${session.agentUrl}/#/shell?thread=${encodeURIComponent(data.id)}` : '';
       await Share.share({ message: url ? `${data.title}\n${url}` : data.title, url });
-    } catch {
-      /* user canceled */
-    }
+    } catch { /* user canceled */ }
   };
 
   const send = async () => {
@@ -151,7 +159,6 @@ export default function Conversation() {
     setSending(true);
     setDraft('');
     setAtBottom(true);
-    // Optimistic append.
     setData((prev) => ({
       ...prev,
       messages: [
@@ -163,147 +170,242 @@ export default function Conversation() {
       await sendMessage(session, data.id, text);
       hapticSuccess();
       await load();
-    } catch {
-      /* swallow — the user will see the local bubble */
-    } finally {
+    } catch { /* swallow */ }
+    finally {
       setSending(false);
     }
   };
 
   return (
     <Screen>
+      {/* Nav strip */}
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          paddingTop: insets.top + space.s2,
-          paddingHorizontal: space.s4,
-          paddingBottom: space.s3,
+          paddingTop: insets.top + 6,
+          paddingHorizontal: space.s2,
+          paddingBottom: space.s2,
           borderBottomColor: colors.rule,
-          borderBottomWidth: 1,
-          gap: space.s3,
+          borderBottomWidth: 0.5,
+          gap: space.s2,
           backgroundColor: colors.bg,
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.ink} />
-        </Pressable>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontFamily: fontFamily.display500, fontSize: 16, color: colors.ink }} numberOfLines={1}>
-            {data.title}
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 1, paddingVertical: 6, paddingHorizontal: 4 }}
+        >
+          <Ionicons name="chevron-back" size={22} color={colors.brand} />
+          <Text style={{ fontFamily: fontFamily.bodyMedium, fontSize: 15, color: colors.brand }}>
+            Today
           </Text>
+        </Pressable>
+        <View style={{ flex: 1, minWidth: 0, alignItems: 'center' }}>
           {data.live && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <LiveDot kind="coral" size={6} />
-              <Mono style={{ color: colors.coralInk }}>thinking</Mono>
+              <Mono style={{ fontSize: 11.5, color: colors.coralInk }}>flannel-arroyo</Mono>
             </View>
           )}
+          <Text
+            style={{
+              fontFamily: fontFamily.display500,
+              fontSize: 15,
+              color: colors.ink,
+              letterSpacing: -0.1,
+            }}
+            numberOfLines={1}
+          >
+            {data.title}
+          </Text>
         </View>
-        <Pressable hitSlop={12} onPress={() => void shareThread()}>
-          <Ionicons name="share-outline" size={22} color={colors.mute} />
+        <Pressable
+          hitSlop={12}
+          onPress={() => void shareThread()}
+          style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Ionicons name="share-outline" size={20} color={colors.mute} />
         </Pressable>
+      </View>
+
+      {/* Segmented control */}
+      <View style={{ paddingHorizontal: space.s4, paddingTop: space.s2, paddingBottom: space.s1 }}>
+        <Segmented<Mode>
+          options={[
+            { value: 'chat', label: 'Chat' },
+            { value: 'canvas', label: 'Canvas', badge: data.artifacts.length },
+          ]}
+          value={mode}
+          onChange={(next) => {
+            hapticTap();
+            setMode(next);
+          }}
+        />
       </View>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 52 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 96 : 0}
       >
-        <ScrollView
-          ref={scrollRef}
-          contentContainerStyle={{ padding: space.s4, gap: space.s5 }}
-          keyboardShouldPersistTaps="handled"
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          onContentSizeChange={() => {
-            if (atBottom) scrollRef.current?.scrollToEnd({ animated: false });
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.brand}
-            />
-          }
-        >
-          {data.workingNotes && (
-            <Card soft style={{ padding: space.s4, gap: space.s2, backgroundColor: colors.brandSoft, borderColor: 'transparent' }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Eyebrow style={{ color: colors.brand }}>Working notes</Eyebrow>
-                <Mono style={{ color: colors.brand, opacity: 0.6 }}>{formatAge(data.workingNotes.updatedAt)}</Mono>
-              </View>
-              <Text style={{ color: colors.brandInk, lineHeight: 20, fontFamily: fontFamily.body, fontSize: 13 }}>
-                <Text style={{ fontFamily: fontFamily.bodyMedium, color: colors.ink }}>Goal:</Text> {data.workingNotes.goal}{'\n'}
-                <Text style={{ fontFamily: fontFamily.bodyMedium, color: colors.ink }}>Found:</Text> {data.workingNotes.found}{'\n'}
-                <Text style={{ fontFamily: fontFamily.bodyMedium, color: colors.ink }}>Working:</Text> {data.workingNotes.working}
-              </Text>
-            </Card>
-          )}
-
-          {data.messages.map((m) => (
-            <Message key={m.id} message={m} onLongPress={() => void copyText(m.text)} />
-          ))}
-
-          {data.artifacts.length > 0 && (
-            <View style={{ gap: space.s2 }}>
-              <Eyebrow>Artifacts</Eyebrow>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.s3 }}>
-                {data.artifacts.map((a) => (
-                  <Pressable
-                    key={a.id}
-                    onPress={() => a.type === 'browser' && router.push(`/threads/${data.id}/browser` as any)}
-                  >
-                    <Card style={{ padding: space.s3, gap: space.s2, width: 180 }}>
-                      <View
-                        style={{
-                          height: 86,
-                          backgroundColor: a.type === 'browser' ? colors.coralSoft : colors.surface2,
-                          borderRadius: radius.r2,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Ionicons
-                          name={
-                            a.type === 'doc' ? 'document-text-outline' :
-                            a.type === 'browser' ? 'globe-outline' :
-                            a.type === 'code' ? 'code-slash-outline' :
-                            a.type === 'table' ? 'grid-outline' :
-                            'image-outline'
-                          }
-                          size={28}
-                          color={a.type === 'browser' ? colors.coral : colors.mute}
-                        />
-                      </View>
-                      <Text style={{ fontFamily: fontFamily.bodyMedium, color: colors.ink, fontSize: 13 }} numberOfLines={1}>
-                        {a.title}
-                      </Text>
-                      <Mono>{a.size}</Mono>
-                    </Card>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {data.live && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.s2 }}>
+        {mode === 'chat' ? (
+          <ScrollView
+            ref={scrollRef}
+            contentContainerStyle={{ padding: space.s4, gap: space.s4 }}
+            keyboardShouldPersistTaps="handled"
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            onContentSizeChange={() => {
+              if (atBottom) scrollRef.current?.scrollToEnd({ animated: false });
+            }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />
+            }
+          >
+            {data.workingNotes && (
               <View
                 style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: 5,
-                  borderWidth: 1.5,
-                  borderColor: colors.brand,
-                  borderTopColor: 'transparent',
+                  padding: space.s3,
+                  borderRadius: radius.r3,
+                  backgroundColor: colors.brandSoft,
+                  borderColor: colors.brandSoft2,
+                  borderWidth: 1,
+                  gap: 4,
                 }}
-              />
-              <Mono style={{ color: colors.mute }}>browsing calendly.com/derek-m · selecting slot</Mono>
-            </View>
-          )}
-        </ScrollView>
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Eyebrow style={{ color: colors.brand }}>Working notes</Eyebrow>
+                  <Mono style={{ color: colors.brand, opacity: 0.6 }}>
+                    {formatAge(data.workingNotes.updatedAt)}
+                  </Mono>
+                </View>
+                <Text style={{ color: colors.ink2, lineHeight: 20, fontFamily: fontFamily.body, fontSize: 12.5 }}>
+                  <Text style={{ fontFamily: fontFamily.bodyMedium, color: colors.ink }}>Goal:</Text> {data.workingNotes.goal}{'\n'}
+                  <Text style={{ fontFamily: fontFamily.bodyMedium, color: colors.ink }}>Found:</Text> {data.workingNotes.found}
+                </Text>
+              </View>
+            )}
 
-        {hasNew && !atBottom && (
+            {data.messages.map((m) => (
+              <Message key={m.id} message={m} onLongPress={() => void copyText(m.text)} />
+            ))}
+
+            {/* Inline approval card — tap to review */}
+            <Pressable onPress={() => router.push({ pathname: '/sheets/approval', params: { id: 'a1' } })}>
+              <View
+                style={{
+                  backgroundColor: colors.coralSoft,
+                  borderRadius: radius.r4,
+                  padding: space.s3,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: space.s3,
+                }}
+              >
+                <View
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 9,
+                    backgroundColor: colors.coral,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name="mail-outline" size={14} color="#FFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{ fontFamily: fontFamily.bodyMedium, fontSize: 13.5, color: colors.coralInk }}
+                  >
+                    Approval needed
+                  </Text>
+                  <Mono style={{ color: colors.coralInk, opacity: 0.7, marginTop: 1 }}>
+                    tap to review draft email to Priya
+                  </Mono>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.coralInk} />
+              </View>
+            </Pressable>
+
+            {data.live && (
+              <View style={{ flexDirection: 'row', gap: space.s3, alignItems: 'flex-start' }}>
+                <View
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 7,
+                    backgroundColor: colors.ink,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ color: colors.bg, fontFamily: fontFamily.bodyMedium, fontSize: 12 }}>f</Text>
+                </View>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    backgroundColor: colors.surface2,
+                    borderColor: colors.rule,
+                    borderWidth: 1,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: radius.pill,
+                    alignSelf: 'flex-start',
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: 5,
+                      borderWidth: 1.5,
+                      borderColor: colors.ruleStrong,
+                      borderTopColor: colors.brand,
+                    }}
+                  />
+                  <Mono style={{ color: colors.mute, fontSize: 12 }}>browsing calendly.com</Mono>
+                </View>
+              </View>
+            )}
+
+            {/* Suggested follow-ups */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {['Why these three?', 'Show launch brief', 'Draft Slack post'].map((s) => (
+                <Pressable
+                  key={s}
+                  style={{
+                    paddingHorizontal: 11,
+                    paddingVertical: 7,
+                    borderRadius: radius.pill,
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.rule2,
+                  }}
+                  onPress={() => setDraft(s)}
+                >
+                  <Text style={{ fontFamily: fontFamily.bodyMedium, fontSize: 12.5, color: colors.ink2 }}>
+                    {s}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+        ) : (
+          <CanvasView
+            artifacts={data.artifacts}
+            threadId={data.id}
+            onOpenBrowser={(artifactId) =>
+              router.push(`/browser/${data.id}?artifact=${encodeURIComponent(artifactId)}` as never)
+            }
+          />
+        )}
+
+        {hasNew && !atBottom && mode === 'chat' && (
           <Pressable
             onPress={() => {
               hapticTap();
@@ -336,10 +438,11 @@ export default function Conversation() {
           </Pressable>
         )}
 
+        {/* Composer */}
         <View
           style={{
             borderTopColor: colors.rule,
-            borderTopWidth: 1,
+            borderTopWidth: 0.5,
             padding: space.s3,
             paddingBottom: insets.bottom > 0 ? insets.bottom + space.s2 : space.s4,
             backgroundColor: colors.bg,
@@ -354,48 +457,55 @@ export default function Conversation() {
               height: 38,
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: radius.r3,
-              backgroundColor: colors.surface2,
+              borderRadius: 19,
+              backgroundColor: colors.surface,
+              borderColor: colors.rule,
+              borderWidth: 1,
             }}
           >
-            <Ionicons name="attach-outline" size={20} color={colors.mute} />
+            <Ionicons name="attach-outline" size={18} color={colors.mute} />
           </Pressable>
           <View
             style={{
               flex: 1,
               backgroundColor: colors.surface,
-              borderColor: colors.rule2,
+              borderColor: colors.rule,
               borderWidth: 1,
-              borderRadius: radius.r3,
+              borderRadius: 22,
               paddingHorizontal: space.s3,
-              minHeight: 38,
+              minHeight: 40,
               maxHeight: 120,
               justifyContent: 'center',
             }}
           >
             <TextInput
-              placeholder="What else? Hold to talk · or type"
+              placeholder="Reply or hold to talk"
               placeholderTextColor={colors.soft}
               value={draft}
               onChangeText={setDraft}
               multiline
-              style={{ fontFamily: fontFamily.body, fontSize: fontSize.body, color: colors.ink, paddingVertical: 8 }}
+              style={{
+                fontFamily: fontFamily.body,
+                fontSize: fontSize.bodyLg,
+                color: colors.ink,
+                paddingVertical: 8,
+              }}
             />
           </View>
           <Pressable
             onPress={send}
             disabled={!draft.trim() || sending}
             style={{
-              width: 38,
-              height: 38,
+              width: 40,
+              height: 40,
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: radius.r3,
+              borderRadius: 20,
               backgroundColor: draft.trim() ? colors.brand : colors.surface2,
               opacity: sending ? 0.6 : 1,
             }}
           >
-            <Ionicons name="send" size={18} color={draft.trim() ? '#FFFFFF' : colors.mute} />
+            <Ionicons name="send" size={16} color={draft.trim() ? '#FFFFFF' : colors.mute} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -403,7 +513,15 @@ export default function Conversation() {
   );
 }
 
-function Message({ message, onLongPress }: { message: ConversationMessage; onLongPress?: () => void }) {
+/* ----- Subviews ----- */
+
+function Message({
+  message,
+  onLongPress,
+}: {
+  message: ConversationMessage;
+  onLongPress?: () => void;
+}) {
   const { colors } = useTheme();
   if (message.role === 'user') {
     return (
@@ -415,17 +533,25 @@ function Message({ message, onLongPress }: { message: ConversationMessage; onLon
         <View
           style={{
             backgroundColor: colors.brand2,
-            paddingHorizontal: space.s3,
-            paddingVertical: space.s2,
-            borderRadius: 14,
+            paddingHorizontal: 13,
+            paddingVertical: 9,
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            borderBottomLeftRadius: 16,
             borderBottomRightRadius: 4,
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontFamily: fontFamily.body, fontSize: fontSize.body, lineHeight: 20 }}>
+          <Text
+            style={{
+              color: '#FFFFFF',
+              fontFamily: fontFamily.body,
+              fontSize: 14.5,
+              lineHeight: 20,
+            }}
+          >
             {message.text}
           </Text>
         </View>
-        <Mono style={{ textAlign: 'right', marginTop: 2 }}>{message.time}</Mono>
       </Pressable>
     );
   }
@@ -433,7 +559,7 @@ function Message({ message, onLongPress }: { message: ConversationMessage; onLon
     <Pressable
       onLongPress={onLongPress}
       delayLongPress={350}
-      style={{ flexDirection: 'row', gap: space.s3 }}
+      style={{ flexDirection: 'row', gap: 10 }}
     >
       <View
         style={{
@@ -448,32 +574,131 @@ function Message({ message, onLongPress }: { message: ConversationMessage; onLon
       >
         <Text style={{ color: colors.bg, fontFamily: fontFamily.bodyMedium, fontSize: 12 }}>f</Text>
       </View>
-      <View style={{ flex: 1, gap: space.s2 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ fontFamily: fontFamily.bodyMedium, fontSize: 12.5, color: colors.ink }}>
-            flannel-arroyo
-          </Text>
-          <Mono>{message.time}</Mono>
-        </View>
-        {message.reasoned && (
-          <View style={{ borderLeftWidth: 2, borderLeftColor: colors.rule2, paddingLeft: space.s3 }}>
-            <Mono>
-              Reasoned for {message.reasoned.seconds}s · {message.reasoned.tokens} tokens
-            </Mono>
-          </View>
-        )}
+      <View style={{ flex: 1, gap: 6, minWidth: 0 }}>
+        <Mono style={{ fontSize: 11.5 }}>
+          flannel-arroyo
+          {message.reasoned && ` · reasoned ${message.reasoned.seconds}s · ${message.reasoned.tokens.toLocaleString()} tokens`}
+        </Mono>
         {message.tools && message.tools.length > 0 && (
-          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+          <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
             {message.tools.map((t) => (
-              <Chip key={t.name} kind="default" small>
-                {t.name}
-              </Chip>
+              <View
+                key={t.name}
+                style={{
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  backgroundColor: colors.surface2,
+                  borderColor: colors.rule,
+                  borderWidth: 1,
+                  borderRadius: 4,
+                }}
+              >
+                <Text
+                  style={{ fontFamily: fontFamily.mono, fontSize: 10.5, color: colors.ink2 }}
+                >
+                  {t.name}
+                </Text>
+              </View>
             ))}
           </View>
         )}
         <Body style={{ color: colors.ink2, lineHeight: 22 }}>{message.text}</Body>
       </View>
     </Pressable>
+  );
+}
+
+function CanvasView({
+  artifacts,
+  onOpenBrowser,
+}: {
+  artifacts: Conversation['artifacts'];
+  threadId: string;
+  onOpenBrowser: (artifactId: string) => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <ScrollView contentContainerStyle={{ padding: space.s4, gap: space.s3 }}>
+      <Eyebrow>{artifacts.length} artifact{artifacts.length === 1 ? '' : 's'}</Eyebrow>
+      {artifacts.map((a) => (
+        <Pressable
+          key={a.id}
+          onPress={() => a.type === 'browser' && onOpenBrowser(a.id)}
+        >
+          <Card style={{ padding: 0, overflow: 'hidden', borderRadius: radius.r4 }}>
+            <View
+              style={{
+                height: 160,
+                backgroundColor: colors.bg2,
+                overflow: 'hidden',
+              }}
+            >
+              {a.type === 'browser' ? (
+                <MiniBrowserThumb />
+              ) : a.type === 'doc' ? (
+                <View style={{ padding: 24 }}>
+                  <View style={{ height: 6, width: '50%', backgroundColor: colors.ink3, borderRadius: 2, marginBottom: 6 }} />
+                  {[100, 85, 70, 90, 55].map((w, i) => (
+                    <View
+                      key={i}
+                      style={{
+                        height: 4,
+                        width: `${w}%`,
+                        backgroundColor: colors.ruleStrong,
+                        borderRadius: 2,
+                        marginBottom: 4,
+                      }}
+                    />
+                  ))}
+                </View>
+              ) : a.type === 'table' ? (
+                <View style={{ padding: 14 }}>
+                  {[1, 2, 3, 4, 5, 6].map((j) => (
+                    <View
+                      key={j}
+                      style={{
+                        flexDirection: 'row',
+                        gap: 6,
+                        paddingVertical: 4,
+                        borderBottomWidth: 1,
+                        borderBottomColor: colors.rule,
+                      }}
+                    >
+                      <View style={{ flex: 1, height: 4, backgroundColor: colors.ruleStrong, borderRadius: 2 }} />
+                      <View style={{ flex: 1, height: 4, backgroundColor: colors.ruleStrong, borderRadius: 2 }} />
+                      <View style={{ flex: 0.6, height: 4, backgroundColor: colors.ruleStrong, borderRadius: 2 }} />
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="cube-outline" size={36} color={colors.soft} />
+                </View>
+              )}
+            </View>
+            <View
+              style={{
+                flexDirection: 'row',
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                alignItems: 'center',
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{ fontFamily: fontFamily.bodyMedium, fontSize: 13.5, color: colors.ink }}
+                  numberOfLines={1}
+                >
+                  {a.title}
+                </Text>
+                <Mono style={{ marginTop: 1, fontSize: 11.5 }}>{a.size}</Mono>
+              </View>
+              <Ionicons name="chevron-forward" size={14} color={colors.soft} />
+            </View>
+          </Card>
+        </Pressable>
+      ))}
+    </ScrollView>
   );
 }
 

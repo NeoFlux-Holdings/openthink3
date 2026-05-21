@@ -122,7 +122,134 @@ verified end-to-end. Updated each loop iteration.
   worker typecheck + mobile typecheck + `wrangler deploy --dry-run`
   all green.
 
+### Mobile UX delta v2 — full screen rebuilds + native interactions
+Layered on top of the initial mobile companion. Sourced from the second
+Claude Design handoff (`live-phone.jsx` + `live-phone-screens.jsx` +
+`mobile-screens-1.jsx`). All native, all UI-thread driven (Reanimated 4
++ gesture-handler), all type-checked clean.
 
+- ✓ **LargeTitleHeader** (`src/components/LargeTitleHeader.tsx`) —
+  iOS-style title that collapses on scroll. Big title fades + nudges
+  up between 0 and 40px; nav title fades in to replace it; tinted
+  backdrop fills at t > 0.3; hairline rule appears at t > 0.9. All
+  three transitions driven by a single `scrollY` shared value the
+  caller supplies via `useAnimatedScrollHandler`. Optional left-side
+  back chevron + brand label, right-side accessory slot (e.g. avatar).
+- ✓ **SwipeRow** (`src/components/SwipeRow.tsx`) — left + right swipe
+  actions per row using Reanimated `Gesture.Pan` with `activeOffsetX`
+  + `failOffsetY` to only steal the pan when the user clearly meant
+  horizontal. |dx| > 80 on release commits the action; anything
+  shorter rubber-bands back with a 240ms cubic-bezier(0.22,0.61,0.36,1)
+  release. Action panels (`pin`, `archive`, `mark`, `mute` tones)
+  expand to match drag distance. Haptic confirm on fire.
+- ✓ **MiniBrowserThumb** (`src/components/MiniBrowserThumb.tsx`) — a
+  faithful mini browser preview: traffic-light buttons, URL pill,
+  page heading + calendar grid (one slot selected), and the agent
+  cursor SVG with brand-orange `<FeDropShadow>`. Used in the Today
+  live-task card and inside `/threads/[id]` Canvas tab artifact
+  previews of type `browser`.
+- ✓ **Segmented** (`src/components/Segmented.tsx`) — pill-style 2/3
+  option picker with selected card lift (subtle shadow). Optional
+  per-option badge slot for counts ("Canvas 3"). Used inside
+  `/threads/[id]` to switch Chat ↔ Canvas without losing scroll
+  position on either side.
+- ✓ **Today rebuilt** to match the delta. LargeTitleHeader · big
+  live activity card with the MiniBrowserThumb embedded · brand-soft
+  glow wash · stat tripod (Spent / Elapsed / Tools) below a hairline ·
+  approval cards inline with Skip + Review actions split by a 1px
+  rule · today's spend bar (8px height, brand→coral gradient if pct
+  > 0.85) · recent threads list with SwipeRow on each row.
+- ✓ **Threads rebuilt** with sticky group headers, search input, and
+  horizontal-scroll filter chips (All · Live · Today · This week ·
+  Has approvals). Every row wraps in SwipeRow with `Pin` (left) +
+  `Archive` (right). Live threads skip the Pin action since the user
+  almost never pins running work.
+- ✓ **Library rebuilt** with type-specific mini previews: `image`
+  renders as a brand→coral LinearGradient swatch; `doc` as horizontal
+  bars; `code` as a dark-charcoal terminal with faded mono lines;
+  `chart` as a 7-bar histogram in brand orange with rising opacity;
+  `table` as a 5-row column grid; `webpage` with a thin chrome strip
+  and stub heading/lines. Tile labels match the source thread ("Q3
+  launch", "Brand") + age in mono.
+- ✓ **You rebuilt** with hero profile card (gradient avatar 56px ·
+  agent URL in mono · live dot), This-month spend card (32px display
+  number + brand→coral bar + 3 sub-stats), Agent group (Approval
+  mode · Spend cap · Skills · Memory — each with brand-tinted icon
+  square), App group (Theme picker that pushes a bottom sheet ·
+  Updates with coral badge · Face ID switch).
+- ✓ **Conversation [id] rebuilt** with Segmented Chat | Canvas
+  control. Chat: working notes pin · message bubbles · agent reply
+  with tool chips + token count + reasoning hint · inline approval
+  card · live status pill · suggested follow-up chips. Canvas:
+  full-width artifact cards with type-specific previews (browser
+  uses MiniBrowserThumb, doc gets a paragraph mock, table gets a 6-
+  row column grid). Streaming auto-scroll preserved via digest of
+  message text lengths + `atBottom` gate.
+- ✓ **Updates rebuilt** with hero card pattern: 44×44 brand-soft
+  icon · big "3 updates available" · "2 safe · 1 needs review"
+  caption · full-width Apply 2 safe CTA. Below: list of available
+  updates with green Apply chips for safe ones and amber Review
+  chips for schema-touching ones.
+- ✓ **Settings detail pushes** — single `app/settings/[key].tsx`
+  switches on the route key:
+  - `approval-mode` — three radio rows (Full auto / Smart auto /
+    Manual) with brand-bordered selected indicator.
+  - `spend-cap` — $20 display + bar visualization + five quick-pick
+    pills ($5, $10, $20, $50, $100).
+  - `skills` — six toggleable skills with brand-tinted category
+    glyphs (Send email coral, Browser brand, Calendar blue, CRM
+    green, Doc edit amber).
+  - `memory` — total count card + 4 fact rows with green bulb
+    glyph + source thread chip.
+  Every key footers with a "Open in browser" link so the user can
+  jump to the full desktop settings UI.
+- ✓ **Browser session screen** (`app/browser/[id].tsx`) — full-
+  screen Calendly mock with animated agent cursor (Reanimated
+  withRepeat + withSequence breathing over the 11:00 AM slot with
+  a periodic 220ms "click" scale-down). Top bar: brand back chevron
+  + lock+URL pill + close. Bottom: "Agent driving · 4.2 fps · 0:43"
+  dark pill + brand "Take over" CTA with brand-orange drop shadow.
+- ✓ **Theme picker sheet** (`app/sheets/theme.tsx`) — bottom sheet
+  with two visual cards previewing the actual palette: warm cream
+  for Light, charcoal for Dark. Selected card gets brand-orange
+  border + brand check badge.
+- ✓ **Stack animation tightened** in `_layout.tsx`. Browser,
+  Settings detail, and Thread detail routes use `slide_from_right`
+  with `gestureEnabled: true`. Sheet routes (new-task, approval,
+  theme) use `transparentModal` so the BottomSheet draws its own
+  backdrop. GestureHandlerRootView at the root keeps drag-to-
+  dismiss + pan-to-back working everywhere.
+
+### Mobile web — ≤760px responsive pass
+- ✓ **Marketing nav collapses** at ≤760px: only the primary CTA
+  remains on the right; All / Pricing / Docs links + separators
+  hide.
+- ✓ **Hero / sections stack vertically**: `.lhero-demo-body`,
+  `.compare-block`, `.two-step`, `.cap-grid`, `.price-block` drop
+  to `grid-template-columns: 1fr`; `.stats-strip` halves to 2-col.
+- ✓ **Onboarding rail hidden** + `.onb-main` padding tightens to
+  `32px 20px`; the form gets full width. Step indicator stays.
+- ✓ **Deploy side panel hidden** + `.deploy-main` padding matches
+  onboarding. The 7-step timeline still scrolls if it overflows.
+- ✓ **Composer respects iOS safe area** via
+  `padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px))`
+  on `.composer`, and 16px+ `font-size` on `.composer-input` so
+  iOS Safari doesn't auto-zoom on focus.
+- ✓ **44px tap targets** on every interactive row (`.nav-item`,
+  `.sb-item`, `.m-list-row`, `.shell__nav-item` clamped via
+  `min-height: 44px`).
+- ✓ **Library grid → 2-col** at phone widths
+  (`.lib-grid { grid-template-columns: 1fr 1fr; gap: 10px; }`).
+- ✓ **Skills + audit + PR rows simplify** at ≤760px: skill row
+  drops the `.ct` category col, PR row drops `.branch` + `.who`.
+- ✓ **Sync hero stacks** to a column with 14px gap; auto-cards
+  drop the right border and pick up a bottom border (last cell
+  borderless).
+- ✓ **Settings rows stack their controls** so toggles and theme
+  pickers go full-width below the label.
+- ✓ **AppShell mobile breakpoint** dropped from 920px → 760px to
+  align with everything else. Hamburger drawer + bottom tabs
+  unchanged.
 
 ### Onboarding & deployment
 - ✓ Identity → Fork → Token/Stripe → **Upgrades (optional)** → Deploy progress flow
