@@ -74,6 +74,11 @@ export class Orchestrator extends DurableObject<Env> {
    * storage and we surface it again on next status() call. */
   private approvalWaiters = new Map<string, (decision: ApprovalDecision) => void>();
 
+  /** Cooldown timestamp for spend-cap push. We only nudge the user
+   *  once every 10 minutes even if the agent retries — otherwise an
+   *  agent in a tight loop would carpet-bomb notifications. */
+  private spendCapPushAt = 0;
+
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
     this.ctx.blockConcurrencyWhile(async () => this.initSchema());
@@ -392,6 +397,12 @@ export class Orchestrator extends DurableObject<Env> {
     }
     const remainingCents = Math.max(0, this.memory.spendCapCents - this.memory.spentCentsToday);
     if (this.memory.spentCentsToday + est > this.memory.spendCapCents) {
+      // Fire-and-forget push to every registered device so the user
+      // hears about the block even when they're away from the app.
+      // Best-effort, never blocks; spend-cap throttled to once per
+      // 10 minutes via a small in-memory cooldown to avoid spamming
+      // when an agent retries.
+      this.queueSpendCapPush(remainingCents);
       return { allowed: false, reason: 'spend_cap_exceeded', remainingCents };
     }
     // Per-tool deny list — the user can mark specific tools as "always
@@ -440,6 +451,32 @@ export class Orchestrator extends DurableObject<Env> {
     if (tool && this.memory.agentName) {
       void this.audit('tool_call', { tool, costCents: actualCents });
     }
+  }
+
+  /** Fire a push to every registered device when the spend cap blocks
+   *  a tool. Throttled to once per 10 minutes per DO so a tight agent
+   *  retry loop doesn't carpet-bomb the user. Never throws. */
+  private queueSpendCapPush(remainingCents: number): void {
+    if (!this.memory.agentName) return;
+    const now = Date.now();
+    if (now - this.spendCapPushAt < 10 * 60_000) return;
+    this.spendCapPushAt = now;
+    const name = this.memory.agentName;
+    const capDollars = (this.memory.spendCapCents / 100).toFixed(2);
+    const remainingDollars = (remainingCents / 100).toFixed(2);
+    void (async () => {
+      try {
+        await pushStatus(
+          this.env,
+          name,
+          'Daily spend cap reached',
+          `$${capDollars}/day cap hit · $${remainingDollars} remaining. Bump it in Settings → Spending or wait for midnight reset.`,
+          'openthink://settings/spend-cap',
+        );
+      } catch (err) {
+        console.warn('[orchestrator] spend-cap push failed', err);
+      }
+    })();
   }
 
   // Pull the agent's pinned Knowledge items and render them as a short
@@ -694,6 +731,253 @@ export class Orchestrator extends DurableObject<Env> {
       requestApproval: (req) => this.requestApproval(req),
     });
     return listTools(tools);
+  }
+
+  // ============================================================
+  // Mobile aggregators — single-call surfaces for the Expo app.
+  // ============================================================
+  //
+  // The mobile screens (Today / Threads / Conversation / Library)
+  // each want one round-trip that returns everything they render.
+  // These RPCs assemble that view from the DO state that already
+  // lives in SQLite — no extra storage, no caching layer needed.
+  //
+  // Approval and spend shapes are normalized at the wire edge
+  // (costCents → costUsd, dailyResetAt → ms) so the mobile types
+  // stay sane.
+
+  /** Today screen: greeting + live task + pending approvals + spend + recent threads. */
+  async mobileToday(): Promise<{
+    greeting: string;
+    agentName: string;
+    liveTask?: {
+      threadId: string;
+      title: string;
+      statusLine: string;
+      spent: number;
+      elapsed: string;
+      toolsUsed: number;
+    };
+    approvals: Array<{
+      id: string;
+      threadId: string;
+      kind: string;
+      title: string;
+      body?: string;
+      meta?: string;
+      costUsd?: number;
+      createdAt: number;
+    }>;
+    spend: { today: number; cap: number };
+    recentThreads: Array<{
+      id: string;
+      title: string;
+      updatedAt: number;
+      live?: boolean;
+      pending?: number;
+    }>;
+  }> {
+    // Greeting derived locally — the mobile app could compute this
+    // itself, but doing it server-side keeps the surface consistent
+    // across devices in different timezones.
+    const hour = new Date().getHours();
+    const greeting =
+      hour < 5 ? 'Good night'
+      : hour < 12 ? 'Good morning'
+      : hour < 18 ? 'Good afternoon'
+      : 'Good evening';
+
+    const threads = await this.listThreads(10);
+    const pending = await this.listPendingApprovals();
+    const pendingByThread = new Map<string, number>();
+    for (const a of pending) {
+      pendingByThread.set(a.threadId, (pendingByThread.get(a.threadId) ?? 0) + 1);
+    }
+    // A thread is "live" if it has any pending approvals or was
+    // touched in the last 5 minutes.
+    const liveCutoff = Date.now() - 5 * 60_000;
+    const recentThreads = threads.slice(0, 5).map((t) => ({
+      id: t.id,
+      title: t.title,
+      updatedAt: t.updatedAt,
+      live: (pendingByThread.get(t.id) ?? 0) > 0 || t.updatedAt > liveCutoff,
+      pending: pendingByThread.get(t.id),
+    }));
+
+    // Live task: the most recently touched thread that's "live".
+    const liveCandidate = recentThreads.find((t) => t.live) ?? null;
+    const liveTask = liveCandidate
+      ? {
+          threadId: liveCandidate.id,
+          title: liveCandidate.title,
+          statusLine: pendingByThread.get(liveCandidate.id)
+            ? `${pendingByThread.get(liveCandidate.id)} approval${pendingByThread.get(liveCandidate.id) === 1 ? '' : 's'} waiting`
+            : 'recently active',
+          spent: 0, // Per-thread spend isn't tracked yet — daily rolls into memory.
+          elapsed: formatElapsed(Date.now() - liveCandidate.updatedAt),
+          toolsUsed: 0,
+        }
+      : undefined;
+
+    return {
+      greeting,
+      agentName: this.memory.agentName ?? 'agent',
+      liveTask,
+      approvals: pending.map((a) => ({
+        id: a.id,
+        threadId: a.threadId,
+        kind: a.kind,
+        title: a.title,
+        body: a.body,
+        meta: a.meta,
+        costUsd: typeof a.costCents === 'number' ? a.costCents / 100 : undefined,
+        createdAt: a.createdAt,
+      })),
+      spend: {
+        today: this.memory.spentCentsToday / 100,
+        cap: this.memory.spendCapCents / 100,
+      },
+      recentThreads,
+    };
+  }
+
+  /** Threads list, scoped — mirrors the mobile filter chips. */
+  async mobileThreads(scope: 'all' | 'live' | 'today' | 'week' | 'approvals' = 'all'): Promise<{
+    threads: Array<{
+      id: string;
+      title: string;
+      updatedAt: number;
+      live?: boolean;
+      pending?: number;
+    }>;
+  }> {
+    const all = await this.listThreads(50);
+    const pending = await this.listPendingApprovals();
+    const pendingByThread = new Map<string, number>();
+    for (const a of pending) {
+      pendingByThread.set(a.threadId, (pendingByThread.get(a.threadId) ?? 0) + 1);
+    }
+    const now = Date.now();
+    const liveCutoff = now - 5 * 60_000;
+    const todayCutoff = now - 24 * 3600_000;
+    const weekCutoff = now - 7 * 24 * 3600_000;
+
+    const shaped = all.map((t) => ({
+      id: t.id,
+      title: t.title,
+      updatedAt: t.updatedAt,
+      live: (pendingByThread.get(t.id) ?? 0) > 0 || t.updatedAt > liveCutoff,
+      pending: pendingByThread.get(t.id),
+    }));
+
+    const filtered = (() => {
+      if (scope === 'live') return shaped.filter((t) => t.live);
+      if (scope === 'today') return shaped.filter((t) => t.updatedAt > todayCutoff);
+      if (scope === 'week') return shaped.filter((t) => t.updatedAt > weekCutoff);
+      if (scope === 'approvals') return shaped.filter((t) => (t.pending ?? 0) > 0);
+      return shaped;
+    })();
+
+    return { threads: filtered };
+  }
+
+  /** Conversation detail — messages + working notes + artifacts. */
+  async mobileConversation(threadId: string): Promise<{
+    id: string;
+    title: string;
+    live: boolean;
+    workingNotes?: { goal: string; found: string; working: string; updatedAt: number };
+    messages: Array<{
+      id: string;
+      role: 'user' | 'agent';
+      text: string;
+      time: string;
+      tools?: { name: string }[];
+      reasoned?: { seconds: number; tokens: number; preview: string };
+    }>;
+    artifacts: Array<{ id: string; type: string; title: string; size: string }>;
+  }> {
+    const head = await this.getThreadHead(threadId, 200);
+    const wd = await this.getWorkingDoc(threadId);
+
+    const messages = head.messages.map((m) => ({
+      id: m.id,
+      // mobile UX uses 'agent' for both 'assistant' and 'tool' messages
+      role: (m.role === 'user' ? 'user' : 'agent') as 'user' | 'agent',
+      text: m.content,
+      time: formatClock(m.createdAt),
+      tools: Array.isArray(m.toolCalls)
+        ? m.toolCalls.map((t) => ({ name: t.name }))
+        : undefined,
+    }));
+
+    // Roll up unique artifact refs across the thread.
+    const artifactsMap = new Map<string, { id: string; type: string; title: string; size: string }>();
+    for (const m of head.messages) {
+      if (!Array.isArray(m.artifacts)) continue;
+      for (const a of m.artifacts) {
+        if (!artifactsMap.has(a.id)) {
+          artifactsMap.set(a.id, {
+            id: a.id,
+            type: a.type,
+            title: a.title,
+            size: a.thumbnailKey ? 'has-thumb' : 'v' + a.version,
+          });
+        }
+      }
+    }
+
+    // Parse the working doc loosely — it's free-form Markdown so we
+    // surface it as a single "working" field. Goal/Found are stubbed
+    // until we add structured working notes (BACKLOG §future).
+    const workingNotes = wd.body
+      ? {
+          goal: '',
+          found: '',
+          working: wd.body.slice(0, 240),
+          updatedAt: wd.updatedAt ?? Date.now(),
+        }
+      : undefined;
+
+    // Thread is "live" if it has pending approvals.
+    const pending = await this.listPendingApprovals();
+    const live = pending.some((a) => a.threadId === threadId);
+
+    return {
+      id: threadId,
+      title: head.thread?.title ?? '(untitled)',
+      live,
+      workingNotes,
+      messages,
+      artifacts: Array.from(artifactsMap.values()),
+    };
+  }
+
+  /** Stage a new user message and return its threadId. The chat WS
+   *  picks up the thread from this point — that path already handles
+   *  AI reply + artifact materialization. */
+  async mobileSend(threadId: string | null, text: string): Promise<{ threadId: string; messageId: string }> {
+    const id = threadId ?? crypto.randomUUID();
+    // Make sure the thread row exists. INSERT OR IGNORE matches the
+    // shape `createThread` uses; we can't call createThread directly
+    // because the user may have supplied a specific id we should keep.
+    const now = Date.now();
+    this.state.storage.sql.exec(
+      'INSERT OR IGNORE INTO threads (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      id,
+      text.slice(0, 40).trim() || 'New thread',
+      now,
+      now,
+    );
+    const messageId = crypto.randomUUID();
+    await this.appendMessage({
+      id: messageId,
+      threadId: id,
+      role: 'user',
+      content: text,
+      createdAt: now,
+    });
+    return { threadId: id, messageId };
   }
 
   /** Shape for the WS frame + mobile API. Hides the SQL row keys. */
@@ -1287,4 +1571,22 @@ function nextLocalMidnight(now: number): number {
   const d = new Date(now);
   const tomorrow = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0);
   return tomorrow.getTime();
+}
+
+/** HH:MM clock format used in mobile message rows. */
+function formatClock(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
+/** Compact elapsed text like `2:14` or `1d 4h`. */
+function formatElapsed(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 60) return `0:${s.toString().padStart(2, '0')}`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}:${(s % 60).toString().padStart(2, '0')}`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}m`;
+  const days = Math.floor(h / 24);
+  return `${days}d ${h % 24}h`;
 }

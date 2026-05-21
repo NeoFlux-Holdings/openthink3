@@ -1,55 +1,51 @@
 # BACKLOG — what to tackle after the approval round-trip
 
-This is the running plan from the gap audit on 2026-05-20. The approval +
-push round-trip is the only Tier 1 item shipped so far. Each entry below
-has concrete entry points so the work can start cold without a re-audit.
+This is the running plan from the gap audit on 2026-05-20. Tier 1 mostly
+shipped this round — only the remaining piece (1.3 partial / 1.4) is
+open. Each entry below has concrete entry points so the work can start
+cold without a re-audit.
 
-Last full review: 2026-05-20 against commit `e3a485a`.
+Last update: 2026-05-21 — Tier 1.1 + 1.2 + 1.3 partial all shipped.
 
 ## Tier 1 — credibility floor (close the gap between UI and backend)
 
-These are screens that promise something the worker doesn't yet deliver.
-Until they ship, the demo is misleading.
+### 1.1 — Mobile `/today` + `/threads` + `/library` real data — **DONE**
+Shipped via three Orchestrator RPCs (`mobileToday`, `mobileThreads`,
+`mobileConversation`) and a real R2 list in the `/library` route.
+Fixtures gone. Mobile screens now show actual DO state. ✓
 
-### 1.1 — Mobile `/today` + `/threads` + `/library` real data
-**Why:** `routes/mobile.ts` returns hand-coded fixtures (Sarah Cohen, Q3
-launch) for every endpoint. Every mobile screen falls back to the same
-FALLBACK constants on the client side.
-**Where:**
-- `apps/platform/src/worker/routes/mobile.ts:131` (`/today`)
-- `apps/platform/src/worker/routes/mobile.ts:172` (`/threads`)
-- `apps/platform/src/worker/routes/mobile.ts:185` (`/threads/:id`)
-- `apps/platform/src/worker/routes/mobile.ts:255` (`/library`)
-**Plan:** add `Orchestrator.todayState()`, `Orchestrator.threadsList(scope)`,
-`Orchestrator.conversation(id)` RPCs that read from DO SQLite + the existing
-threads/messages tables. Library reads from R2 + the artifact metadata sidecar.
+### 1.2 — Mobile `/threads/send` real send — **DONE**
+`Orchestrator.mobileSend()` stages the user message + ensures the
+thread row exists. The chat WS path picks it up from there. The
+mobile route is no longer a placeholder echo. ✓
 
-### 1.2 — Mobile `/threads/send` real send
-**Why:** Currently echoes back a placeholder threadId without invoking
-the Orchestrator. Sending a message from the mobile app's composer does
-nothing on the server.
-**Where:** `apps/platform/src/worker/routes/mobile.ts:219`
-**Plan:** RPC into `Orchestrator.handleSend()` (the same path the WS uses).
-
-### 1.3 — Spend cap enforcement
-**Why:** `checkSpend()` exists at `orchestrator.ts:322` but only gates on
-the daily cap. The `stripe: spend` endpoint returns hardcoded 171¢/152¢
-numbers regardless of real activity.
-**Where:**
-- `apps/platform/src/worker/agents/orchestrator.ts:322` (gate)
-- `apps/platform/src/worker/routes/stripe.ts:357` (fixture)
-**Plan:** roll `spentCentsToday` into the DO memory we already persist,
-return it on the route, push notification + auto-pause when cap exceeded.
+### 1.3 — Spend cap enforcement — **partial**
+- ✓ When the cap is exceeded `checkSpend` now fires a push to all
+  registered devices (`queueSpendCapPush`), throttled to once per
+  10 min so a retry loop can't carpet-bomb. Deep link points at
+  `openthink://settings/spend-cap`.
+- ✓ Hard pause (return `{ allowed: false }`) already worked.
+- **Still open:** the `/api/stripe/spend` route returns hardcoded
+  171¢/152¢ numbers. Wire it to read `OrchestratorState.spentCentsToday`
+  via a dedicated RPC so the Spending tab shows real data.
+- **Still open:** the cap is set globally in the DO; surface the
+  per-day-cap-vs-monthly-cap distinction the mobile UI implies.
 
 ### 1.4 — Trigger approvals from real agent paths
-**Why:** `Orchestrator.requestApproval()` works end-to-end (just shipped),
-but nothing in the agent code calls it yet. The dev fixture endpoint
-`/api/mobile/approvals/test` is the only producer.
-**Plan:** Add `requestApproval()` calls to the three places where it
-matters first:
-1. Send-email tool (waits for #2.1 below)
-2. Browser-session click on destructive selectors (the "Take over" flow)
-3. Any tool over a per-call cost threshold (e.g. > $0.10)
+`Orchestrator.requestApproval()` works end-to-end. The dev fixture
+`/api/mobile/approvals/test` is still the only producer. The
+declarative tool registry (`worker/agents/tools/registry.ts`) we
+shipped this week is the seam to add real triggers: every `tool({
+needsApproval })` definition routes through `requestApproval`
+automatically.
+**Plan:**
+1. Replace the `searchWeb` fixture in `tools/registry.ts` with a real
+   web-search tool (Brave Search API or Tavily) — it already has
+   `needsApproval: () => true`.
+2. Add `send_email` once MailChannels (Tier 2.1) lands. `needsApproval`
+   defaults true for first-recipient or per-day-throttle limits.
+3. Add a BrowserSession destructive-click pre-check that calls
+   `requestApproval` before any form submission.
 
 ---
 

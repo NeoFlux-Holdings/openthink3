@@ -28,10 +28,6 @@ const CODE_TTL_SECONDS = 300; // 5 minutes
 const TOKEN_KEY = (token: string) => `mobile:token:${token}`;
 const CODE_KEY = (code: string) => `mobile:pair:${code}`;
 
-function nowSec() {
-  return Math.floor(Date.now() / 1000);
-}
-
 function generateCode(): string {
   const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -126,103 +122,11 @@ mobile.use('*', async (c, next) => {
 });
 
 /* -------------------------------------------------------------------------- */
-/* Today screen state                                                          */
+/* Legacy routes (now real) — Today + Threads + Conversation + Send.           */
+/* The orchestrator helpers below are bound to the authed agent's DO. The      */
+/* fixtures previously here are gone; if the orchestrator is unreachable we    */
+/* return a 502 instead of made-up data so the UI surfaces an offline state.   */
 /* -------------------------------------------------------------------------- */
-mobile.get('/today', async (c) => {
-  const ctx = c.get('mobileToken')!;
-  // For v1 we mirror the design fixture verbatim and let the rest of the
-  // app catch up. As real data lands in D1 we'll switch this over to a
-  // single aggregate query.
-  const greeting = greetingForHour(new Date().getHours());
-  return c.json({
-    greeting,
-    agentName: ctx.agentName,
-    liveTask: {
-      threadId: 'q3',
-      title: 'Q3 launch + book 3 customer calls',
-      statusLine: 'browsing calendly.com/derek-m · selecting slot',
-      spent: 0.04,
-      elapsed: '2:31',
-      toolsUsed: 5,
-    },
-    approvals: [
-      {
-        id: 'a1',
-        threadId: 'q3',
-        kind: 'send',
-        title: 'Send email to Sarah Cohen',
-        body: 'Confirming Thursday 2pm. Looking forward to talking through the launch plan.',
-        meta: 'sarah@tilt.com · ~$0.001 to send',
-        costUsd: 0.001,
-        createdAt: Date.now() - 1000 * 60 * 4,
-      },
-    ],
-    spend: { today: 1.71, cap: 5.0 },
-    recentThreads: [
-      { id: 'q3', title: 'Q3 launch + customer calls', updatedAt: Date.now(), live: true },
-      { id: 'redesign', title: 'Compress onboarding to 60s', updatedAt: Date.now() - 1000 * 60 * 60 * 3 },
-      { id: 'compete', title: 'Cursor competitive teardown', updatedAt: Date.now() - 1000 * 60 * 60 * 27 },
-    ],
-  });
-});
-
-/* -------------------------------------------------------------------------- */
-/* Threads list                                                                */
-/* -------------------------------------------------------------------------- */
-mobile.get('/threads', async (c) => {
-  const _scope = c.req.query('scope') ?? 'all';
-  return c.json({
-    threads: [
-      { id: 'q3', title: 'Q3 launch + customer calls', updatedAt: Date.now(), live: true, pending: 1 },
-      { id: 'redesign', title: 'Compress onboarding to 60s', updatedAt: Date.now() - 1000 * 60 * 60 * 3 },
-      { id: 'compete', title: 'Cursor competitive teardown', updatedAt: Date.now() - 1000 * 60 * 60 * 27 },
-      { id: 'lunch', title: 'Lunch options for Thursday', updatedAt: Date.now() - 1000 * 60 * 60 * 48 },
-      { id: 'taxes', title: 'Q2 estimated taxes', updatedAt: Date.now() - 1000 * 60 * 60 * 72 },
-    ],
-  });
-});
-
-mobile.get('/threads/:id', async (c) => {
-  const id = c.req.param('id');
-  return c.json({
-    id,
-    title: 'Q3 launch + customer calls',
-    live: id === 'q3',
-    workingNotes:
-      id === 'q3'
-        ? {
-            goal: 'Q3 launch + book 3 calls next week.',
-            found: '8 tier-2 candidates in CRM · 21 free slots Mon–Fri PM.',
-            working: 'drafting launch.md v8 · booking Sarah C. + Derek M. via Calendly.',
-            updatedAt: Date.now() - 2000,
-          }
-        : undefined,
-    messages: [
-      { id: 'm1', role: 'user', text: 'Book 3 customer calls next week from the tier-2 list', time: '9:14' },
-      {
-        id: 'm2',
-        role: 'agent',
-        text: "Found 8 candidates in the CRM. I'll start with Sarah Cohen (warm), Derek Mason (cold but high signal), and Priya Vance (Tier 2 archetype). Drafting outreach now.",
-        time: '9:15',
-        tools: [{ name: 'crm.query' }, { name: 'calendar' }, { name: 'browser' }],
-        reasoned: { seconds: 4, tokens: 612, preview: 'Tier-2 customers have the warmest cold-start when the agent shows...' },
-      },
-    ],
-    artifacts: [
-      { id: 'a1', type: 'doc', title: 'launch.md', size: '4.2KB' },
-      { id: 'a2', type: 'table', title: 'candidates', size: '1.4KB' },
-      { id: 'a3', type: 'browser', title: 'calendly.com/derek-m', size: 'live' },
-    ],
-  });
-});
-
-mobile.post('/threads/send', async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { threadId?: string | null; text?: string };
-  const threadId = body.threadId ?? `t-${nowSec()}`;
-  // TODO: forward to the Orchestrator DO. For v1 we just echo back so the
-  // mobile composer feels responsive.
-  return c.json({ threadId });
-});
 
 /* -------------------------------------------------------------------------- */
 /* Approvals — real round-trip into the Orchestrator DO                        */
@@ -231,6 +135,7 @@ mobile.post('/threads/send', async (c) => {
 type Ctx = Context<{ Bindings: Env; Variables: Variables }>;
 
 interface OrchestratorStub {
+  // Approvals (Tier-1 backend, shipped previously).
   listPendingApprovals(): Promise<Array<Record<string, unknown>>>;
   respondToApproval(
     id: string,
@@ -246,6 +151,11 @@ interface OrchestratorStub {
     costCents?: number;
     context?: Record<string, unknown>;
   }): Promise<'approve' | 'deny' | 'edit'>;
+  // Mobile aggregators — single round-trip per screen.
+  mobileToday(): Promise<unknown>;
+  mobileThreads(scope: 'all' | 'live' | 'today' | 'week' | 'approvals'): Promise<unknown>;
+  mobileConversation(threadId: string): Promise<unknown>;
+  mobileSend(threadId: string | null, text: string): Promise<{ threadId: string; messageId: string }>;
 }
 
 /** Resolve the Orchestrator DO stub for the authed mobile session. */
@@ -254,6 +164,61 @@ function orchestratorFor(c: Ctx): OrchestratorStub {
   const id = c.env.ORCHESTRATOR.idFromName(ctx.agentName);
   return c.env.ORCHESTRATOR.get(id) as unknown as OrchestratorStub;
 }
+
+/* ---------- Today / Threads / Conversation / Send (real) ---------- */
+
+mobile.get('/today', async (c) => {
+  try {
+    const stub = orchestratorFor(c);
+    return c.json(await stub.mobileToday());
+  } catch (err) {
+    console.warn('[mobile] /today failed', err);
+    return c.json({ error: 'orchestrator_unreachable' }, 502);
+  }
+});
+
+mobile.get('/threads', async (c) => {
+  const scope = (c.req.query('scope') ?? 'all') as
+    | 'all'
+    | 'live'
+    | 'today'
+    | 'week'
+    | 'approvals';
+  try {
+    const stub = orchestratorFor(c);
+    return c.json(await stub.mobileThreads(scope));
+  } catch (err) {
+    console.warn('[mobile] /threads failed', err);
+    return c.json({ error: 'orchestrator_unreachable' }, 502);
+  }
+});
+
+mobile.get('/threads/:id', async (c) => {
+  const id = c.req.param('id');
+  try {
+    const stub = orchestratorFor(c);
+    return c.json(await stub.mobileConversation(id));
+  } catch (err) {
+    console.warn('[mobile] /threads/:id failed', err);
+    return c.json({ error: 'orchestrator_unreachable' }, 502);
+  }
+});
+
+mobile.post('/threads/send', async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as {
+    threadId?: string | null;
+    text?: string;
+  };
+  const text = (body.text ?? '').trim();
+  if (!text) return c.json({ error: 'missing_text' }, 400);
+  try {
+    const stub = orchestratorFor(c);
+    return c.json(await stub.mobileSend(body.threadId ?? null, text));
+  } catch (err) {
+    console.warn('[mobile] /threads/send failed', err);
+    return c.json({ error: 'orchestrator_unreachable' }, 502);
+  }
+});
 
 mobile.get('/approvals', async (c) => {
   try {
@@ -343,20 +308,60 @@ mobile.post('/approvals/test', async (c) => {
 });
 
 /* -------------------------------------------------------------------------- */
-/* Library                                                                     */
+/* Library — read directly from R2 under artifacts/<agentName>/.               */
+/* The Orchestrator drops artifacts there as it runs (see the research path);  */
+/* listing R2 keeps us decoupled from any per-message bookkeeping that may     */
+/* lag behind. Keys are shaped `artifacts/<agent>/<kind>/<id>.<ext>`.          */
 /* -------------------------------------------------------------------------- */
 mobile.get('/library', async (c) => {
-  return c.json({
-    items: [
-      { id: '1', title: 'launch.md', type: 'doc', size: '4.2KB', age: '12m' },
-      { id: '2', title: 'candidates', type: 'table', size: '1.4KB', age: '14m' },
-      { id: '3', title: 'book-meeting.skill.ts', type: 'code', size: '2.1KB', age: '3h' },
-      { id: '4', title: 'wallpaper.png', type: 'image', size: '482KB', age: '11m' },
-      { id: '5', title: 'pricing-v2', type: 'webpage', size: '6.8KB', age: '2d' },
-      { id: '6', title: 'cost-7d', type: 'chart', size: '0.8KB', age: '4h' },
-    ],
-  });
+  const ctx = c.get('mobileToken')!;
+  try {
+    const prefix = `artifacts/${ctx.agentName}/`;
+    const list = await c.env.ARTIFACTS.list({ prefix, limit: 50 });
+    const items = list.objects
+      // Newest first so the most recent artifact sits at the top of
+      // the grid like the design specifies.
+      .sort((a, b) => (b.uploaded?.getTime() ?? 0) - (a.uploaded?.getTime() ?? 0))
+      .map((obj) => {
+        const filename = obj.key.slice(prefix.length);
+        const [kindFolder, fileWithExt] = filename.split('/', 2);
+        const name = fileWithExt ?? kindFolder ?? 'artifact';
+        const ext = (name.split('.').pop() ?? '').toLowerCase();
+        const type =
+          ext === 'md' || ext === 'txt' ? 'doc'
+          : ext === 'csv' || ext === 'tsv' || ext === 'json' ? 'table'
+          : ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'gif' || ext === 'svg' ? 'image'
+          : ext === 'ts' || ext === 'tsx' || ext === 'js' || ext === 'py' ? 'code'
+          : ext === 'html' || ext === 'htm' ? 'webpage'
+          : 'doc';
+        return {
+          id: obj.key,
+          title: obj.customMetadata?.title ?? name,
+          type,
+          size: formatBytes(obj.size),
+          age: obj.uploaded ? formatAge(obj.uploaded.getTime()) : '',
+        };
+      });
+    return c.json({ items });
+  } catch (err) {
+    console.warn('[mobile] /library failed', err);
+    return c.json({ items: [], error: 'r2_unreachable' }, 200);
+  }
 });
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n}B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function formatAge(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.round(diff / 60_000)}m`;
+  if (diff < 24 * 3_600_000) return `${Math.round(diff / 3_600_000)}h`;
+  return `${Math.round(diff / (24 * 3_600_000))}d`;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Push registration                                                           */
@@ -378,9 +383,3 @@ mobile.post('/push/register', async (c) => {
   return c.json({ ok: true });
 });
 
-function greetingForHour(hour: number): string {
-  if (hour < 5) return 'Good night';
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
-}

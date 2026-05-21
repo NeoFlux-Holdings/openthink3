@@ -122,6 +122,51 @@ verified end-to-end. Updated each loop iteration.
   worker typecheck + mobile typecheck + `wrangler deploy --dry-run`
   all green.
 
+### Real mobile data + spend-cap push (BACKLOG Tier 1.1/1.2/1.3 partial)
+
+Closes the gap where the mobile companion was rendering hand-coded
+fixtures (Sarah Cohen, Q3 launch) regardless of actual DO state. Today,
+Threads, Conversation, Library, and Send are all live.
+
+- ✓ **Orchestrator aggregator RPCs** — three new methods on the
+  Orchestrator DO:
+  - `mobileToday()` — greeting + live task (most recent thread with
+    pending approvals or activity in last 5 min) + pending approvals
+    (mapped to mobile shape with `costUsd`) + spend (today vs cap,
+    USD) + 5 most recent threads with `live`/`pending` flags.
+  - `mobileThreads(scope)` — filters `all | live | today | week |
+    approvals` against the threads table + pending approvals.
+  - `mobileConversation(threadId)` — `getThreadHead` + working doc +
+    rolled-up unique artifact refs across all messages in the thread.
+  - `mobileSend(threadId, text)` — `INSERT OR IGNORE` the thread if
+    missing (auto-titles from the first 40 chars) + `appendMessage`
+    with role='user'. The chat WS path picks it up from there.
+- ✓ **Mobile routes** wired through. `/today`, `/threads`, `/threads/:id`,
+  `/threads/send` all call the Orchestrator stub now. Failure path
+  returns 502 instead of made-up data so the offline banner surfaces
+  correctly. The fixture greeting helper + nowSec helper deleted.
+- ✓ **`/library` reads R2** directly under `artifacts/<agentName>/`.
+  Newest-first, mapped to mobile tile shape (id = R2 key, title from
+  customMetadata.title, type inferred from extension, size formatted
+  to KB/MB, age formatted to relative).
+- ✓ **Spend-cap push** — when `checkSpend` blocks a tool, the DO
+  fires `pushStatus` to every registered device with title "Daily
+  spend cap reached", body showing cap and remaining, deep link to
+  `openthink://settings/spend-cap`. Throttled to once per 10 min so
+  an agent retry loop can't carpet-bomb.
+
+Smoke results against `wrangler dev`:
+```
+/today → { greeting, agentName, liveTask, approvals, spend, recentThreads }  ← real DO state
+/threads → 14 actual rows from verify-agent's history
+/threads/send {text} → { threadId, messageId } ← actual new thread
+/threads/:id → message body present
+/library → real R2 list (empty in fresh dev)
+```
+
+Verify 24/24 PASS. Tier 1.1 + 1.2 done; Tier 1.3 partial (push lands,
+stripe spend route still hardcoded). BACKLOG updated.
+
 ### Agents SDK 0.13 + Vercel AI 6 adoption + chat UI polish
 Reference: github.com/cloudflare/agents-starter. We absorbed the
 patterns + deps into our existing Orchestrator-based flow — no
