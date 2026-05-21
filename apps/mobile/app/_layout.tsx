@@ -14,13 +14,14 @@ import { View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
 import { SessionProvider } from '../src/lib/session-store';
+import { attachPushListeners } from '../src/lib/notifications';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -69,6 +70,16 @@ export default function RootLayout() {
 
 function ThemedShell() {
   const { theme, colors } = useTheme();
+  const router = useRouter();
+
+  // Route push-notification taps. Pull this listener inside the Stack so
+  // `router` is already mounted by the time the OS hands us the response —
+  // expo-router's `useRouter` errors out if called before the navigator
+  // exists, and the listener fires asynchronously after the user taps.
+  useEffect(() => {
+    return attachPushListeners(router);
+  }, [router]);
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />

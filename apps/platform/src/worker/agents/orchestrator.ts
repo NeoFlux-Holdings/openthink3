@@ -10,6 +10,27 @@ import type {
   ApprovalMode,
   ToolCall,
 } from '../../shared/types';
+import { pushApprovalNeeded, pushStatus } from '../lib/push';
+
+/** Mobile UX uses Send/Skip/Edit. We normalize to approve/deny/edit on the wire. */
+export type ApprovalDecision = 'approve' | 'deny' | 'edit';
+
+/** Stable, serializable approval record. Mirrors the mobile `Approval` shape. */
+export interface ApprovalRecord {
+  id: string;
+  threadId: string;
+  kind: 'tool' | 'send' | 'spend' | 'other';
+  title: string;
+  body?: string;
+  meta?: string;
+  costCents?: number;
+  createdAt: number;
+  status: 'pending' | 'resolved';
+  decision?: ApprovalDecision;
+  resolvedAt?: number;
+  /** Free-form payload — captures the tool args / draft so the agent can resume. */
+  context?: Record<string, unknown>;
+}
 
 interface OrchestratorState {
   ready: boolean;
@@ -45,6 +66,11 @@ export class Orchestrator extends DurableObject<Env> {
   // behavior the verify suite relies on.
   private subs = new WeakMap<WebSocket, string>();
   private memory: OrchestratorState = { ...DEFAULT_STATE };
+
+  /** Promise resolvers for `requestApproval` — keyed by approval id. In-memory
+   * only; if the DO restarts mid-wait, the approval row stays `pending` in
+   * storage and we surface it again on next status() call. */
+  private approvalWaiters = new Map<string, (decision: ApprovalDecision) => void>();
 
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
@@ -96,6 +122,22 @@ export class Orchestrator extends DurableObject<Env> {
       );
       CREATE INDEX IF NOT EXISTS messages_thread_created
         ON messages (thread_id, created_at);
+      CREATE TABLE IF NOT EXISTS approvals (
+        id TEXT PRIMARY KEY,
+        thread_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT,
+        meta TEXT,
+        cost_cents INTEGER,
+        context TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        decision TEXT,
+        created_at INTEGER NOT NULL,
+        resolved_at INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS approvals_status_created
+        ON approvals (status, created_at);
     `);
 
     // Idempotent migration for existing DOs that predate the `pinned`
@@ -463,6 +505,176 @@ export class Orchestrator extends DurableObject<Env> {
       if (err instanceof Error && /no such table/i.test(err.message)) return;
       console.warn('[orchestrator] audit write failed', err);
     }
+  }
+
+  // ============================================================
+  // Approval flow — agent asks, user answers, agent resumes.
+  // ============================================================
+  //
+  // The pattern: any agent path that wants approval calls
+  // `await this.requestApproval(...)` and the promise resolves once
+  // `respondToApproval(id, decision)` is called (from the mobile app
+  // or the desktop UI). The agent code reads the decision and proceeds.
+  //
+  // Persistence: approvals live in the DO's SQLite so a DO restart
+  // mid-wait doesn't drop them. The in-memory `approvalWaiters` map
+  // only holds the JS promise resolvers; if the DO restarted, the
+  // caller has already returned to the user — the row is still
+  // `pending` and the next responder will just see it as resolved.
+  //
+  // Broadcast: every transition fires a WS event so the web shell +
+  // mobile both see live updates. A push notification fires on the
+  // creation side so users away from the app get nudged.
+
+  /** Create a pending approval and resolve once the user responds.
+   *  Returns a promise that resolves with the decision.
+   *  Push + WS broadcast both happen as part of this call.
+   */
+  async requestApproval(req: Omit<ApprovalRecord, 'status' | 'createdAt' | 'id'> & { id?: string }): Promise<ApprovalDecision> {
+    const id = req.id ?? crypto.randomUUID();
+    const record: ApprovalRecord = {
+      ...req,
+      id,
+      status: 'pending',
+      createdAt: Date.now(),
+    };
+    this.state.storage.sql.exec(
+      `INSERT INTO approvals (id, thread_id, kind, title, body, meta, cost_cents, context, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      record.id,
+      record.threadId,
+      record.kind,
+      record.title,
+      record.body ?? null,
+      record.meta ?? null,
+      record.costCents ?? null,
+      record.context ? JSON.stringify(record.context) : null,
+      record.createdAt,
+    );
+
+    void this.audit('approval-requested', {
+      id: record.id,
+      threadId: record.threadId,
+      kind: record.kind,
+      costCents: record.costCents,
+    });
+
+    this.broadcast({ type: 'approval-needed', approval: this.toWireApproval(record) });
+
+    // Best-effort push — never blocks the awaiting promise.
+    void (async () => {
+      if (!this.memory.agentName) return;
+      try {
+        await pushApprovalNeeded(this.env, this.memory.agentName, {
+          id: record.id,
+          title: record.title,
+          body: record.body,
+          threadId: record.threadId,
+        });
+      } catch (err) {
+        console.warn('[orchestrator] approval push failed', err);
+      }
+    })();
+
+    // Resolve when respondToApproval fires.
+    return new Promise<ApprovalDecision>((resolve) => {
+      this.approvalWaiters.set(record.id, resolve);
+    });
+  }
+
+  /** List pending approvals (newest first). Used by GET /api/mobile/approvals. */
+  async listPendingApprovals(): Promise<ApprovalRecord[]> {
+    const rows = this.state.storage.sql
+      .exec(
+        `SELECT id, thread_id, kind, title, body, meta, cost_cents, context, status, decision, created_at, resolved_at
+         FROM approvals WHERE status = 'pending' ORDER BY created_at DESC LIMIT 50`,
+      )
+      .toArray();
+    return rows.map((r) => this.rowToApproval(r as Record<string, unknown>));
+  }
+
+  /** Record the user's decision, resolve the awaiting promise, broadcast. */
+  async respondToApproval(id: string, decision: ApprovalDecision): Promise<{ ok: boolean; reason?: string }> {
+    if (!id) return { ok: false, reason: 'missing_id' };
+    if (decision !== 'approve' && decision !== 'deny' && decision !== 'edit') {
+      return { ok: false, reason: 'invalid_decision' };
+    }
+    const now = Date.now();
+    const rows = this.state.storage.sql
+      .exec('SELECT status FROM approvals WHERE id = ?', id)
+      .toArray();
+    const row = rows[0];
+    if (!row) return { ok: false, reason: 'not_found' };
+    if (String(row.status) === 'resolved') return { ok: false, reason: 'already_resolved' };
+    this.state.storage.sql.exec(
+      `UPDATE approvals SET status = 'resolved', decision = ?, resolved_at = ? WHERE id = ?`,
+      decision,
+      now,
+      id,
+    );
+    this.broadcast({ type: 'approval-resolved', id, decision, resolvedAt: now });
+    void this.audit('approval-resolved', { id, decision });
+
+    // Resolve the awaiting promise — does nothing if the DO restarted
+    // mid-wait and the resolver is gone (caller already returned).
+    const waiter = this.approvalWaiters.get(id);
+    if (waiter) {
+      this.approvalWaiters.delete(id);
+      waiter(decision);
+    }
+    return { ok: true };
+  }
+
+  /** Send a push for a status update — e.g. "task done", "spend cap hit".
+   *  Exposed as RPC so future tools can call it cheaply. */
+  async notifyStatus(title: string, body: string, deepLink?: string): Promise<{ ok: number; failed: number; devices: number }> {
+    if (!this.memory.agentName) return { ok: 0, failed: 0, devices: 0 };
+    try {
+      return await pushStatus(this.env, this.memory.agentName, title, body, deepLink);
+    } catch (err) {
+      console.warn('[orchestrator] status push failed', err);
+      return { ok: 0, failed: 0, devices: 0 };
+    }
+  }
+
+  /** Shape for the WS frame + mobile API. Hides the SQL row keys. */
+  private toWireApproval(r: ApprovalRecord): Record<string, unknown> {
+    return {
+      id: r.id,
+      threadId: r.threadId,
+      kind: r.kind,
+      title: r.title,
+      body: r.body,
+      meta: r.meta,
+      costUsd: typeof r.costCents === 'number' ? r.costCents / 100 : undefined,
+      createdAt: r.createdAt,
+    };
+  }
+
+  private rowToApproval(row: Record<string, unknown>): ApprovalRecord {
+    const ctxRaw = row.context;
+    let context: Record<string, unknown> | undefined;
+    if (typeof ctxRaw === 'string' && ctxRaw.length > 0) {
+      try {
+        context = JSON.parse(ctxRaw) as Record<string, unknown>;
+      } catch {
+        /* malformed context — drop it rather than failing the list call */
+      }
+    }
+    return {
+      id: String(row.id),
+      threadId: String(row.thread_id ?? ''),
+      kind: (row.kind as ApprovalRecord['kind']) ?? 'other',
+      title: String(row.title ?? ''),
+      body: typeof row.body === 'string' ? row.body : undefined,
+      meta: typeof row.meta === 'string' ? row.meta : undefined,
+      costCents: typeof row.cost_cents === 'number' ? row.cost_cents : undefined,
+      context,
+      status: (row.status as ApprovalRecord['status']) ?? 'pending',
+      decision: (row.decision as ApprovalDecision | undefined) ?? undefined,
+      createdAt: Number(row.created_at ?? 0),
+      resolvedAt: typeof row.resolved_at === 'number' ? row.resolved_at : undefined,
+    };
   }
 
   // ----- HTTP / WebSocket -----

@@ -122,6 +122,60 @@ verified end-to-end. Updated each loop iteration.
   worker typecheck + mobile typecheck + `wrangler deploy --dry-run`
   all green.
 
+### Approval round-trip + push send pipeline (Tier-1 backend close-out)
+Closes the gap where the mobile UI promised "tap Send to unblock the
+agent" but the worker route was a stubbed `// TODO`. See `BACKLOG.md`
+for the rest of the Tier 1/2/3 plan.
+
+- ✓ **Push send pipeline** (`apps/platform/src/worker/lib/push.ts`) —
+  thin wrapper around the Expo push API (`https://exp.host/--/api/v2/push/send`).
+  No npm deps, just `fetch`. Batches up to 100 messages per call,
+  returns `{ ok, failed }` counts, never throws. Three convenience
+  exports: `pushToAgent`, `pushApprovalNeeded`, `pushStatus`. Token
+  enumeration walks the `mobile:push:` KV prefix with cursor pagination.
+- ✓ **Orchestrator approval RPCs** — three new methods on the DO:
+  - `requestApproval(req): Promise<decision>` — stores a row, broadcasts
+    `approval-needed` over WS, fires `pushApprovalNeeded` best-effort,
+    returns a promise that resolves when the user responds.
+  - `listPendingApprovals(): ApprovalRecord[]` — newest-first list,
+    capped at 50.
+  - `respondToApproval(id, decision): { ok, reason? }` — flips row to
+    resolved, broadcasts `approval-resolved`, audits, resolves the
+    awaiting promise. Idempotent against double-respond.
+- ✓ **Approval persistence** — new `approvals` table inside the DO's
+  SQLite (`id PK, thread_id, kind, title, body, meta, cost_cents,
+  context, status, decision, created_at, resolved_at`) plus a
+  `(status, created_at)` index for the list query. DO restart mid-
+  wait preserves the row; only the JS resolver is lost.
+- ✓ **Real mobile routes** (`apps/platform/src/worker/routes/mobile.ts`):
+  - `GET /api/mobile/approvals` — RPCs into `listPendingApprovals`,
+    maps `cost_cents` → `costUsd` at the wire edge.
+  - `POST /api/mobile/approvals/:id/respond` — accepts both the mobile
+    UX vocab (`send`/`skip`/`edit`) and the wire vocab (`approve`/`deny`/
+    `edit`), normalizes server-side, RPCs into `respondToApproval`.
+  - `POST /api/mobile/approvals/test` — dev-only fixture (gated on
+    `OPENTHINK_VERSION === '0.1.0'`) that fires a `requestApproval`
+    so we can exercise the round-trip without an agent path that emits
+    one yet. Returns the new approval's id.
+- ✓ **Mobile approval sheet rewritten** (`app/sheets/approval.tsx`) —
+  fetches by id, shows real title/body/meta/cost (not the hardcoded
+  Sarah Cohen copy), renders a clear "already resolved" state if the
+  id is missing or gone, sends the decision over the API. Long-press
+  Edit routes to `'edit'`; Send → `'approve'`; Skip → `'deny'`.
+- ✓ **Push deep-link routing** (`src/lib/notifications.ts`) — adds
+  `attachPushListeners(router)` mounted from `_layout.tsx`. Parses
+  `openthink://approval/<id>` → `/sheets/approval?id=<id>`, also
+  handles `openthink://thread/<id>`, `openthink://browser/<id>`,
+  `openthink://updates`, `openthink://you`, `openthink://today`.
+  Covers both the foreground tap path (response listener) and the
+  cold-start path (`getLastNotificationResponseAsync`).
+- ✓ **End-to-end smoke** — pair → token → POST `/approvals/test` →
+  GET `/approvals` (pending) → POST `/approvals/:id/respond` → GET
+  `/approvals` (empty) all return the expected shapes. Idempotency:
+  second respond returns `{ ok: false, reason: 'already_resolved' }`.
+  Invalid decision returns 400. Missing token returns 401. Verify
+  suite 24/24 PASS.
+
 ### Mobile UX delta v2 — full screen rebuilds + native interactions
 Layered on top of the initial mobile companion. Sourced from the second
 Claude Design handoff (`live-phone.jsx` + `live-phone-screens.jsx` +
